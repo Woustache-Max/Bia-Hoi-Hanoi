@@ -655,4 +655,16 @@ function loadSamples(){
 }
 
 /* ============ MODAL / SIDEBAR ============ */
-function modal(html){closeModal();const bg=document.createElement('div');bg.className='modal-bg';bg.id='modal';bg.onclick=e=>{if(e.target===bg)closeModal()};bg.innerHTML='<div clas
+function modal(html){closeModal();const bg=document.createElement('div');bg.className='modal-bg';bg.id='modal';bg.onclick=e=>{if(e.target===bg)closeModal()};bg.innerHTML='<div class="modal">'+html+'</div>';document.body.appendChild(bg)}
+function closeModal(){const m=document.getElementById('modal');if(m)m.remove()}
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open')}
+function openSidebar(){if(innerWidth<=680)document.getElementById('sidebar').classList.add('open')}
+function toggleFilters(){document.getElementById('filters').classList.toggle('open')}
+
+/* ============ INIT ============ */
+DISTRICTS.forEach(d=>fDistrict.add(new Option(d,d)));
+VIBES.forEach(v=>fVibe.add(new Option(v,v)));
+setUserLabel();renderList();
+</script>
+</body>
+</html>
