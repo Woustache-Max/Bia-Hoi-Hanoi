@@ -110,6 +110,22 @@
     .mobile-toggle{display:inline-block}
     .sidebar-close{display:block}
   }
+
+  .modal-admin{width:96vw;max-width:1100px;max-height:93vh;padding:0;overflow:hidden;display:flex;flex-direction:column}
+  .admin-header{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .admin-tabs{display:flex;border-bottom:1px solid var(--line);padding:0 18px;flex-shrink:0;overflow-x:auto}
+  .admin-tab{padding:10px 14px;font-size:13px;font-weight:600;cursor:pointer;border-bottom:3px solid transparent;color:var(--muted);white-space:nowrap;background:none;border-radius:0}
+  .admin-tab.on{color:var(--ink);border-bottom-color:var(--gold)}
+  .admin-tab:hover{color:var(--ink)}
+  .admin-body{padding:16px 18px;overflow-y:auto;flex:1}
+  .admin-table{width:100%;border-collapse:collapse;font-size:13px}
+  .admin-table th{text-align:left;padding:8px 10px;background:#f8f4eb;border-bottom:2px solid var(--line);font-weight:700;color:var(--muted);white-space:nowrap}
+  .admin-table td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+  .admin-table tr:hover td{background:#fff8e6}
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px}
+  .stat-card{background:#f8f4eb;border-radius:10px;padding:14px;text-align:center}
+  .stat-card .num{font-size:26px;font-weight:800;color:var(--gold-dark)}
+  .stat-card .lbl{font-size:11px;color:var(--muted);margin-top:3px;font-weight:600}
 </style>
 </head>
 <body>
@@ -720,7 +736,7 @@ async function logout(){
 
 function setUserLabel(){
   document.getElementById('userLabel').innerHTML=cur
-    ?`👤 <a style="color:#fff;cursor:pointer" onclick="showProfile('${cur.id}')">${esc(cur.name)}</a> ${rolePill(cur.role)} <span style="cursor:pointer;text-decoration:underline;font-size:12px" onclick="logout()">sign out</span>`
+    ?`👤 <a style="color:#fff;cursor:pointer" onclick="showProfile('${cur.id}')">${esc(cur.name)}</a> ${rolePill(cur.role)} ${cur.role==='admin'?'<button class="btn-ghost btn-sm" style="padding:3px 8px;font-size:12px" onclick="openAdmin()">⚙ Admin</button>':''} <span style="cursor:pointer;text-decoration:underline;font-size:12px" onclick="logout()">sign out</span>`
     :`<button class="btn-ghost btn-sm" onclick="authModal(false)">Sign in</button> <button class="btn-ghost btn-sm" onclick="authModal(true)">Join</button>`;
 }
 
@@ -746,6 +762,184 @@ function toggleSidebar(){document.getElementById('sidebar').classList.toggle('op
 function openSidebar(){if(innerWidth<=680)document.getElementById('sidebar').classList.add('open')}
 function toggleFilters(){document.getElementById('filters').classList.toggle('open')}
 function closeSidebar(){document.getElementById('sidebar').classList.remove('open')}
+
+
+/* ============ ADMIN PANEL ============ */
+let adminData={spots:[],users:[],reviews:[]};
+
+async function openAdmin(){
+  if(!cur||cur.role!=='admin')return;
+  closeModal();
+  const bg=document.createElement('div');bg.className='modal-bg';bg.id='modal';
+  bg.innerHTML='<div class="modal modal-admin"><div style="text-align:center;padding:40px;color:var(--muted)">🍺 Loading admin data…</div></div>';
+  document.body.appendChild(bg);
+  const[sr,ur,rr]=await Promise.all([
+    db.from('spots').select('*'),
+    db.from('profiles').select('*'),
+    db.from('reviews').select('*')
+  ]);
+  adminData={spots:sr.data||[],users:ur.data||[],reviews:rr.data||[]};
+  renderAdmin('overview');
+}
+
+function renderAdmin(tab){
+  const d=adminData;
+  const reported=d.spots.filter(s=>(s.reports||[]).length>0);
+  const unverified=d.spots.filter(s=>!s.verified);
+  const tabDefs={overview:'📊 Overview',spots:'📍 Spots',users:'👥 Users',reports:'⚑ Reports'};
+  const tabs=Object.keys(tabDefs).map(t=>{
+    const badge=(t==='reports'&&reported.length)?` <span style="background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px">${reported.length}</span>`:'';
+    return `<button class="admin-tab${t===tab?' on':''}" onclick="renderAdmin('${t}')">${tabDefs[t]}${badge}</button>`;
+  }).join('');
+
+  let body='';
+  if(tab==='overview'){
+    body=`<div class="stat-grid">
+      <div class="stat-card"><div class="num">${d.spots.length}</div><div class="lbl">Total spots</div></div>
+      <div class="stat-card"><div class="num">${unverified.length}</div><div class="lbl">Unverified</div></div>
+      <div class="stat-card"><div class="num">${d.users.length}</div><div class="lbl">Registered users</div></div>
+      <div class="stat-card"><div class="num">${reported.length}</div><div class="lbl">Reported spots</div></div>
+      <div class="stat-card"><div class="num">${d.reviews.length}</div><div class="lbl">Total reviews</div></div>
+    </div>
+    ${reported.length?`<div class="hint-verify" style="margin-bottom:14px">⚑ ${reported.length} spot${reported.length>1?'s have':' has'} open reports — check the Reports tab.</div>`:''}
+    <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--muted)">UNVERIFIED SPOTS (${unverified.length})</div>
+    ${unverified.length?`<table class="admin-table">
+      <tr><th>Name</th><th>District</th><th>Added by</th><th>Actions</th></tr>
+      ${unverified.map(s=>`<tr>
+        <td><a style="color:var(--blue);cursor:pointer;font-weight:600" onclick="closeModal();showDetail('${s.id}')">${esc(s.name)}</a></td>
+        <td>${esc(s.district||'—')}</td>
+        <td style="color:var(--muted)">${esc(s.created_by==='anon'||s.created_by==='seed'?'Anonymous':s.created_by)}</td>
+        <td><button class="btn-verify btn-sm" onclick="adminVerify('${s.id}')">✓ Verify</button>
+            <button class="btn-line btn-sm" style="margin-left:4px;color:var(--red)" onclick="adminDeleteSpot('${s.id}')">🗑</button></td>
+      </tr>`).join('')}
+    </table>`:'<div style="color:var(--muted);font-size:13px">All spots are verified ✓</div>'}`;
+  }
+  else if(tab==='spots'){
+    body=`<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+      <b style="font-size:13px">${d.spots.length} spots total</b>
+      <select id="adminSpotFilter" onchange="filterAdminSpots()" style="padding:5px 8px;border:1px solid var(--line);border-radius:7px;font-size:13px">
+        <option value="all">All spots</option>
+        <option value="unverified">Unverified only</option>
+        <option value="reported">Reported only</option>
+        <option value="closed">Closed/temp closed</option>
+      </select>
+    </div>
+    <div id="adminSpotTable">${renderAdminSpotTable(d.spots)}</div>`;
+  }
+  else if(tab==='users'){
+    body=`<table class="admin-table">
+      <tr><th>Name</th><th>Role</th><th>Since</th><th>Spots</th><th>Reviews</th><th>Change role</th></tr>
+      ${d.users.map(u=>{
+        const uSpots=d.spots.filter(s=>s.created_by===u.id).length;
+        const uRevs=d.reviews.filter(r=>r.user_id===u.id).length;
+        return `<tr>
+          <td><b>${esc(u.name)}</b></td>
+          <td>${rolePill(u.role)}</td>
+          <td style="color:var(--muted);font-size:12px">${u.since||'—'}</td>
+          <td>${uSpots}</td><td>${uRevs}</td>
+          <td style="white-space:nowrap">
+            ${u.id===cur.id?'<span style="font-size:11px;color:var(--muted)">you</span>':`
+            ${u.role!=='admin'?`<button class="btn-line btn-sm" onclick="adminSetRole('${u.id}','admin')" title="Promote to Admin">👑 Admin</button> `:''}
+            ${u.role!=='active'?`<button class="btn-line btn-sm" onclick="adminSetRole('${u.id}','active')" title="Promote to Active">⭐ Active</button> `:''}
+            ${u.role!=='newcomer'?`<button class="btn-line btn-sm" onclick="adminSetRole('${u.id}','newcomer')" title="Demote to Newcomer">↓ Newcomer</button>`:''}
+            `}
+          </td>
+        </tr>`;
+      }).join('')}
+    </table>`;
+  }
+  else if(tab==='reports'){
+    body=reported.length?`<table class="admin-table">
+      <tr><th>Spot</th><th>Report details</th><th>Actions</th></tr>
+      ${reported.map(s=>`<tr>
+        <td>
+          <a style="color:var(--blue);cursor:pointer;font-weight:600" onclick="closeModal();showDetail('${s.id}')">${esc(s.name)}</a>
+          <div style="font-size:11px;color:var(--muted)">${esc(s.district||'')}</div>
+        </td>
+        <td>${(s.reports||[]).map(r=>`<div style="font-size:12px;padding:2px 0"><b>${esc(r.by)}</b>: "${esc(r.why)}" <span style="color:var(--muted)">${r.when||''}</span></div>`).join('')}</td>
+        <td style="white-space:nowrap">
+          <button class="btn-line btn-sm" onclick="adminDismissReports('${s.id}')">✓ Dismiss</button><br style="margin:3px 0">
+          <button class="btn-line btn-sm" style="color:var(--red);margin-top:4px" onclick="adminDeleteSpot('${s.id}')">🗑 Delete spot</button>
+        </td>
+      </tr>`).join('')}
+    </table>`:'<div class="empty-note">No reports. All clear! 🍺</div>';
+  }
+
+  document.querySelector('#modal .modal').innerHTML=`
+    <div class="admin-header">
+      <span style="font-size:22px">🍺</span>
+      <h2 style="margin:0;font-size:17px">Admin Panel</h2>
+      <span style="flex:1"></span>
+      <button class="btn-line btn-sm" onclick="closeModal()">✕ Close</button>
+    </div>
+    <div class="admin-tabs">${tabs}</div>
+    <div class="admin-body">${body}</div>`;
+}
+
+function renderAdminSpotTable(list){
+  if(!list.length)return '<div style="color:var(--muted);font-size:13px;padding:10px 0">No spots match.</div>';
+  return `<table class="admin-table">
+    <tr><th>Name</th><th>District</th><th>Status</th><th>Verified</th><th>Reports</th><th>Actions</th></tr>
+    ${list.map(s=>`<tr>
+      <td><a style="color:var(--blue);cursor:pointer;font-weight:600" onclick="closeModal();showDetail('${s.id}')">${esc(s.name)}</a></td>
+      <td>${esc(s.district||'—')}</td>
+      <td><span class="chip ${s.status==='active'?'open':s.status==='perm_closed'?'closed':''}">${s.status}</span></td>
+      <td>${s.verified?'<span class="chip verified">✓ Yes</span>':'<span class="chip unverified">✗ No</span>'}</td>
+      <td>${(s.reports||[]).length?`<span style="color:var(--red);font-weight:700">${s.reports.length}</span>`:'—'}</td>
+      <td style="white-space:nowrap">
+        ${!s.verified?`<button class="btn-verify btn-sm" onclick="adminVerify('${s.id}')">✓</button> `:''}
+        <button class="btn-line btn-sm" onclick="adminDeleteSpot('${s.id}')" style="color:var(--red)">🗑</button>
+      </td>
+    </tr>`).join('')}
+  </table>`;
+}
+
+function filterAdminSpots(){
+  const f=document.getElementById('adminSpotFilter').value;
+  let list=adminData.spots;
+  if(f==='unverified')list=list.filter(s=>!s.verified);
+  else if(f==='reported')list=list.filter(s=>(s.reports||[]).length>0);
+  else if(f==='closed')list=list.filter(s=>s.status!=='active');
+  document.getElementById('adminSpotTable').innerHTML=renderAdminSpotTable(list);
+}
+
+async function adminVerify(id){
+  const at=new Date().toISOString().slice(0,10);
+  const{error}=await db.from('spots').update({verified:true,verified_by:cur.id,verified_at:at}).eq('id',id);
+  if(error){alert('Error: '+error.message);return;}
+  const s=adminData.spots.find(x=>x.id===id);if(s){s.verified=true;}
+  const ls=byId(id);if(ls){ls.verified=true;ls.verifiedBy=cur.id;ls.verifiedAt=at;}
+  renderAdmin(document.querySelector('.admin-tab.on')?.textContent.trim().includes('Spot')?'spots':'overview');
+  renderList();
+}
+
+async function adminDeleteSpot(id){
+  if(!confirm('Permanently delete this spot and all its reviews?'))return;
+  const{error}=await db.from('spots').delete().eq('id',id);
+  if(error){alert('Error: '+error.message);return;}
+  adminData.spots=adminData.spots.filter(x=>x.id!==id);
+  spots=spots.filter(x=>x.id!==id);
+  renderAdmin(document.querySelector('.admin-tab.on')?.textContent.trim().includes('Spot')?'spots':'overview');
+  renderList();
+}
+
+async function adminSetRole(uid,role){
+  const u=adminData.users.find(x=>x.id===uid);
+  if(!confirm(`Change ${u?u.name:'this user'} to ${role}?`))return;
+  const{error}=await db.from('profiles').update({role}).eq('id',uid);
+  if(error){alert('Error: '+error.message);return;}
+  if(u)u.role=role;
+  if(profilesCache[uid])profilesCache[uid].role=role;
+  renderAdmin('users');
+}
+
+async function adminDismissReports(id){
+  const{error}=await db.from('spots').update({reports:[]}).eq('id',id);
+  if(error){alert('Error: '+error.message);return;}
+  const s=adminData.spots.find(x=>x.id===id);if(s)s.reports=[];
+  const ls=byId(id);if(ls)ls.reports=[];
+  renderAdmin('reports');
+}
 
 /* ============ INIT ============ */
 DISTRICTS.forEach(d=>fDistrict.add(new Option(d,d)));
