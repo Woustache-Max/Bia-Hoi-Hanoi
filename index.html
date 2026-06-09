@@ -58,13 +58,13 @@
   .review .txt{font-size:13px;line-height:1.45;margin-top:3px}
   .review .when{font-size:11px;color:var(--muted);margin-top:4px}
   .vote{font-size:12px;color:var(--blue);cursor:pointer;font-weight:600;background:none;border:none;padding:0}
-  form label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin:0 0 4px;text-transform:uppercase;letter-spacing:.5px}
+  form label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:0 0 5px;letter-spacing:.1px}
   form input,form textarea,form select{width:100%;padding:9px 11px;border:1.5px solid var(--line);border-radius:9px;font-size:14px;font-family:inherit;background:#fff;transition:border-color .15s,box-shadow .15s;color:var(--ink)}
   form input:focus,form textarea:focus,form select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(245,179,1,.15)}
   form textarea{resize:vertical;min-height:72px;line-height:1.5}
-  .row2{display:flex;gap:10px}.row2>div{flex:1}
-  .form-section{background:#fbf8f2;border:1px solid var(--line);border-radius:11px;padding:13px 14px;margin:10px 0;display:flex;flex-direction:column;gap:10px}
-  .form-sec-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--line)}
+  .row2{display:flex;gap:10px;align-items:flex-start}.row2>div{flex:1;min-width:0}
+  .form-section{background:#fbf8f2;border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin:6px 0 12px;display:flex;flex-direction:column;gap:12px}
+  .form-sec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin:10px 0 0;padding-bottom:5px;border-bottom:1px solid var(--line)}
   .rate-row{display:flex;align-items:center;justify-content:space-between;background:#fbf6ea;border:1px solid var(--line);border-radius:8px;padding:7px 11px;margin-top:6px}
   .rate-row .lbl{font-size:13px;font-weight:600}
   .gpick span{font-size:21px;cursor:pointer;color:#dcd4c4}.gpick span.on{color:var(--gold-dark)}
@@ -560,7 +560,7 @@ function startAdd(editId){
   openSidebar();adding=!editId;
   const s=editId?byId(editId):null;
   const body=document.getElementById('sidebarBody');
-  body.innerHTML=`<div class="panel" style="padding-bottom:28px">
+  body.innerHTML=`<div class="panel" style="padding-bottom:28px"><form onsubmit="return false">
     <span class="back" onclick="renderList()">← Cancel</span>
     <h2 style="font-size:20px;margin:4px 0 2px;font-weight:800">${s?'Edit spot':'Add a spot'}</h2>
     <p style="font-size:13px;color:var(--muted);margin:0 0 4px">${s?'Update the details below.':'Fill in what you know — every field helps!'}</p>
@@ -590,7 +590,7 @@ function startAdd(editId){
     <div class="tagpick" id="f_vibes" style="margin:0 0 4px">${VIBES.map(v=>`<label class="${s&&(s.vibes||[]).includes(v)?'on':''}"><input type="checkbox" value="${v}" ${s&&(s.vibes||[]).includes(v)?'checked':''} onchange="this.parentElement.classList.toggle('on',this.checked)">${v}</label>`).join('')}</div>
 
     <div class="form-sec-title">Description</div>
-    <textarea id="f_desc" placeholder="Atmosphere, crowd, what makes it special…" style="width:100%;padding:9px 11px;border:1.5px solid var(--line);border-radius:9px;font-size:14px;font-family:inherit;resize:vertical;min-height:80px;background:#fff;color:var(--ink)">${s?esc(s.desc):''}</textarea>
+    <textarea id="f_desc" placeholder="Atmosphere, crowd, what makes it special…">${s?esc(s.desc):''}</textarea>
 
     <div class="form-sec-title">📍 Pin location</div>
     <div class="form-section">
@@ -602,7 +602,7 @@ function startAdd(editId){
 
     <button class="btn-gold" style="width:100%;margin-top:16px;padding:12px;font-size:15px;border-radius:10px" onclick="saveSpot('${editId||''}')">${s?'Save changes':'Submit spot'}</button>
     ${!cur&&!s?`<p style="font-size:12px;color:var(--muted);margin-top:10px;text-align:center">Submitting anonymously. <a style="color:var(--gold-dark);cursor:pointer" onclick="authModal(true)">Create a free account</a> to track your contributions.</p>`:''}
-    </div>`;
+    </form></div>`;
 }
 
 map.on('click',e=>{if(!adding)return;document.getElementById('f_lat').value=e.latlng.lat.toFixed(5);document.getElementById('f_lng').value=e.latlng.lng.toFixed(5);if(tmpMarker)map.removeLayer(tmpMarker);tmpMarker=L.marker(e.latlng,{icon:pinIcon(false,true)}).addTo(map)});
