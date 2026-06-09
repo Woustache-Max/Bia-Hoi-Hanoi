@@ -101,6 +101,7 @@
   .bia-pin{font-size:30px;line-height:1;text-align:center;background:#fff;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.35),0 0 0 2px var(--gold)}
   .bia-pin.closed{filter:grayscale(1);opacity:.6;box-shadow:0 2px 6px rgba(0,0,0,.25),0 0 0 2px #aaa}
   .bia-pin.unverified{opacity:.85;box-shadow:0 2px 6px rgba(0,0,0,.25),0 0 0 2px #ffb74d}
+  .loading-overlay{position:absolute;inset:0;background:rgba(255,250,240,.85);display:flex;align-items:center;justify-content:center;z-index:2000;font-size:15px;color:var(--muted)}
   .mobile-toggle{display:none}
   @media(max-width:680px){
     #sidebar{position:absolute;right:0;top:0;bottom:0;width:90vw;max-width:90vw;box-shadow:-4px 0 16px rgba(0,0,0,.2);transform:translateX(100%);transition:.25s;z-index:1500}
@@ -118,7 +119,7 @@
     <span class="user" id="userLabel"></span>
     <button class="btn-gold btn-sm" onclick="startAdd()">+ Add spot</button>
   </header>
-  <div class="main">
+  <div class="main" style="position:relative">
     <div id="map"></div>
     <div id="sidebar">
       <div class="toolbar">
@@ -148,51 +149,74 @@
         <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:var(--muted)">
           <input type="checkbox" id="fVerified" style="width:auto" onchange="renderList()"> Verified only</label>
       </div>
-      <div id="sidebarBody"></div>
+      <div id="sidebarBody"><div class="empty-note">🍺 Loading spots…</div></div>
     </div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============ CONFIG ============ */
-const ADMIN_CODE  = "BIAHOI-ADMIN-2026";   // → admin role
-const ACTIVE_CODE = "BIAHOI-TEAM-2026";    // → active role (trusted shortcut, no quest needed)
-const ANON_REVIEW_LIMIT = 0;               // anonymous: ratings only, no text
-const NEWCOMER_CHAR_LIMIT = 100;           // newcomer: text capped at 100 chars
-// Quest: unlock Active status by completing EITHER path
-const QUEST_A_SPOTS   = 1;   // Path A: spots added
-const QUEST_A_REVIEWS = 3;   // Path A: reviews written (any spots)
-const QUEST_B_SPOTS   = 5;   // Path B: reviews on 5 DIFFERENT spots
+const SUPABASE_URL  = 'https://genqahabkjsmnoqbnkob.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdlbnFhaGFia2pzbW5vcWJua29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5ODYzMzQsImV4cCI6MjA5NjU2MjMzNH0.66pxak3FnH-U5DPSvKMh3pybhQi-qtWV-FYLwnSoRH4';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+const ADMIN_CODE  = "BIAHOI-ADMIN-2026";
+const ACTIVE_CODE = "BIAHOI-TEAM-2026";
+const NEWCOMER_CHAR_LIMIT = 100;
+const QUEST_A_SPOTS   = 1;
+const QUEST_A_REVIEWS = 3;
+const QUEST_B_SPOTS   = 5;
 
 const HANOI=[21.0285,105.8500];
 const DISTRICTS=["Hoàn Kiếm","Ba Đình","Đống Đa","Hai Bà Trưng","Tây Hồ","Cầu Giấy","Thanh Xuân","Long Biên","Hoàng Mai","Other"];
 const VIBES=["Touristy","Local-only","Lively","Chill","Cheap","Riverside","Rooftop","Live music","Good for groups","Street-side"];
 const RCATS=[["beer","Beer quality"],["food","Food & snacks"],["atmosphere","Atmosphere & location"],["clean","Cleanliness"],["value","Value for money"]];
 
-/* ============ STORAGE ============ */
-const K_SPOTS="bh_spots_v3",K_USERS="bh_users_v3",K_CUR="bh_cur_v3";
-const loadJ=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}};
-let spots=loadJ(K_SPOTS,[]);
-let users=loadJ(K_USERS,[]);
-let cur=loadJ(K_CUR,null);
-const saveSpots=()=>localStorage.setItem(K_SPOTS,JSON.stringify(spots));
-const saveUsers=()=>localStorage.setItem(K_USERS,JSON.stringify(users));
-const saveCur=()=>cur?localStorage.setItem(K_CUR,JSON.stringify(cur)):localStorage.removeItem(K_CUR);
+/* ============ STATE ============ */
+let spots = [];
+let cur   = null;            // current user: { id, name, role, since, email }
+const profilesCache = {};    // uuid → profile, for fast lookups
+
+/* ============ DB CONVERTERS ============ */
+function dbToSpot(s){
+  return{
+    id:s.id, name:s.name, lat:s.lat, lng:s.lng,
+    district:s.district||'', address:s.address||'',
+    pricePerGlass:s.price_per_glass||'',
+    openH:s.open_h, closeH:s.close_h,
+    seating:s.seating||'', payment:s.payment||'',
+    vibes:s.vibes||[], desc:s.description||'',
+    status:s.status||'active', photos:s.photos||[],
+    createdBy:s.created_by||'anon', createdAt:s.created_at,
+    verified:s.verified||false,
+    verifiedBy:s.verified_by||null, verifiedAt:s.verified_at||null,
+    reports:s.reports||[],
+    reviews:(s.reviews||[]).map(dbToReview)
+  };
+}
+function dbToReview(r){
+  return{
+    id:r.id, userId:r.user_id||'anon', who:r.who||'Anonymous',
+    ratings:r.ratings||{}, txt:r.txt||'',
+    when:r.review_date, helpful:r.helpful||[]
+  };
+}
 
 /* ============ HELPERS ============ */
 const esc=t=>(t==null?'':String(t)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const byId=id=>spots.find(s=>s.id===id);
-const userById=id=>users.find(u=>u.id===id);
+const userById=id=>profilesCache[id]||null;
 function revAvg(r){const v=RCATS.map(c=>r.ratings[c[0]]).filter(x=>x>0);return v.length?v.reduce((a,b)=>a+b,0)/v.length:0}
 function spotAvg(s){const a=s.reviews.map(revAvg).filter(x=>x>0);return a.length?a.reduce((x,y)=>x+y,0)/a.length:0}
 function glassStr(n){let f=Math.round(n),o='';for(let i=1;i<=5;i++)o+=i<=f?'🍺':'<span class="e">🍺</span>';return '<span class="glass">'+o+'</span>'}
 function dist(a,b,c,d){const R=6371,dx=(c-a)*Math.PI/180,dy=(d-b)*Math.PI/180;const x=Math.sin(dx/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dy/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))}
 function fmtHr(h){if(h==null||h==='')return '';h=+h;const d=h%24,ap=d<12||d===24?'am':'pm';let hh=d%12;if(hh===0)hh=12;return hh+ap}
 function isOpen(s){if(s.status!=='active'||s.openH==null||s.closeH==null)return false;const n=new Date(),now=n.getHours()+n.getMinutes()/60;let o=+s.openH,c=+s.closeH;if(c<=o)c+=24;let t=now;if(t<o)t+=24;return t>=o&&t<c}
-function roleLabel(role){return role==='admin'?'admin':role==='active'?'active':'newcomer'}
-function rolePill(role){return `<span class="pill role-${role}">${roleLabel(role)}</span>`}
+function rolePill(role){return `<span class="pill role-${role}">${role}</span>`}
+const val=id=>{const el=document.getElementById(id);return el?el.value.trim():''};
 
 /* ============ QUEST / PROGRESS ============ */
 function getUserStats(uid){
@@ -206,15 +230,14 @@ function getUserStats(uid){
 }
 function questComplete(uid){
   const{spotsAdded,reviewCount,uniqueSpotsReviewed}=getUserStats(uid);
-  const pathA=spotsAdded>=QUEST_A_SPOTS&&reviewCount>=QUEST_A_REVIEWS;
-  const pathB=uniqueSpotsReviewed>=QUEST_B_SPOTS;
-  return pathA||pathB;
+  return(spotsAdded>=QUEST_A_SPOTS&&reviewCount>=QUEST_A_REVIEWS)||(uniqueSpotsReviewed>=QUEST_B_SPOTS);
 }
-function checkAndUpgrade(){
+async function checkAndUpgrade(){
   if(!cur||cur.role!=='newcomer')return;
   if(questComplete(cur.id)){
-    cur.role='active';saveCur();
-    const u=userById(cur.id);if(u)u.role='active';saveUsers();
+    const{error}=await db.from('profiles').update({role:'active'}).eq('id',cur.id);
+    if(error)return;
+    cur.role='active';profilesCache[cur.id]=cur;
     setUserLabel();
     modal(`<h2>🎉 You're now Active!</h2>
       <p>You've contributed enough to unlock full reviews and trusted status. Your spots will now be auto-verified. Thanks for helping build the map!</p>
@@ -297,7 +320,7 @@ function renderList(sortByDist){
   if(sortByDist&&window._me)list=list.slice().sort((a,b)=>dist(window._me[0],window._me[1],a.lat,a.lng)-dist(window._me[0],window._me[1],b.lat,b.lng));
   else list=list.slice().sort((a,b)=>spotAvg(b)-spotAvg(a));
   const body=document.getElementById('sidebarBody');
-  if(!spots.length){body.innerHTML=emptyState();return}
+  if(!spots.length){body.innerHTML='<div class="empty-note">🍺 No spots yet.<br><br>Tap <b>+ Add spot</b> to put a bia hơi on the map — no sign-up needed!</div>';return}
   if(!list.length){body.innerHTML='<div class="empty-note">No spots match your filters.</div>';return}
   body.innerHTML=list.map(s=>{
     const open=isOpen(s),closed=s.status!=='active';
@@ -309,11 +332,6 @@ function renderList(sortByDist){
       <span>${esc(s.district||'')}${dtxt} · ${esc(s.pricePerGlass||'')}</span></div></div>`;
   }).join('');
 }
-function emptyState(){
-  return `<div class="empty-note">🍺 No spots yet.<br><br>
-    Tap <b>+ Add spot</b> to put a bia hơi on the map — no sign-up needed!
-    <br><br><button class="btn-line btn-sm" onclick="loadSamples()">Load 3 sample spots (to explore)</button></div>`;
-}
 
 /* ============ DETAIL ============ */
 let chosen={};
@@ -321,7 +339,7 @@ function showDetail(id){
   openSidebar();const s=byId(id);if(!s)return;
   map.setView([s.lat,s.lng],16);
   const admin=cur&&cur.role==='admin';
-  const canEdit=(cur&&s.createdBy===cur.id)||admin;
+  const canEdit=(cur&&(s.createdBy===cur.id||admin));
   const canVerify=cur&&!s.verified;
   const facts=[
     ['District',s.district],['Address',s.address],['Price / glass',s.pricePerGlass],
@@ -329,7 +347,7 @@ function showDetail(id){
     ['Seating',s.seating],['Payment',s.payment],['Vibe',(s.vibes||[]).join(', ')]
   ].filter(f=>f[1]);
   const gmaps=`https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`;
-  const addedBy=s.createdBy&&s.createdBy!=='anon'?userById(s.createdBy):null;
+  const addedBy=s.createdBy&&s.createdBy!=='anon'&&s.createdBy!=='seed'?userById(s.createdBy):null;
   const body=document.getElementById('sidebarBody');
   body.innerHTML=`<div class="panel detail">
     <span class="back" onclick="renderList()">← All spots</span>
@@ -355,7 +373,7 @@ function showDetail(id){
     ${s.desc?`<div class="desc">${esc(s.desc)}</div>`:''}
     <div class="sec">Photos</div>
     <div class="photos">${s.photos.length?s.photos.map((p,i)=>`<img src="${p}" onclick="viewPhoto('${s.id}',${i})">`).join(''):'<div style="grid-column:1/4;color:var(--muted);font-size:13px">No photos yet.</div>'}</div>
-    <label class="btn-gold btn-sm" style="display:inline-block;margin-top:8px">📷 Add photo<input type="file" accept="image/*" style="display:none" onchange="addPhoto('${s.id}',this)"></label>
+    <div style="margin-top:8px;font-size:13px;color:var(--muted)">📷 Photo upload coming soon</div>
     <div class="sec">Reviews</div>
     <div>${s.reviews.length?s.reviews.map(r=>reviewHTML(s,r)).join(''):'<div style="color:var(--muted);font-size:13px">No reviews yet — be the first.</div>'}</div>
     <div class="sec">Add your review</div>
@@ -365,11 +383,14 @@ function showDetail(id){
 }
 
 /* ============ VERIFY ============ */
-function verifySpot(id){
+async function verifySpot(id){
   if(!cur)return;
   const s=byId(id);
-  s.verified=true;s.verifiedBy=cur.id;s.verifiedAt=new Date().toISOString().slice(0,10);
-  saveSpots();showDetail(id);
+  const verifiedAt=new Date().toISOString().slice(0,10);
+  const{error}=await db.from('spots').update({verified:true,verified_by:cur.id,verified_at:verifiedAt}).eq('id',id);
+  if(error)return alert('Error verifying: '+error.message);
+  s.verified=true;s.verifiedBy=cur.id;s.verifiedAt=verifiedAt;
+  showDetail(id);renderList();
 }
 
 /* ============ REVIEWS ============ */
@@ -391,7 +412,6 @@ function reviewHTML(s,r){
 }
 
 function reviewFormHTML(id){
-  // Anonymous: ratings only, no text
   if(!cur){
     return `<div>
       <div class="hint" style="margin-bottom:8px">🍺 Rate this spot without signing in. <a style="color:var(--gold-dark);cursor:pointer;font-weight:700" onclick="authModal(false)">Sign in</a> or <a style="color:var(--gold-dark);cursor:pointer;font-weight:700" onclick="authModal(true)">create a free account</a> to write a review.</div>
@@ -402,15 +422,9 @@ function reviewFormHTML(id){
     </div>`;
   }
   const isNewcomer=cur.role==='newcomer';
-  const textNote=isNewcomer
-    ?`<span style="color:var(--orange)"> — ${NEWCOMER_CHAR_LIMIT} char limit until you reach Active status</span>`
-    :'';
-  const charCounter=isNewcomer
-    ?`<div class="char-count" id="charCount">0 / ${NEWCOMER_CHAR_LIMIT}</div>`
-    :'';
-  const oninput=isNewcomer
-    ?`oninput="updateCharCount(this)"`
-    :'';
+  const textNote=isNewcomer?`<span style="color:var(--orange)"> — ${NEWCOMER_CHAR_LIMIT} char limit until you reach Active status</span>`:'';
+  const charCounter=isNewcomer?`<div class="char-count" id="charCount">0 / ${NEWCOMER_CHAR_LIMIT}</div>`:'';
+  const oninput=isNewcomer?`oninput="updateCharCount(this)"`:'';
   return `<div>
     ${isNewcomer?`<div class="hint-upgrade">✨ Write reviews (up to ${NEWCOMER_CHAR_LIMIT} chars). Complete the quest in your profile to unlock full reviews!</div>`:''}
     ${RCATS.map(c=>`
@@ -432,45 +446,91 @@ function updateCharCount(el){
 
 function pick(cat,v){chosen[cat]=v;const sp=document.querySelectorAll('#gp_'+cat+' span');sp.forEach((el,i)=>{if(i<5)el.classList.toggle('on',i<v)})}
 
-function submitReview(id){
+async function submitReview(id){
   const s=byId(id);
   const ratings={};RCATS.forEach(c=>ratings[c[0]]=chosen[c[0]]||0);
   let txt='';
   const txtEl=document.getElementById('revTxt');
   if(txtEl)txt=txtEl.value.trim();
-  // Newcomer char limit check
+  // Anonymous users cannot write text reviews
+  if(!cur&&txt){authModal(true);return;}
   if(cur&&cur.role==='newcomer'&&txt.length>NEWCOMER_CHAR_LIMIT){
-    alert(`Reviews are limited to ${NEWCOMER_CHAR_LIMIT} characters until you reach Active status. Currently: ${txt.length} chars.`);return;
+    alert(`Reviews are limited to ${NEWCOMER_CHAR_LIMIT} characters until you reach Active status.`);return;
   }
   if(!Object.values(ratings).some(x=>x>0)&&!txt){
     alert('Add at least one rating.');return;
   }
   const who=cur?cur.name:'Anonymous';
-  const userId=cur?cur.id:'anon';
-  s.reviews.unshift({id:'r'+Date.now(),userId,who,ratings,txt,when:new Date().toISOString().slice(0,10),helpful:[]});
-  saveSpots();
-  if(cur)checkAndUpgrade();
+  const userId=cur?cur.id:null;
+  const reviewData={
+    id:'r'+Date.now(),
+    spot_id:id,
+    user_id:userId,
+    who,ratings,txt,
+    review_date:new Date().toISOString().slice(0,10),
+    helpful:[]
+  };
+  const{error}=await db.from('reviews').insert([reviewData]);
+  if(error){alert('Error saving review: '+error.message);return;}
+  s.reviews.unshift({id:reviewData.id,userId:userId||'anon',who,ratings,txt,when:reviewData.review_date,helpful:[]});
+  chosen={};
+  if(cur)await checkAndUpgrade();
   showDetail(id);
 }
 
-function voteHelpful(sid,rid){
+async function voteHelpful(sid,rid){
   if(!cur)return alert('Sign in to vote helpful.');
   const r=byId(sid).reviews.find(x=>x.id===rid);
   r.helpful=r.helpful||[];
   const i=r.helpful.indexOf(cur.id);
   i>=0?r.helpful.splice(i,1):r.helpful.push(cur.id);
-  saveSpots();showDetail(sid);
+  await db.from('reviews').update({helpful:r.helpful}).eq('id',rid);
+  showDetail(sid);
 }
-function delReview(sid,rid){if(!confirm('Delete this review?'))return;const s=byId(sid);s.reviews=s.reviews.filter(x=>x.id!==rid);saveSpots();showDetail(sid)}
-function addPhoto(id,input){const f=input.files[0];if(!f)return;const rd=new FileReader();rd.onload=e=>{byId(id).photos.push(e.target.result);saveSpots();showDetail(id)};rd.readAsDataURL(f)}
+
+async function delReview(sid,rid){
+  if(!confirm('Delete this review?'))return;
+  const{error}=await db.from('reviews').delete().eq('id',rid);
+  if(error){alert('Error: '+error.message);return;}
+  const s=byId(sid);s.reviews=s.reviews.filter(x=>x.id!==rid);
+  showDetail(sid);
+}
+
 function viewPhoto(id,i){modal(`<img class="full" src="${byId(id).photos[i]}">`)}
-function reportSpot(id){const why=prompt('Report this spot (e.g. closed down, wrong location, duplicate):');if(why){const s=byId(id);s.reports=s.reports||[];s.reports.push({by:cur?cur.name:'Anonymous',why,when:new Date().toISOString().slice(0,10)});saveSpots();alert('Thanks — an admin will review this.')}}
-function setStatus(id){const s=byId(id);modal(`<h2>Set status</h2><p>Current: ${s.status}</p>
-  <div class="seg"><button onclick="applyStatus('${id}','active')" class="${s.status==='active'?'on':''}">Active</button>
-  <button onclick="applyStatus('${id}','temp_closed')" class="${s.status==='temp_closed'?'on':''}">Temp closed</button>
-  <button onclick="applyStatus('${id}','perm_closed')" class="${s.status==='perm_closed'?'on':''}">Closed</button></div>`)}
-function applyStatus(id,st){byId(id).status=st;saveSpots();closeModal();showDetail(id)}
-function delSpot(id){if(!confirm('Permanently delete this spot and all its reviews?'))return;spots=spots.filter(s=>s.id!==id);saveSpots();renderList()}
+
+async function reportSpot(id){
+  const why=prompt('Report this spot (e.g. closed down, wrong location, duplicate):');
+  if(!why)return;
+  const s=byId(id);
+  const report={by:cur?cur.name:'Anonymous',why,when:new Date().toISOString().slice(0,10)};
+  const reports=[...(s.reports||[]),report];
+  await db.from('spots').update({reports}).eq('id',id);
+  s.reports=reports;
+  alert('Thanks — an admin will review this.');
+}
+
+async function setStatus(id){
+  const s=byId(id);
+  modal(`<h2>Set status</h2><p>Current: ${s.status}</p>
+    <div class="seg"><button onclick="applyStatus('${id}','active')" class="${s.status==='active'?'on':''}">Active</button>
+    <button onclick="applyStatus('${id}','temp_closed')" class="${s.status==='temp_closed'?'on':''}">Temp closed</button>
+    <button onclick="applyStatus('${id}','perm_closed')" class="${s.status==='perm_closed'?'on':''}">Closed</button></div>`);
+}
+
+async function applyStatus(id,st){
+  const{error}=await db.from('spots').update({status:st}).eq('id',id);
+  if(error){alert('Error: '+error.message);return;}
+  byId(id).status=st;
+  closeModal();showDetail(id);
+}
+
+async function delSpot(id){
+  if(!confirm('Permanently delete this spot and all its reviews?'))return;
+  const{error}=await db.from('spots').delete().eq('id',id);
+  if(error){alert('Error deleting: '+error.message);return;}
+  spots=spots.filter(s=>s.id!==id);
+  renderList();
+}
 
 /* ============ ADD / EDIT SPOT ============ */
 function startAdd(editId){
@@ -499,41 +559,78 @@ function startAdd(editId){
 
 map.on('click',e=>{if(!adding)return;document.getElementById('f_lat').value=e.latlng.lat.toFixed(5);document.getElementById('f_lng').value=e.latlng.lng.toFixed(5);if(tmpMarker)map.removeLayer(tmpMarker);tmpMarker=L.marker(e.latlng,{icon:pinIcon(false,true)}).addTo(map)});
 
-function saveSpot(editId){
+async function saveSpot(editId){
   const name=val('f_name'),lat=parseFloat(val('f_lat')),lng=parseFloat(val('f_lng'));
   if(!name)return alert('Add a name.');
   if(isNaN(lat)||isNaN(lng))return alert('Click the map or enter coordinates.');
   const vibes=[...document.querySelectorAll('#f_vibes input:checked')].map(i=>i.value);
-  const data={name,lat,lng,district:val('f_district'),address:val('f_addr'),pricePerGlass:val('f_price'),
-    openH:val('f_open')===''?null:+val('f_open'),closeH:val('f_close')===''?null:+val('f_close'),
-    seating:val('f_seat'),payment:val('f_pay'),vibes,desc:val('f_desc')};
+  const formData={
+    name,lat,lng,
+    district:val('f_district'),address:val('f_addr'),
+    price_per_glass:val('f_price'),
+    open_h:val('f_open')===''?null:+val('f_open'),
+    close_h:val('f_close')===''?null:+val('f_close'),
+    seating:val('f_seat'),payment:val('f_pay'),
+    vibes,description:val('f_desc')
+  };
   if(editId){
     const existing=byId(editId);
-    Object.assign(existing,data);
-    if(cur&&!existing.verified){existing.verified=true;existing.verifiedBy=cur.id;existing.verifiedAt=new Date().toISOString().slice(0,10);}
-    saveSpots();if(tmpMarker){map.removeLayer(tmpMarker);tmpMarker=null}
-    if(cur)checkAndUpgrade();
+    const update={...formData};
+    if(cur&&!existing.verified){
+      update.verified=true;update.verified_by=cur.id;
+      update.verified_at=new Date().toISOString().slice(0,10);
+    }
+    const{error}=await db.from('spots').update(update).eq('id',editId);
+    if(error){alert('Error saving: '+error.message);return;}
+    Object.assign(existing,{
+      name,lat,lng,district:formData.district,address:formData.address,
+      pricePerGlass:formData.price_per_glass,openH:formData.open_h,closeH:formData.close_h,
+      seating:formData.seating,payment:formData.payment,vibes,desc:formData.description
+    });
+    if(cur&&!existing.verified){existing.verified=true;existing.verifiedBy=cur.id;existing.verifiedAt=update.verified_at;}
+    if(tmpMarker){map.removeLayer(tmpMarker);tmpMarker=null}
+    if(cur)await checkAndUpgrade();
     renderList();showDetail(editId);return;
   }
   const dup=spots.find(s=>dist(s.lat,s.lng,lat,lng)<0.05);
   if(dup&&!confirm(`"${dup.name}" is very close by (under 50m). Add anyway?`))return;
   const createdBy=cur?cur.id:'anon';
-  // Active and admin spots are auto-verified; newcomer and anon are not
   const verified=cur&&(cur.role==='active'||cur.role==='admin');
-  const verifiedBy=verified?cur.id:null;
-  const verifiedAt=verified?new Date().toISOString().slice(0,10):null;
-  const s={id:'s'+Date.now(),...data,status:'active',photos:[],reviews:[],
-    createdBy,createdAt:Date.now(),verified,verifiedBy,verifiedAt};
-  spots.push(s);saveSpots();
+  const id='s'+Date.now();
+  const spotData={
+    id,...formData,status:'active',photos:[],
+    created_by:createdBy,created_at:new Date().toISOString(),
+    verified,
+    verified_by:verified?cur.id:null,
+    verified_at:verified?new Date().toISOString().slice(0,10):null,
+    reports:[]
+  };
+  const{error}=await db.from('spots').insert([spotData]);
+  if(error){alert('Error saving: '+error.message);return;}
+  spots.push({
+    id,name,lat,lng,district:formData.district,address:formData.address,
+    pricePerGlass:formData.price_per_glass,openH:formData.open_h,closeH:formData.close_h,
+    seating:formData.seating,payment:formData.payment,vibes,desc:formData.description,
+    status:'active',photos:[],reviews:[],reports:[],
+    createdBy,verified,
+    verifiedBy:verified?cur.id:null,
+    verifiedAt:verified?spotData.verified_at:null,
+    createdAt:Date.now()
+  });
   if(tmpMarker){map.removeLayer(tmpMarker);tmpMarker=null}
-  if(cur)checkAndUpgrade();
-  renderList();showDetail(s.id);
+  if(cur)await checkAndUpgrade();
+  renderList();showDetail(id);
 }
-const val=id=>{const el=document.getElementById(id);return el?el.value.trim():''};
 
 /* ============ PROFILES ============ */
-function showProfile(uid){
-  const u=userById(uid);if(!u)return;openSidebar();
+async function showProfile(uid){
+  let u=userById(uid);
+  if(!u){
+    const{data}=await db.from('profiles').select('*').eq('id',uid).single();
+    if(!data)return;
+    u=data;profilesCache[uid]=u;
+  }
+  openSidebar();
   const added=spots.filter(s=>s.createdBy===uid);
   let revs=0;spots.forEach(s=>s.reviews.forEach(r=>{if(r.userId===uid)revs++}));
   const verified=spots.filter(s=>s.verifiedBy===uid).length;
@@ -567,7 +664,7 @@ function togglePw(id){
 }
 function authModal(signup){
   modal(`<h2>${signup?'Create a free account 🍺':'Welcome back 🍺'}</h2>
-   <p>${signup?'Free to join. Sign up to rate spots, write reviews, and track your contributions.':'Sign in to your account.'}</p>
+   <p>${signup?'Free to join. Rate spots, write reviews, and track your contributions.':'Sign in to your account.'}</p>
    <div>
      <input id="a_name" placeholder="Display name" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px;margin-bottom:6px;display:${signup?'block':'none'}">
      <input id="a_email" placeholder="Email" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px;margin-bottom:6px">
@@ -575,53 +672,55 @@ function authModal(signup){
      ${signup?`${pwField('a_pw2','Confirm password','6px')}
      <div id="codeToggle" style="text-align:center;margin-bottom:8px"><a style="font-size:12px;color:var(--muted);cursor:pointer" onclick="document.getElementById('codeWrap').style.display='block';document.getElementById('codeToggle').style.display='none'">Have an invite code?</a></div>
      <div id="codeWrap" style="display:none;margin-bottom:10px"><input id="a_code" placeholder="Invite code" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px"></div>`:''}
-     <button class="btn-gold" style="width:100%;margin-bottom:8px" onclick="${signup?'doSignup()':'doLogin()'}">${signup?'Create account':'Sign in'}</button>
+     <button class="btn-gold" style="width:100%;margin-bottom:8px" onclick="${signup?'doSignup()':'doLogin()'}">
+       ${signup?'Create account':'Sign in'}
+     </button>
      <p style="text-align:center;margin:0;font-size:13px">${signup?'Have an account? <a style="color:var(--gold-dark);cursor:pointer" onclick="authModal(false)">Sign in</a>':'New here? <a style="color:var(--gold-dark);cursor:pointer" onclick="authModal(true)">Create a free account</a>'}</p>
    </div>`);
 }
 
-function doSignup(){
-  const name=val('a_name'),email=val('a_email').toLowerCase(),pw=val('a_pw');
-  const pw2=val('a_pw2');
+async function doSignup(){
+  const name=val('a_name'),email=val('a_email').toLowerCase(),pw=val('a_pw'),pw2=val('a_pw2');
   const code=(document.getElementById('a_code')||{}).value||'';
   if(!name||!email||!pw)return alert('Please fill in name, email, and password.');
-  if(pw!==pw2)return alert('Passwords don\'t match — please check and try again.');
+  if(pw!==pw2)return alert("Passwords don't match.");
   if(pw.length<6)return alert('Password must be at least 6 characters.');
-  if(users.find(u=>u.email===email))return alert('That email is already registered. Sign in instead.');
-  // Determine role from invite code (or none)
   let role='newcomer';
-  if(code.trim()===ADMIN_CODE)role='admin';
-  else if(code.trim()===ACTIVE_CODE)role='active';
-  else if(code.trim()&&code.trim()!==ADMIN_CODE&&code.trim()!==ACTIVE_CODE){
-    return alert('Invalid invite code. Leave it blank to join as a Newcomer, or ask an admin for the correct code.');
-  }
-  const u={id:'u'+Date.now(),name,email,pw,role,since:new Date().toISOString().slice(0,10)};
-  users.push(u);saveUsers();
-  cur={id:u.id,name:u.name,role:u.role};saveCur();
-  closeModal();setUserLabel();renderList();
-  if(role==='newcomer'){
-    setTimeout(()=>modal(`<h2>Welcome, ${esc(name)}! 🍺</h2>
-      <p>You can rate spots and write reviews to start. The more you contribute, the more you unlock!</p>
-      <button class="btn-gold" style="width:100%" onclick="closeModal()">Let's explore 🗺</button>`),200);
-  }
+  const c=code.trim().toUpperCase();
+  if(c===ADMIN_CODE)role='admin';
+  else if(c===ACTIVE_CODE)role='active';
+  else if(c&&c!=='')return alert('Invalid invite code. Leave blank to join as Newcomer.');
+  const{error}=await db.auth.signUp({
+    email,password:pw,
+    options:{data:{name,role}}
+  });
+  if(error)return alert(error.message);
+  closeModal();
+  modal(`<h2>Welcome, ${esc(name)}! 🍺</h2>
+    <p>Check your email for a confirmation link, then sign in to start contributing.</p>
+    <button class="btn-gold" style="width:100%" onclick="closeModal()">Got it 🗺</button>`);
 }
 
-function doLogin(){
+async function doLogin(){
   const email=val('a_email').toLowerCase(),pw=val('a_pw');
-  const u=users.find(x=>x.email===email&&x.pw===pw);
-  if(!u)return alert('Wrong email or password.');
-  cur={id:u.id,name:u.name,role:u.role};saveCur();closeModal();setUserLabel();renderList();
+  if(!email||!pw)return alert('Enter your email and password.');
+  const{error}=await db.auth.signInWithPassword({email,password:pw});
+  if(error)return alert('Wrong email or password.');
+  closeModal();
 }
 
-function logout(){cur=null;saveCur();setUserLabel();renderList()}
+async function logout(){
+  await db.auth.signOut();
+  cur=null;setUserLabel();renderList();
+}
 
 function setUserLabel(){
   document.getElementById('userLabel').innerHTML=cur
     ?`👤 <a style="color:#fff;cursor:pointer" onclick="showProfile('${cur.id}')">${esc(cur.name)}</a> ${rolePill(cur.role)} <span style="cursor:pointer;text-decoration:underline;font-size:12px" onclick="logout()">sign out</span>`
-    :`<button class="btn-ghost btn-sm" onclick="authModal(false)">Sign in</button> <button class="btn-ghost btn-sm" onclick="authModal(true)">Join</button>`
+    :`<button class="btn-ghost btn-sm" onclick="authModal(false)">Sign in</button> <button class="btn-ghost btn-sm" onclick="authModal(true)">Join</button>`;
 }
 
-/* ============ NEAR ME + EXPORT ============ */
+/* ============ NEAR ME ============ */
 function nearMe(){
   if(!navigator.geolocation)return alert('Location not available on this device.');
   navigator.geolocation.getCurrentPosition(p=>{
@@ -629,29 +728,11 @@ function nearMe(){
     map.setView(window._me,15);
     if(window._meMarker)window._meMarker.remove();
     window._meMarker=L.circleMarker(window._me,{radius:9,color:'#185fa5',fillColor:'#378add',fillOpacity:.9}).addTo(map).bindPopup('📍 You are here');
-    // Show radius dropdown, default to 1km
     const sel=document.getElementById('fRadius');
     sel.style.display='';sel.value='1';
     document.getElementById('nearMeBtn').textContent='📍 Located';
     renderList(true);
   },()=>alert('Could not get your location — please allow location access.'));
-}
-function exportData(){
-  const blob=new Blob([JSON.stringify({spots,users:users.map(u=>({...u,pw:undefined}))},null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bia-hoi-data.json';a.click();
-}
-
-/* ============ SAMPLES ============ */
-function loadSamples(){
-  if(!spots.length){
-    const me=cur?cur.id:'demo';
-    spots=[
-     {id:'s_a',name:'Bia Hơi Corner (Tạ Hiện)',lat:21.03448,lng:105.85247,district:'Hoàn Kiếm',address:'Tạ Hiện & Lương Ngọc Quyến',pricePerGlass:'15,000₫',openH:16,closeH:24,seating:'Outdoor · plastic stools',payment:'Cash or QR code transfer',vibes:['Touristy','Lively','Street-side'],desc:'The legendary Beer Corner — plastic stools spilling into the street.',status:'active',photos:[],reviews:[{id:'r1',userId:'demo',who:'Demo User',ratings:{beer:5,food:4,atmosphere:5,clean:3,value:5},txt:'Unbeatable atmosphere, get there before 7pm.',when:'2026-05-12',helpful:[]}],createdBy:me,createdAt:Date.now(),verified:true,verifiedBy:me,verifiedAt:'2026-05-12'},
-     {id:'s_b',name:'Bia Hơi Hà Nội (Đường Thành)',lat:21.03206,lng:105.84600,district:'Hoàn Kiếm',address:'34 Đường Thành',pricePerGlass:'12,000₫',openH:15,closeH:23,seating:'Indoor + street stools',payment:'Cash or QR code transfer',vibes:['Local-only','Cheap'],desc:'Proper local joint, great nem chua rán.',status:'active',photos:[],reviews:[],createdBy:'anon',createdAt:Date.now(),verified:false,verifiedBy:null,verifiedAt:null},
-     {id:'s_c',name:'Bia Hơi Lan Chín',lat:21.00580,lng:105.84360,district:'Hai Bà Trưng',address:'Near Bách Khoa University',pricePerGlass:'10,000₫',openH:16,closeH:24,seating:'Outdoor · low stools',payment:'Cash or QR code transfer',vibes:['Local-only','Cheap','Lively'],desc:'Student favourite, rock-bottom prices.',status:'active',photos:[],reviews:[],createdBy:'anon',createdAt:Date.now(),verified:false,verifiedBy:null,verifiedAt:null}
-    ];saveSpots();
-  }
-  renderList();
 }
 
 /* ============ MODAL / SIDEBAR ============ */
@@ -664,7 +745,31 @@ function toggleFilters(){document.getElementById('filters').classList.toggle('op
 /* ============ INIT ============ */
 DISTRICTS.forEach(d=>fDistrict.add(new Option(d,d)));
 VIBES.forEach(v=>fVibe.add(new Option(v,v)));
-setUserLabel();renderList();
+
+async function init(){
+  const{data:{session}}=await db.auth.getSession();
+  if(session){
+    const{data:profile}=await db.from('profiles').select('*').eq('id',session.user.id).single();
+    if(profile){cur={...profile,email:session.user.email};profilesCache[profile.id]=cur;}
+  }
+  db.auth.onAuthStateChange(async(event,session)=>{
+    if(session){
+      if(event==='SIGNED_IN')await new Promise(r=>setTimeout(r,400));
+      const{data:profile}=await db.from('profiles').select('*').eq('id',session.user.id).single();
+      if(profile){cur={...profile,email:session.user.email};profilesCache[profile.id]=cur;}
+    }else{cur=null;}
+    setUserLabel();renderList();
+  });
+  setUserLabel();
+  const{data:spotsData,error}=await db.from('spots').select('*, reviews(*)');
+  if(error){console.error('Load error:',error);document.getElementById('sidebarBody').innerHTML='<div class="empty-note">⚠ Could not load spots. Check your connection.</div>';return;}
+  spots=(spotsData||[]).map(dbToSpot);
+  const pids=[...new Set(spots.map(s=>s.createdBy).filter(id=>id&&id!=='anon'&&id!=='seed'))];
+  if(pids.length){const{data:profiles}=await db.from('profiles').select('*').in('id',pids);(profiles||[]).forEach(p=>{profilesCache[p.id]=p;});}
+  renderList();
+}
+
+init();
 </script>
 </body>
 </html>
