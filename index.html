@@ -126,6 +126,7 @@
         <input class="search" id="searchBox" placeholder="Search spots…" oninput="renderList()">
         <button class="btn-line btn-sm" onclick="toggleFilters()">⚲ Filters</button>
         <button class="btn-line btn-sm" id="nearMeBtn" onclick="nearMe()">📍 Near me</button>
+        <button class="btn-line btn-sm mobile-toggle" onclick="closeSidebar()" style="margin-left:auto" title="Close">✕</button>
         <select id="fRadius" onchange="renderList(true)" style="padding:5px 8px;border:1px solid var(--line);border-radius:7px;font-size:13px;display:none">
           <option value="0.5">Within 500m</option>
           <option value="1">Within 1km</option>
@@ -272,6 +273,7 @@ function questProgressHTML(uid){
 const map=L.map('map').setView(HANOI,13);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>'}).addTo(map);
 const cluster=L.markerClusterGroup({maxClusterRadius:45});map.addLayer(cluster);
+map.on('click',()=>{if(innerWidth<=680)document.getElementById('sidebar').classList.remove('open');});
 let tmpMarker=null,adding=false;
 function pinIcon(closed,unverified){
   let cls='bia-pin';
@@ -741,6 +743,7 @@ function closeModal(){const m=document.getElementById('modal');if(m)m.remove()}
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open')}
 function openSidebar(){if(innerWidth<=680)document.getElementById('sidebar').classList.add('open')}
 function toggleFilters(){document.getElementById('filters').classList.toggle('open')}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open')}
 
 /* ============ INIT ============ */
 DISTRICTS.forEach(d=>fDistrict.add(new Option(d,d)));
@@ -763,7 +766,7 @@ async function init(){
   setUserLabel();
   // Load spots and reviews as separate queries to avoid PostgREST embedding 401s
   const{data:spotsData,error}=await db.from('spots').select('*');
-  if(error){console.error('Load error:',error);document.getElementById('sidebarBody').innerHTML='<div class="empty-note">⚠ Could not load spots. Check your connection.</div>';return;}
+  if(error){console.error('Load error:',error);document.getElementById('sidebarBody').innerHTML='<div class="empty-note">⚠ '+error.message+' ('+error.code+')</div>';return;}
   const{data:reviewsData}=await db.from('reviews').select('*');
   const reviewsBySpot={};
   (reviewsData||[]).forEach(r=>{
