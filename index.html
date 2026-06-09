@@ -809,8 +809,8 @@ function renderAdmin(tab){
         <td><a style="color:var(--blue);cursor:pointer;font-weight:600" onclick="closeModal();showDetail('${s.id}')">${esc(s.name)}</a></td>
         <td>${esc(s.district||'—')}</td>
         <td style="color:var(--muted)">${esc(s.created_by==='anon'||s.created_by==='seed'?'Anonymous':s.created_by)}</td>
-        <td><button class="btn-verify btn-sm" onclick="adminVerify('${s.id}')">✓ Verify</button>
-            <button class="btn-line btn-sm" style="margin-left:4px;color:var(--red)" onclick="adminDeleteSpot('${s.id}')">🗑</button></td>
+        <td><button class="btn-verify btn-sm" title="Mark as verified" onclick="adminVerify('${s.id}')">✓ Verify</button>
+            <button class="btn-line btn-sm" title="Permanently delete this spot" style="margin-left:4px;color:var(--red)" onclick="adminDeleteSpot('${s.id}')">🗑 Delete</button></td>
       </tr>`).join('')}
     </table>`:'<div style="color:var(--muted);font-size:13px">All spots are verified ✓</div>'}`;
   }
@@ -828,7 +828,7 @@ function renderAdmin(tab){
   }
   else if(tab==='users'){
     body=`<table class="admin-table">
-      <tr><th>Name</th><th>Role</th><th>Since</th><th>Spots</th><th>Reviews</th><th>Change role</th></tr>
+      <tr><th>Name</th><th>Role</th><th>Since</th><th>Spots</th><th>Reviews</th><th>Actions</th></tr>
       ${d.users.map(u=>{
         const uSpots=d.spots.filter(s=>s.created_by===u.id).length;
         const uRevs=d.reviews.filter(r=>r.user_id===u.id).length;
@@ -839,9 +839,10 @@ function renderAdmin(tab){
           <td>${uSpots}</td><td>${uRevs}</td>
           <td style="white-space:nowrap">
             ${u.id===cur.id?'<span style="font-size:11px;color:var(--muted)">you</span>':`
-            ${u.role!=='admin'?`<button class="btn-line btn-sm" onclick="adminSetRole('${u.id}','admin')" title="Promote to Admin">👑 Admin</button> `:''}
-            ${u.role!=='active'?`<button class="btn-line btn-sm" onclick="adminSetRole('${u.id}','active')" title="Promote to Active">⭐ Active</button> `:''}
-            ${u.role!=='newcomer'?`<button class="btn-line btn-sm" onclick="adminSetRole('${u.id}','newcomer')" title="Demote to Newcomer">↓ Newcomer</button>`:''}
+            ${u.role!=='admin'?`<button class="btn-line btn-sm" title="Promote to Admin" onclick="adminSetRole('${u.id}','admin')">👑 Admin</button> `:''}
+            ${u.role!=='active'?`<button class="btn-line btn-sm" title="Set role to Active" onclick="adminSetRole('${u.id}','active')">⭐ Active</button> `:''}
+            ${u.role!=='newcomer'?`<button class="btn-line btn-sm" title="Demote to Newcomer" onclick="adminSetRole('${u.id}','newcomer')">↓ Newcomer</button> `:''}
+            <button class="btn-line btn-sm" title="Delete this user's profile (they can re-register)" style="color:var(--red)" onclick="adminRemoveUser('${u.id}','${esc(u.name)}')">🗑 Remove</button>
             `}
           </td>
         </tr>`;
@@ -858,8 +859,8 @@ function renderAdmin(tab){
         </td>
         <td>${(s.reports||[]).map(r=>`<div style="font-size:12px;padding:2px 0"><b>${esc(r.by)}</b>: "${esc(r.why)}" <span style="color:var(--muted)">${r.when||''}</span></div>`).join('')}</td>
         <td style="white-space:nowrap">
-          <button class="btn-line btn-sm" onclick="adminDismissReports('${s.id}')">✓ Dismiss</button><br style="margin:3px 0">
-          <button class="btn-line btn-sm" style="color:var(--red);margin-top:4px" onclick="adminDeleteSpot('${s.id}')">🗑 Delete spot</button>
+          <button class="btn-line btn-sm" title="Clear all reports for this spot" onclick="adminDismissReports('${s.id}')">✓ Dismiss</button><br style="margin:3px 0">
+          <button class="btn-line btn-sm" title="Permanently delete this spot" style="color:var(--red);margin-top:4px" onclick="adminDeleteSpot('${s.id}')">🗑 Delete spot</button>
         </td>
       </tr>`).join('')}
     </table>`:'<div class="empty-note">No reports. All clear! 🍺</div>';
@@ -887,8 +888,8 @@ function renderAdminSpotTable(list){
       <td>${s.verified?'<span class="chip verified">✓ Yes</span>':'<span class="chip unverified">✗ No</span>'}</td>
       <td>${(s.reports||[]).length?`<span style="color:var(--red);font-weight:700">${s.reports.length}</span>`:'—'}</td>
       <td style="white-space:nowrap">
-        ${!s.verified?`<button class="btn-verify btn-sm" onclick="adminVerify('${s.id}')">✓</button> `:''}
-        <button class="btn-line btn-sm" onclick="adminDeleteSpot('${s.id}')" style="color:var(--red)">🗑</button>
+        ${!s.verified?`<button class="btn-verify btn-sm" title="Mark as verified" onclick="adminVerify('${s.id}')">✓ Verify</button> `:`<button class="btn-line btn-sm" title="Remove verification" onclick="adminUnverify('${s.id}')" style="color:var(--orange)">✗ Unverify</button> `}
+        <button class="btn-line btn-sm" title="Permanently delete this spot" onclick="adminDeleteSpot('${s.id}')" style="color:var(--red)">🗑 Delete</button>
       </td>
     </tr>`).join('')}
   </table>`;
@@ -913,6 +914,15 @@ async function adminVerify(id){
   renderList();
 }
 
+async function adminUnverify(id){
+  const{error}=await db.from('spots').update({verified:false,verified_by:null,verified_at:null}).eq('id',id);
+  if(error){alert('Error: '+error.message);return;}
+  const s=adminData.spots.find(x=>x.id===id);if(s){s.verified=false;s.verified_by=null;s.verified_at=null;}
+  const ls=byId(id);if(ls){ls.verified=false;ls.verifiedBy=null;ls.verifiedAt=null;}
+  renderAdmin(document.querySelector('.admin-tab.on')?.textContent.trim().includes('Spot')?'spots':'overview');
+  renderList();
+}
+
 async function adminDeleteSpot(id){
   if(!confirm('Permanently delete this spot and all its reviews?'))return;
   const{error}=await db.from('spots').delete().eq('id',id);
@@ -930,6 +940,15 @@ async function adminSetRole(uid,role){
   if(error){alert('Error: '+error.message);return;}
   if(u)u.role=role;
   if(profilesCache[uid])profilesCache[uid].role=role;
+  renderAdmin('users');
+}
+
+async function adminRemoveUser(uid,name){
+  if(!confirm(`Remove ${name}? Their spots and reviews will remain but their profile and login privileges will be deleted. They can re-register.`))return;
+  const{error}=await db.from('profiles').delete().eq('id',uid);
+  if(error){alert('Error: '+error.message);return;}
+  adminData.users=adminData.users.filter(x=>x.id!==uid);
+  delete profilesCache[uid];
   renderAdmin('users');
 }
 
