@@ -27,7 +27,7 @@
   .btn-verify:hover{background:#c8e6c9}
   .main{flex:1;display:flex;min-height:0}
   #map{flex:1;min-width:0}
-  #sidebar{width:390px;max-width:44vw;background:var(--card);border-left:1px solid var(--line);overflow-y:auto;display:flex;flex-direction:column}
+  #sidebar{position:relative;width:390px;max-width:44vw;background:var(--card);border-left:1px solid var(--line);overflow-y:auto;display:flex;flex-direction:column}
   .panel{padding:16px}
   .toolbar{display:flex;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--card);z-index:5;flex-wrap:wrap}
   .toolbar input.search{flex:1;min-width:120px;padding:8px 11px;border:1px solid var(--line);border-radius:8px;font-size:14px}
@@ -142,7 +142,7 @@
   </header>
   <div class="main" style="position:relative">
     <div id="map"></div>
-    <div id="sidebar" style="position:relative">
+    <div id="sidebar">
       <button class="sidebar-close" onclick="closeSidebar()" title="Close sidebar">✕</button>
       <div class="toolbar">
         <input class="search" id="searchBox" placeholder="Search spots…" oninput="renderList()">
