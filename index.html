@@ -761,9 +761,16 @@ async function init(){
     setUserLabel();renderList();
   });
   setUserLabel();
-  const{data:spotsData,error}=await db.from('spots').select('*, reviews(*)');
+  // Load spots and reviews as separate queries to avoid PostgREST embedding 401s
+  const{data:spotsData,error}=await db.from('spots').select('*');
   if(error){console.error('Load error:',error);document.getElementById('sidebarBody').innerHTML='<div class="empty-note">⚠ Could not load spots. Check your connection.</div>';return;}
-  spots=(spotsData||[]).map(dbToSpot);
+  const{data:reviewsData}=await db.from('reviews').select('*');
+  const reviewsBySpot={};
+  (reviewsData||[]).forEach(r=>{
+    if(!reviewsBySpot[r.spot_id])reviewsBySpot[r.spot_id]=[];
+    reviewsBySpot[r.spot_id].push(dbToReview(r));
+  });
+  spots=(spotsData||[]).map(s=>({...dbToSpot(s),reviews:reviewsBySpot[s.id]||[]}));
   const pids=[...new Set(spots.map(s=>s.createdBy).filter(id=>id&&id!=='anon'&&id!=='seed'))];
   if(pids.length){const{data:profiles}=await db.from('profiles').select('*').in('id',pids);(profiles||[]).forEach(p=>{profilesCache[p.id]=p;});}
   renderList();
