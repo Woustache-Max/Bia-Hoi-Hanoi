@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bia Hơi Hanoi</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<style>
+  :root{--gold:#f5b301;--gold-dark:#b9780f;--ink:#1f1a12;--paper:#fffaf0;--card:#fff;
+        --muted:#7a7263;--line:#ece3d2;--green:#2e7d32;--red:#c0392b;--blue:#185fa5;--orange:#e65100}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:'Segoe UI',system-ui,sans-serif;color:var(--ink);background:var(--paper)}
+  #app{display:flex;flex-direction:column;height:100vh}
+  header{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--ink);color:var(--gold);z-index:1200;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+  header h1{font-size:18px;margin:0;letter-spacing:.4px}
+  header .logo{font-size:22px}
+  header .spacer{flex:1}
+  header .user{font-size:13px;color:#fff;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  button{cursor:pointer;font-family:inherit;border:none;border-radius:8px;padding:8px 13px;font-size:14px;font-weight:600;transition:.15s}
+  .btn-gold{background:var(--gold);color:var(--ink)}.btn-gold:hover{background:#ffc41f}
+  .btn-ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.4)}.btn-ghost:hover{background:rgba(255,255,255,.12)}
+  .btn-sm{padding:5px 10px;font-size:13px}
+  .btn-line{background:#fff;border:1px solid var(--line);color:var(--ink)}
+  .btn-verify{background:#e8f5e9;border:1px solid #a5d6a7;color:var(--green);font-size:13px;padding:5px 10px}
+  .btn-verify:hover{background:#c8e6c9}
+  .main{flex:1;display:flex;min-height:0}
+  #map{flex:1;min-width:0}
+  #sidebar{width:390px;max-width:44vw;background:var(--card);border-left:1px solid var(--line);overflow-y:auto;display:flex;flex-direction:column}
+  .panel{padding:16px}
+  .toolbar{display:flex;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--card);z-index:5;flex-wrap:wrap}
+  .toolbar input.search{flex:1;min-width:120px;padding:8px 11px;border:1px solid var(--line);border-radius:8px;font-size:14px}
+  .filters{padding:0 14px 10px;border-bottom:1px solid var(--line);display:none;flex-wrap:wrap;gap:8px}
+  .filters.open{display:flex}
+  .filters select,.filters input{padding:6px 8px;border:1px solid var(--line);border-radius:7px;font-size:13px}
+  .chip{font-size:12px;padding:3px 9px;border-radius:20px;background:#f0e8d6;color:var(--ink);font-weight:600}
+  .chip.open{background:#e6f5e6;color:var(--green)}
+  .chip.closed{background:#fbe6e6;color:var(--red)}
+  .chip.unverified{background:#fff3e0;color:var(--orange);border:1px solid #ffcc80}
+  .chip.verified{background:#e8f5e9;color:var(--green)}
+  .list-item{padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+  .list-item:hover{background:#fff8e6}
+  .list-item h3{margin:0 0 3px;font-size:15px}
+  .list-item .meta{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .glass{color:var(--gold-dark);letter-spacing:1px}.glass .e{color:#dcd4c4}
+  .detail h2{margin:0 0 4px;font-size:21px}
+  .factbox{background:#fbf6ea;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0}
+  .factrow{display:flex;gap:8px;font-size:13px;padding:3px 0;align-items:flex-start}
+  .factrow b{color:var(--muted);font-weight:600;min-width:96px}
+  .desc{font-size:14px;line-height:1.5;margin:10px 0}
+  .sec{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:18px 0 8px;font-weight:700;border-top:1px solid var(--line);padding-top:12px}
+  .photos{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .photos img{width:100%;height:78px;object-fit:cover;border-radius:6px;cursor:pointer}
+  .review{border-top:1px solid var(--line);padding:10px 0}
+  .review .who{font-weight:600;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+  .review .rgrid{display:flex;flex-wrap:wrap;gap:8px;margin:5px 0;font-size:11px;color:var(--muted)}
+  .review .txt{font-size:13px;line-height:1.45;margin-top:3px}
+  .review .when{font-size:11px;color:var(--muted);margin-top:4px}
+  .vote{font-size:12px;color:var(--blue);cursor:pointer;font-weight:600;background:none;border:none;padding:0}
+  form label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:9px 0 3px}
+  form input,form textarea,form select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;font-size:14px;font-family:inherit}
+  form textarea{resize:vertical;min-height:54px}
+  .row2{display:flex;gap:8px}.row2>div{flex:1}
+  .rate-row{display:flex;align-items:center;justify-content:space-between;background:#fbf6ea;border:1px solid var(--line);border-radius:8px;padding:7px 11px;margin-top:6px}
+  .rate-row .lbl{font-size:13px;font-weight:600}
+  .gpick span{font-size:21px;cursor:pointer;color:#dcd4c4}.gpick span.on{color:var(--gold-dark)}
+  .gpick .clr{font-size:11px;color:var(--muted);margin-left:6px;font-weight:600}
+  .tagpick{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+  .tagpick label{display:inline-flex;align-items:center;gap:4px;font-size:12px;background:#f0e8d6;padding:4px 9px;border-radius:16px;cursor:pointer;color:var(--ink);margin:0;font-weight:600}
+  .tagpick label.on{background:var(--gold);color:var(--ink)}
+  .tagpick input{display:none}
+  .back{font-size:13px;color:var(--gold-dark);cursor:pointer;display:inline-block;margin-bottom:8px;font-weight:600}
+  .empty-note{padding:30px 18px;color:var(--muted);font-size:14px;text-align:center;line-height:1.6}
+  .actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:3000;padding:16px}
+  .modal{background:#fff;border-radius:14px;padding:22px;width:360px;max-width:94vw;max-height:90vh;overflow-y:auto}
+  .modal h2{margin:0 0 4px;font-size:20px}.modal p{font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.5}
+  .modal img.full{max-width:88vw;max-height:84vh;border-radius:8px;display:block}
+  .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:6px}
+  .seg button{flex:1;border-radius:0;background:#fff;color:var(--muted);border-right:1px solid var(--line)}
+  .seg button:last-child{border-right:none}.seg button.on{background:var(--gold);color:var(--ink)}
+  .pill{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:700;background:var(--gold);color:var(--ink)}
+  .pill.role-admin{background:#185fa5;color:#fff}
+  .pill.role-active{background:#2e7d32;color:#fff}
+  .pill.role-newcomer{background:#f0e8d6;color:var(--ink)}
+  .hint{font-size:12px;color:var(--muted);background:#fff8e6;border:1px dashed var(--gold);padding:8px 10px;border-radius:8px;margin:8px 0}
+  .hint-verify{font-size:12px;color:var(--orange);background:#fff3e0;border:1px dashed #ffb74d;padding:8px 10px;border-radius:8px;margin:8px 0}
+  .hint-upgrade{font-size:12px;color:var(--green);background:#e8f5e9;border:1px dashed #81c784;padding:10px 12px;border-radius:8px;margin:8px 0;line-height:1.6}
+  .char-count{font-size:11px;color:var(--muted);text-align:right;margin-top:2px}
+  .char-count.over{color:var(--red);font-weight:700}
+  .quest-box{background:#fff8e6;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0}
+  .quest-box h4{margin:0 0 8px;font-size:14px;color:var(--gold-dark)}
+  .quest-path{margin-bottom:8px;font-size:13px}
+  .quest-path .label{font-weight:600;margin-bottom:4px}
+  .q-bar{height:8px;background:#f0e8d6;border-radius:4px;overflow:hidden;margin:4px 0}
+  .q-bar-fill{height:100%;background:var(--gold);border-radius:4px;transition:.3s}
+  .q-bar-fill.done{background:var(--green)}
+  .q-step{font-size:12px;color:var(--muted);display:flex;justify-content:space-between}
+  .leaflet-popup-content{font-family:inherit;margin:10px 12px}
+  .bia-pin{font-size:30px;line-height:1;text-align:center;background:#fff;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.35),0 0 0 2px var(--gold)}
+  .bia-pin.closed{filter:grayscale(1);opacity:.6;box-shadow:0 2px 6px rgba(0,0,0,.25),0 0 0 2px #aaa}
+  .bia-pin.unverified{opacity:.85;box-shadow:0 2px 6px rgba(0,0,0,.25),0 0 0 2px #ffb74d}
+  .mobile-toggle{display:none}
+  @media(max-width:680px){
+    #sidebar{position:absolute;right:0;top:0;bottom:0;width:90vw;max-width:90vw;box-shadow:-4px 0 16px rgba(0,0,0,.2);transform:translateX(100%);transition:.25s;z-index:1500}
+    #sidebar.open{transform:translateX(0)}
+    .mobile-toggle{display:inline-block}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <span class="logo">🍺</span><h1>Bia Hơi Hanoi</h1>
+    <span class="spacer"></span>
+    <button class="btn-ghost btn-sm mobile-toggle" onclick="toggleSidebar()">☰</button>
+    <span class="user" id="userLabel"></span>
+    <button class="btn-gold btn-sm" onclick="startAdd()">+ Add spot</button>
+  </header>
+  <div class="main">
+    <div id="map"></div>
+    <div id="sidebar">
+      <div class="toolbar">
+        <input class="search" id="searchBox" placeholder="Search spots…" oninput="renderList()">
+        <button class="btn-line btn-sm" onclick="toggleFilters()">⚲ Filters</button>
+        <button class="btn-line btn-sm" id="nearMeBtn" onclick="nearMe()">📍 Near me</button>
+        <select id="fRadius" onchange="renderList(true)" style="padding:5px 8px;border:1px solid var(--line);border-radius:7px;font-size:13px;display:none">
+          <option value="0.5">Within 500m</option>
+          <option value="1">Within 1km</option>
+          <option value="2">Within 2km</option>
+          <option value="5">Within 5km</option>
+          <option value="10">Within 10km</option>
+          <option value="0">Any distance</option>
+        </select>
+      </div>
+      <div class="filters" id="filters">
+        <select id="fDistrict" onchange="renderList()"><option value="">All districts</option></select>
+        <select id="fVibe" onchange="renderList()"><option value="">Any vibe</option></select>
+        <select id="fRating" onchange="renderList()">
+          <option value="0">Any rating</option><option value="3">3+ 🍺</option>
+          <option value="4">4+ 🍺</option><option value="4.5">4.5+ 🍺</option></select>
+        <select id="fPrice" onchange="renderList()">
+          <option value="0">Any price</option><option value="15000">≤15,000₫</option>
+          <option value="20000">≤20,000₫</option><option value="30000">≤30,000₫</option></select>
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:var(--muted)">
+          <input type="checkbox" id="fOpen" style="width:auto" onchange="renderList()"> Open now</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:var(--muted)">
+          <input type="checkbox" id="fVerified" style="width:auto" onchange="renderList()"> Verified only</label>
+      </div>
+      <div id="sidebarBody"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script>
+/* ============ CONFIG ============ */
+const ADMIN_CODE  = "BIAHOI-ADMIN-2026";   // → admin role
+const ACTIVE_CODE = "BIAHOI-TEAM-2026";    // → active role (trusted shortcut, no quest needed)
+const ANON_REVIEW_LIMIT = 0;               // anonymous: ratings only, no text
+const NEWCOMER_CHAR_LIMIT = 100;           // newcomer: text capped at 100 chars
+// Quest: unlock Active status by completing EITHER path
+const QUEST_A_SPOTS   = 1;   // Path A: spots added
+const QUEST_A_REVIEWS = 3;   // Path A: reviews written (any spots)
+const QUEST_B_SPOTS   = 5;   // Path B: reviews on 5 DIFFERENT spots
+
+const HANOI=[21.0285,105.8500];
+const DISTRICTS=["Hoàn Kiếm","Ba Đình","Đống Đa","Hai Bà Trưng","Tây Hồ","Cầu Giấy","Thanh Xuân","Long Biên","Hoàng Mai","Other"];
+const VIBES=["Touristy","Local-only","Lively","Chill","Cheap","Riverside","Rooftop","Live music","Good for groups","Street-side"];
+const RCATS=[["beer","Beer quality"],["food","Food & snacks"],["atmosphere","Atmosphere & location"],["clean","Cleanliness"],["value","Value for money"]];
+
+/* ============ STORAGE ============ */
+const K_SPOTS="bh_spots_v3",K_USERS="bh_users_v3",K_CUR="bh_cur_v3";
+const loadJ=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}};
+let spots=loadJ(K_SPOTS,[]);
+let users=loadJ(K_USERS,[]);
+let cur=loadJ(K_CUR,null);
+const saveSpots=()=>localStorage.setItem(K_SPOTS,JSON.stringify(spots));
+const saveUsers=()=>localStorage.setItem(K_USERS,JSON.stringify(users));
+const saveCur=()=>cur?localStorage.setItem(K_CUR,JSON.stringify(cur)):localStorage.removeItem(K_CUR);
+
+/* ============ HELPERS ============ */
+const esc=t=>(t==null?'':String(t)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const byId=id=>spots.find(s=>s.id===id);
+const userById=id=>users.find(u=>u.id===id);
+function revAvg(r){const v=RCATS.map(c=>r.ratings[c[0]]).filter(x=>x>0);return v.length?v.reduce((a,b)=>a+b,0)/v.length:0}
+function spotAvg(s){const a=s.reviews.map(revAvg).filter(x=>x>0);return a.length?a.reduce((x,y)=>x+y,0)/a.length:0}
+function glassStr(n){let f=Math.round(n),o='';for(let i=1;i<=5;i++)o+=i<=f?'🍺':'<span class="e">🍺</span>';return '<span class="glass">'+o+'</span>'}
+function dist(a,b,c,d){const R=6371,dx=(c-a)*Math.PI/180,dy=(d-b)*Math.PI/180;const x=Math.sin(dx/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dy/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))}
+function fmtHr(h){if(h==null||h==='')return '';h=+h;const d=h%24,ap=d<12||d===24?'am':'pm';let hh=d%12;if(hh===0)hh=12;return hh+ap}
+function isOpen(s){if(s.status!=='active'||s.openH==null||s.closeH==null)return false;const n=new Date(),now=n.getHours()+n.getMinutes()/60;let o=+s.openH,c=+s.closeH;if(c<=o)c+=24;let t=now;if(t<o)t+=24;return t>=o&&t<c}
+function roleLabel(role){return role==='admin'?'admin':role==='active'?'active':'newcomer'}
+function rolePill(role){return `<span class="pill role-${role}">${roleLabel(role)}</span>`}
+
+/* ============ QUEST / PROGRESS ============ */
+function getUserStats(uid){
+  let spotsAdded=0,reviewCount=0;
+  const spotIdsReviewed=new Set();
+  spots.forEach(s=>{
+    if(s.createdBy===uid)spotsAdded++;
+    s.reviews.forEach(r=>{if(r.userId===uid){reviewCount++;spotIdsReviewed.add(s.id)}});
+  });
+  return{spotsAdded,reviewCount,uniqueSpotsReviewed:spotIdsReviewed.size};
+}
+function questComplete(uid){
+  const{spotsAdded,reviewCount,uniqueSpotsReviewed}=getUserStats(uid);
+  const pathA=spotsAdded>=QUEST_A_SPOTS&&reviewCount>=QUEST_A_REVIEWS;
+  const pathB=uniqueSpotsReviewed>=QUEST_B_SPOTS;
+  return pathA||pathB;
+}
+function checkAndUpgrade(){
+  if(!cur||cur.role!=='newcomer')return;
+  if(questComplete(cur.id)){
+    cur.role='active';saveCur();
+    const u=userById(cur.id);if(u)u.role='active';saveUsers();
+    setUserLabel();
+    modal(`<h2>🎉 You're now Active!</h2>
+      <p>You've contributed enough to unlock full reviews and trusted status. Your spots will now be auto-verified. Thanks for helping build the map!</p>
+      <button class="btn-gold" style="width:100%;margin-top:10px" onclick="closeModal()">Let's go 🍺</button>`);
+  }
+}
+function questProgressHTML(uid){
+  const{spotsAdded,reviewCount,uniqueSpotsReviewed}=getUserStats(uid);
+  const aSpot=Math.min(spotsAdded,QUEST_A_SPOTS),aRev=Math.min(reviewCount,QUEST_A_REVIEWS);
+  const bSpots=Math.min(uniqueSpotsReviewed,QUEST_B_SPOTS);
+  const aDone=spotsAdded>=QUEST_A_SPOTS&&reviewCount>=QUEST_A_REVIEWS;
+  const bDone=uniqueSpotsReviewed>=QUEST_B_SPOTS;
+  return `<div class="quest-box">
+    <h4>🗺 Quest — Unlock Active status</h4>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 10px">Complete either path to unlock full reviews and auto-verified spots.</p>
+    <div class="quest-path">
+      <div class="label" style="color:${aDone?'var(--green)':'var(--ink)'}">Path A: Explorer ${aDone?'✓':''}</div>
+      <div class="q-step"><span>Add ${QUEST_A_SPOTS} spot</span><span>${aSpot}/${QUEST_A_SPOTS}</span></div>
+      <div class="q-bar"><div class="q-bar-fill${aSpot>=QUEST_A_SPOTS?' done':''}" style="width:${(aSpot/QUEST_A_SPOTS)*100}%"></div></div>
+      <div class="q-step"><span>Write ${QUEST_A_REVIEWS} reviews (any spots)</span><span>${aRev}/${QUEST_A_REVIEWS}</span></div>
+      <div class="q-bar"><div class="q-bar-fill${aRev>=QUEST_A_REVIEWS?' done':''}" style="width:${(aRev/QUEST_A_REVIEWS)*100}%"></div></div>
+    </div>
+    <div class="quest-path">
+      <div class="label" style="color:${bDone?'var(--green)':'var(--ink)'}">Path B: Reviewer ${bDone?'✓':''}</div>
+      <div class="q-step"><span>Review ${QUEST_B_SPOTS} different spots</span><span>${bSpots}/${QUEST_B_SPOTS}</span></div>
+      <div class="q-bar"><div class="q-bar-fill${bSpots>=QUEST_B_SPOTS?' done':''}" style="width:${(bSpots/QUEST_B_SPOTS)*100}%"></div></div>
+    </div>
+  </div>`;
+}
+
+/* ============ MAP ============ */
+const map=L.map('map').setView(HANOI,13);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>'}).addTo(map);
+const cluster=L.markerClusterGroup({maxClusterRadius:45});map.addLayer(cluster);
+let tmpMarker=null,adding=false;
+function pinIcon(closed,unverified){
+  let cls='bia-pin';
+  if(closed)cls+=' closed';
+  else if(unverified)cls+=' unverified';
+  return L.divIcon({className:'',html:`<div class="${cls}">🍺</div>`,iconSize:[44,44],iconAnchor:[22,44]});
+}
+function drawMarkers(){
+  cluster.clearLayers();
+  visibleSpots().forEach(s=>{
+    const closed=s.status!=='active',unverified=!s.verified;
+    const m=L.marker([s.lat,s.lng],{icon:pinIcon(closed,unverified)});
+    const badge=unverified?'<span style="color:#e65100;font-size:11px"> · unverified</span>':'';
+    m.bindPopup(`<b>${esc(s.name)}</b>${badge}<br>${glassStr(spotAvg(s))} ${s.reviews.length?'('+s.reviews.length+')':''}<br><small>${esc(s.pricePerGlass||'')}</small>`);
+    m.on('click',()=>showDetail(s.id));cluster.addLayer(m);
+  });
+}
+
+/* ============ FILTERING ============ */
+function visibleSpots(){
+  const q=(document.getElementById('searchBox').value||'').toLowerCase();
+  const d=document.getElementById('fDistrict').value,v=document.getElementById('fVibe').value;
+  const minR=+document.getElementById('fRating').value,maxP=+document.getElementById('fPrice').value;
+  const openOnly=document.getElementById('fOpen').checked;
+  const verifiedOnly=document.getElementById('fVerified').checked;
+  const radiusSel=document.getElementById('fRadius');
+  const maxKm=radiusSel&&radiusSel.style.display!=='none'?+radiusSel.value:0;
+  return spots.filter(s=>{
+    if(maxKm&&window._me&&dist(window._me[0],window._me[1],s.lat,s.lng)>maxKm)return false;
+    if(q&&!(s.name.toLowerCase().includes(q)||(s.address||'').toLowerCase().includes(q)))return false;
+    if(d&&s.district!==d)return false;
+    if(v&&!(s.vibes||[]).includes(v))return false;
+    if(minR&&spotAvg(s)<minR)return false;
+    if(maxP){const p=parseInt((s.pricePerGlass||'').replace(/\D/g,''))||0;if(!p||p>maxP)return false;}
+    if(openOnly&&!isOpen(s))return false;
+    if(verifiedOnly&&!s.verified)return false;
+    return true;
+  });
+}
+
+/* ============ LIST ============ */
+function renderList(sortByDist){
+  adding=false;if(tmpMarker){map.removeLayer(tmpMarker);tmpMarker=null}
+  drawMarkers();
+  let list=visibleSpots();
+  if(sortByDist&&window._me)list=list.slice().sort((a,b)=>dist(window._me[0],window._me[1],a.lat,a.lng)-dist(window._me[0],window._me[1],b.lat,b.lng));
+  else list=list.slice().sort((a,b)=>spotAvg(b)-spotAvg(a));
+  const body=document.getElementById('sidebarBody');
+  if(!spots.length){body.innerHTML=emptyState();return}
+  if(!list.length){body.innerHTML='<div class="empty-note">No spots match your filters.</div>';return}
+  body.innerHTML=list.map(s=>{
+    const open=isOpen(s),closed=s.status!=='active';
+    const dtxt=(sortByDist&&window._me)?` · ${dist(window._me[0],window._me[1],s.lat,s.lng).toFixed(1)}km`:'';
+    const verBadge=s.verified?'':`<span class="chip unverified">Unverified</span> `;
+    return `<div class="list-item" onclick="showDetail('${s.id}')">
+      <h3>${verBadge}${esc(s.name)} ${closed?'<span class="chip closed">'+(s.status==='perm_closed'?'Closed':'Temp closed')+'</span>':(open?'<span class="chip open">Open</span>':'')}</h3>
+      <div class="meta"><span>${glassStr(spotAvg(s))} ${s.reviews.length?'('+s.reviews.length+')':'<i>new</i>'}</span>
+      <span>${esc(s.district||'')}${dtxt} · ${esc(s.pricePerGlass||'')}</span></div></div>`;
+  }).join('');
+}
+function emptyState(){
+  return `<div class="empty-note">🍺 No spots yet.<br><br>
+    Tap <b>+ Add spot</b> to put a bia hơi on the map — no sign-up needed!
+    <br><br><button class="btn-line btn-sm" onclick="loadSamples()">Load 3 sample spots (to explore)</button></div>`;
+}
+
+/* ============ DETAIL ============ */
+let chosen={};
+function showDetail(id){
+  openSidebar();const s=byId(id);if(!s)return;
+  map.setView([s.lat,s.lng],16);
+  const admin=cur&&cur.role==='admin';
+  const canEdit=(cur&&s.createdBy===cur.id)||admin;
+  const canVerify=cur&&!s.verified;
+  const facts=[
+    ['District',s.district],['Address',s.address],['Price / glass',s.pricePerGlass],
+    ['Hours',(s.openH!=null?fmtHr(s.openH)+' – '+fmtHr(s.closeH):'')],
+    ['Seating',s.seating],['Payment',s.payment],['Vibe',(s.vibes||[]).join(', ')]
+  ].filter(f=>f[1]);
+  const gmaps=`https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`;
+  const addedBy=s.createdBy&&s.createdBy!=='anon'?userById(s.createdBy):null;
+  const body=document.getElementById('sidebarBody');
+  body.innerHTML=`<div class="panel detail">
+    <span class="back" onclick="renderList()">← All spots</span>
+    <h2>${esc(s.name)}</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:4px">
+      ${s.verified?'<span class="chip verified">✓ Verified</span>':'<span class="chip unverified">⚠ Unverified</span>'}
+      ${isOpen(s)?'<span class="chip open">Open now</span>':''}
+      ${s.status==='perm_closed'?'<span class="chip closed">Permanently closed</span>':s.status==='temp_closed'?'<span class="chip closed">Temporarily closed</span>':''}
+    </div>
+    ${!s.verified?`<div class="hint-verify">Added anonymously — not yet verified.${canVerify?' If you\'ve been here and it\'s real, hit <b>Verify</b>.':' Sign in to verify it.'}</div>`:''}
+    <div style="margin:8px 0">${glassStr(spotAvg(s))} <b>${spotAvg(s)?spotAvg(s).toFixed(1):'–'}</b> <small style="color:var(--muted)">${s.reviews.length} review${s.reviews.length===1?'':'s'}</small></div>
+    <div class="factbox">
+      ${facts.map(f=>`<div class="factrow"><b>${f[0]}</b><span>${esc(f[1])}</span></div>`).join('')}
+      ${addedBy?`<div class="factrow"><b>Added by</b><span><a style="color:var(--blue);cursor:pointer" onclick="showProfile('${addedBy.id}')">${esc(addedBy.name)}</a></span></div>`:'<div class="factrow"><b>Added by</b><span style="color:var(--muted)">Anonymous</span></div>'}
+    </div>
+    <div class="actions">
+      <a href="${gmaps}" target="_blank"><button class="btn-gold btn-sm">🧭 Directions</button></a>
+      ${canVerify?`<button class="btn-verify" onclick="verifySpot('${s.id}')">✓ Verify spot</button>`:''}
+      <button class="btn-line btn-sm" onclick="reportSpot('${s.id}')">⚑ Report</button>
+      ${canEdit?`<button class="btn-line btn-sm" onclick="startAdd('${s.id}')">✎ Edit</button>`:''}
+      ${admin?`<button class="btn-line btn-sm" onclick="setStatus('${s.id}')">Status</button><button class="btn-line btn-sm" onclick="delSpot('${s.id}')">🗑 Delete</button>`:''}
+    </div>
+    ${s.desc?`<div class="desc">${esc(s.desc)}</div>`:''}
+    <div class="sec">Photos</div>
+    <div class="photos">${s.photos.length?s.photos.map((p,i)=>`<img src="${p}" onclick="viewPhoto('${s.id}',${i})">`).join(''):'<div style="grid-column:1/4;color:var(--muted);font-size:13px">No photos yet.</div>'}</div>
+    <label class="btn-gold btn-sm" style="display:inline-block;margin-top:8px">📷 Add photo<input type="file" accept="image/*" style="display:none" onchange="addPhoto('${s.id}',this)"></label>
+    <div class="sec">Reviews</div>
+    <div>${s.reviews.length?s.reviews.map(r=>reviewHTML(s,r)).join(''):'<div style="color:var(--muted);font-size:13px">No reviews yet — be the first.</div>'}</div>
+    <div class="sec">Add your review</div>
+    ${reviewFormHTML(s.id)}
+  </div>`;
+  chosen={};
+}
+
+/* ============ VERIFY ============ */
+function verifySpot(id){
+  if(!cur)return;
+  const s=byId(id);
+  s.verified=true;s.verifiedBy=cur.id;s.verifiedAt=new Date().toISOString().slice(0,10);
+  saveSpots();showDetail(id);
+}
+
+/* ============ REVIEWS ============ */
+function reviewHTML(s,r){
+  const admin=cur&&cur.role==='admin';
+  const helped=r.helpful?r.helpful.length:0;
+  const didI=cur&&r.helpful&&r.helpful.includes(cur.id);
+  const isAnon=!r.userId||r.userId==='anon';
+  const whoLink=isAnon
+    ?`<span style="color:var(--muted)">Anonymous</span>`
+    :`<a style="color:inherit;cursor:pointer" onclick="showProfile('${r.userId}')">${esc(r.who)}</a>`;
+  return `<div class="review">
+    <div class="who"><span>${whoLink} ${glassStr(revAvg(r))}</span>
+      ${admin?`<button class="vote" style="color:var(--red)" onclick="delReview('${s.id}','${r.id}')">delete</button>`:''}</div>
+    <div class="rgrid">${RCATS.filter(c=>r.ratings[c[0]]>0).map(c=>`${c[1]}: ${r.ratings[c[0]]}🍺`).join(' · ')}</div>
+    ${r.txt?`<div class="txt">${esc(r.txt)}</div>`:''}
+    <div class="when">${r.when}${r.txt?` · <button class="vote" onclick="voteHelpful('${s.id}','${r.id}')">${didI?'✓ Helpful':'👍 Helpful'}${helped?' ('+helped+')':''}</button>`:''}</div>
+  </div>`;
+}
+
+function reviewFormHTML(id){
+  // Anonymous: ratings only, no text
+  if(!cur){
+    return `<div>
+      <div class="hint" style="margin-bottom:8px">🍺 Rate this spot without signing in. <a style="color:var(--gold-dark);cursor:pointer;font-weight:700" onclick="authModal(false)">Sign in</a> or <a style="color:var(--gold-dark);cursor:pointer;font-weight:700" onclick="authModal(true)">create a free account</a> to write a review.</div>
+      ${RCATS.map(c=>`
+      <div class="rate-row"><span class="lbl">${c[1]}</span>
+        <span class="gpick" id="gp_${c[0]}">${[1,2,3,4,5].map(i=>`<span onclick="pick('${c[0]}',${i})">🍺</span>`).join('')}<span class="clr" onclick="pick('${c[0]}',0)">clear</span></span></div>`).join('')}
+      <button class="btn-gold" style="width:100%;margin-top:8px" onclick="submitReview('${id}')">Post rating</button>
+    </div>`;
+  }
+  const isNewcomer=cur.role==='newcomer';
+  const textNote=isNewcomer
+    ?`<span style="color:var(--orange)"> — ${NEWCOMER_CHAR_LIMIT} char limit until you reach Active status</span>`
+    :'';
+  const charCounter=isNewcomer
+    ?`<div class="char-count" id="charCount">0 / ${NEWCOMER_CHAR_LIMIT}</div>`
+    :'';
+  const oninput=isNewcomer
+    ?`oninput="updateCharCount(this)"`
+    :'';
+  return `<div>
+    ${isNewcomer?`<div class="hint-upgrade">✨ Write reviews (up to ${NEWCOMER_CHAR_LIMIT} chars). Complete the quest in your profile to unlock full reviews!</div>`:''}
+    ${RCATS.map(c=>`
+    <div class="rate-row"><span class="lbl">${c[1]}</span>
+      <span class="gpick" id="gp_${c[0]}">${[1,2,3,4,5].map(i=>`<span onclick="pick('${c[0]}',${i})">🍺</span>`).join('')}<span class="clr" onclick="pick('${c[0]}',0)">clear</span></span></div>`).join('')}
+    <label style="margin-top:10px">Your thoughts${textNote}</label>
+    <textarea id="revTxt" placeholder="What's the crowd like? Best snacks? What makes it special…" ${oninput}></textarea>
+    ${charCounter}
+    <button class="btn-gold" style="width:100%;margin-top:8px" onclick="submitReview('${id}')">Post review</button>
+  </div>`;
+}
+
+function updateCharCount(el){
+  const c=document.getElementById('charCount');if(!c)return;
+  const len=el.value.length;
+  c.textContent=`${len} / ${NEWCOMER_CHAR_LIMIT}`;
+  c.className='char-count'+(len>NEWCOMER_CHAR_LIMIT?' over':'');
+}
+
+function pick(cat,v){chosen[cat]=v;const sp=document.querySelectorAll('#gp_'+cat+' span');sp.forEach((el,i)=>{if(i<5)el.classList.toggle('on',i<v)})}
+
+function submitReview(id){
+  const s=byId(id);
+  const ratings={};RCATS.forEach(c=>ratings[c[0]]=chosen[c[0]]||0);
+  let txt='';
+  const txtEl=document.getElementById('revTxt');
+  if(txtEl)txt=txtEl.value.trim();
+  // Newcomer char limit check
+  if(cur&&cur.role==='newcomer'&&txt.length>NEWCOMER_CHAR_LIMIT){
+    alert(`Reviews are limited to ${NEWCOMER_CHAR_LIMIT} characters until you reach Active status. Currently: ${txt.length} chars.`);return;
+  }
+  if(!Object.values(ratings).some(x=>x>0)&&!txt){
+    alert('Add at least one rating.');return;
+  }
+  const who=cur?cur.name:'Anonymous';
+  const userId=cur?cur.id:'anon';
+  s.reviews.unshift({id:'r'+Date.now(),userId,who,ratings,txt,when:new Date().toISOString().slice(0,10),helpful:[]});
+  saveSpots();
+  if(cur)checkAndUpgrade();
+  showDetail(id);
+}
+
+function voteHelpful(sid,rid){
+  if(!cur)return alert('Sign in to vote helpful.');
+  const r=byId(sid).reviews.find(x=>x.id===rid);
+  r.helpful=r.helpful||[];
+  const i=r.helpful.indexOf(cur.id);
+  i>=0?r.helpful.splice(i,1):r.helpful.push(cur.id);
+  saveSpots();showDetail(sid);
+}
+function delReview(sid,rid){if(!confirm('Delete this review?'))return;const s=byId(sid);s.reviews=s.reviews.filter(x=>x.id!==rid);saveSpots();showDetail(sid)}
+function addPhoto(id,input){const f=input.files[0];if(!f)return;const rd=new FileReader();rd.onload=e=>{byId(id).photos.push(e.target.result);saveSpots();showDetail(id)};rd.readAsDataURL(f)}
+function viewPhoto(id,i){modal(`<img class="full" src="${byId(id).photos[i]}">`)}
+function reportSpot(id){const why=prompt('Report this spot (e.g. closed down, wrong location, duplicate):');if(why){const s=byId(id);s.reports=s.reports||[];s.reports.push({by:cur?cur.name:'Anonymous',why,when:new Date().toISOString().slice(0,10)});saveSpots();alert('Thanks — an admin will review this.')}}
+function setStatus(id){const s=byId(id);modal(`<h2>Set status</h2><p>Current: ${s.status}</p>
+  <div class="seg"><button onclick="applyStatus('${id}','active')" class="${s.status==='active'?'on':''}">Active</button>
+  <button onclick="applyStatus('${id}','temp_closed')" class="${s.status==='temp_closed'?'on':''}">Temp closed</button>
+  <button onclick="applyStatus('${id}','perm_closed')" class="${s.status==='perm_closed'?'on':''}">Closed</button></div>`)}
+function applyStatus(id,st){byId(id).status=st;saveSpots();closeModal();showDetail(id)}
+function delSpot(id){if(!confirm('Permanently delete this spot and all its reviews?'))return;spots=spots.filter(s=>s.id!==id);saveSpots();renderList()}
+
+/* ============ ADD / EDIT SPOT ============ */
+function startAdd(editId){
+  openSidebar();adding=!editId;
+  const s=editId?byId(editId):null;
+  const body=document.getElementById('sidebarBody');
+  body.innerHTML=`<div class="panel"><span class="back" onclick="renderList()">← Cancel</span>
+    <h2 style="font-size:19px">${s?'Edit spot':'Add a Bia Hơi spot'}</h2>
+    ${s?'':'<div class="hint">📌 Click the map to drop the pin, or type coordinates below.<br>No sign-up needed to add a spot!</div>'}
+    <label>Name *</label><input id="f_name" value="${s?esc(s.name):''}" placeholder="e.g. Bia Hơi Minh">
+    <label>District</label><select id="f_district">${DISTRICTS.map(d=>`<option ${s&&s.district===d?'selected':''}>${d}</option>`).join('')}</select>
+    <label>Address</label><input id="f_addr" value="${s?esc(s.address):''}" placeholder="Street, area">
+    <label>Price per glass</label><input id="f_price" value="${s?esc(s.pricePerGlass):'15,000₫'}" placeholder="15,000₫">
+    <div class="row2"><div><label>Opens (24h)</label><input id="f_open" type="number" min="0" max="23" value="${s&&s.openH!=null?s.openH:16}"></div>
+    <div><label>Closes (24h)</label><input id="f_close" type="number" min="0" max="30" value="${s&&s.closeH!=null?s.closeH:23}"></div></div>
+    <label>Seating</label><input id="f_seat" value="${s?esc(s.seating):'Outdoor · plastic stools'}" placeholder="Outdoor · plastic stools">
+    <label>Payment</label><input id="f_pay" value="${s?esc(s.payment):'Cash or QR code transfer'}">
+    <label>Vibe tags</label><div class="tagpick" id="f_vibes">${VIBES.map(v=>`<label class="${s&&(s.vibes||[]).includes(v)?'on':''}"><input type="checkbox" value="${v}" ${s&&(s.vibes||[]).includes(v)?'checked':''} onchange="this.parentElement.classList.toggle('on',this.checked)">${v}</label>`).join('')}</div>
+    <label>Description</label><textarea id="f_desc" placeholder="Vibe, crowd, why go…">${s?esc(s.desc):''}</textarea>
+    <div class="row2"><div><label>Latitude *</label><input id="f_lat" value="${s?s.lat:''}" placeholder="21.0345"></div>
+    <div><label>Longitude *</label><input id="f_lng" value="${s?s.lng:''}" placeholder="105.8525"></div></div>
+    <button class="btn-gold" style="width:100%;margin-top:14px" onclick="saveSpot('${editId||''}')">${s?'Save changes':'Submit spot'}</button>
+    ${!cur&&!s?`<p style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center">Submitting anonymously. <a style="color:var(--gold-dark);cursor:pointer" onclick="authModal(true)">Create a free account</a> to track your contributions.</p>`:''}
+    </div>`;
+}
+
+map.on('click',e=>{if(!adding)return;document.getElementById('f_lat').value=e.latlng.lat.toFixed(5);document.getElementById('f_lng').value=e.latlng.lng.toFixed(5);if(tmpMarker)map.removeLayer(tmpMarker);tmpMarker=L.marker(e.latlng,{icon:pinIcon(false,true)}).addTo(map)});
+
+function saveSpot(editId){
+  const name=val('f_name'),lat=parseFloat(val('f_lat')),lng=parseFloat(val('f_lng'));
+  if(!name)return alert('Add a name.');
+  if(isNaN(lat)||isNaN(lng))return alert('Click the map or enter coordinates.');
+  const vibes=[...document.querySelectorAll('#f_vibes input:checked')].map(i=>i.value);
+  const data={name,lat,lng,district:val('f_district'),address:val('f_addr'),pricePerGlass:val('f_price'),
+    openH:val('f_open')===''?null:+val('f_open'),closeH:val('f_close')===''?null:+val('f_close'),
+    seating:val('f_seat'),payment:val('f_pay'),vibes,desc:val('f_desc')};
+  if(editId){
+    const existing=byId(editId);
+    Object.assign(existing,data);
+    if(cur&&!existing.verified){existing.verified=true;existing.verifiedBy=cur.id;existing.verifiedAt=new Date().toISOString().slice(0,10);}
+    saveSpots();if(tmpMarker){map.removeLayer(tmpMarker);tmpMarker=null}
+    if(cur)checkAndUpgrade();
+    renderList();showDetail(editId);return;
+  }
+  const dup=spots.find(s=>dist(s.lat,s.lng,lat,lng)<0.05);
+  if(dup&&!confirm(`"${dup.name}" is very close by (under 50m). Add anyway?`))return;
+  const createdBy=cur?cur.id:'anon';
+  // Active and admin spots are auto-verified; newcomer and anon are not
+  const verified=cur&&(cur.role==='active'||cur.role==='admin');
+  const verifiedBy=verified?cur.id:null;
+  const verifiedAt=verified?new Date().toISOString().slice(0,10):null;
+  const s={id:'s'+Date.now(),...data,status:'active',photos:[],reviews:[],
+    createdBy,createdAt:Date.now(),verified,verifiedBy,verifiedAt};
+  spots.push(s);saveSpots();
+  if(tmpMarker){map.removeLayer(tmpMarker);tmpMarker=null}
+  if(cur)checkAndUpgrade();
+  renderList();showDetail(s.id);
+}
+const val=id=>{const el=document.getElementById(id);return el?el.value.trim():''};
+
+/* ============ PROFILES ============ */
+function showProfile(uid){
+  const u=userById(uid);if(!u)return;openSidebar();
+  const added=spots.filter(s=>s.createdBy===uid);
+  let revs=0;spots.forEach(s=>s.reviews.forEach(r=>{if(r.userId===uid)revs++}));
+  const verified=spots.filter(s=>s.verifiedBy===uid).length;
+  const isOwn=cur&&cur.id===uid;
+  const isNewcomer=u.role==='newcomer';
+  document.getElementById('sidebarBody').innerHTML=`<div class="panel">
+    <span class="back" onclick="renderList()">← All spots</span>
+    <h2>${esc(u.name)} ${rolePill(u.role)}</h2>
+    <p style="color:var(--muted);font-size:13px">Member since ${u.since||'—'}</p>
+    <div class="factbox">
+      <div class="factrow"><b>Spots added</b><span>${added.length}</span></div>
+      <div class="factrow"><b>Reviews written</b><span>${revs}</span></div>
+      <div class="factrow"><b>Spots verified</b><span>${verified}</span></div>
+    </div>
+    ${isOwn&&isNewcomer?questProgressHTML(uid):''}
+    <div class="sec">Spots they added</div>
+    ${added.length?added.map(s=>`<div class="list-item" onclick="showDetail('${s.id}')"><h3>${esc(s.name)}</h3><div class="meta"><span>${glassStr(spotAvg(s))}</span><span>${esc(s.district||'')}</span></div></div>`).join(''):'<div style="color:var(--muted);font-size:13px">None yet.</div>'}
+  </div>`;
+}
+
+/* ============ AUTH ============ */
+function pwField(id,placeholder,mb='10px'){
+  return `<div style="position:relative;margin-bottom:${mb}">
+    <input id="${id}" type="password" placeholder="${placeholder}" style="width:100%;padding:8px 36px 8px 8px;border:1px solid #ddd;border-radius:7px">
+    <span onclick="togglePw('${id}')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:16px;user-select:none" id="${id}_eye">👁</span>
+  </div>`;
+}
+function togglePw(id){
+  const el=document.getElementById(id);
+  el.type=el.type==='password'?'text':'password';
+}
+function authModal(signup){
+  modal(`<h2>${signup?'Create a free account 🍺':'Welcome back 🍺'}</h2>
+   <p>${signup?'Free to join. Sign up to rate spots, write reviews, and track your contributions.':'Sign in to your account.'}</p>
+   <div>
+     <input id="a_name" placeholder="Display name" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px;margin-bottom:6px;display:${signup?'block':'none'}">
+     <input id="a_email" placeholder="Email" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px;margin-bottom:6px">
+     ${pwField('a_pw','Password','6px')}
+     ${signup?`${pwField('a_pw2','Confirm password','6px')}
+     <div id="codeToggle" style="text-align:center;margin-bottom:8px"><a style="font-size:12px;color:var(--muted);cursor:pointer" onclick="document.getElementById('codeWrap').style.display='block';document.getElementById('codeToggle').style.display='none'">Have an invite code?</a></div>
+     <div id="codeWrap" style="display:none;margin-bottom:10px"><input id="a_code" placeholder="Invite code" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px"></div>`:''}
+     <button class="btn-gold" style="width:100%;margin-bottom:8px" onclick="${signup?'doSignup()':'doLogin()'}">${signup?'Create account':'Sign in'}</button>
+     <p style="text-align:center;margin:0;font-size:13px">${signup?'Have an account? <a style="color:var(--gold-dark);cursor:pointer" onclick="authModal(false)">Sign in</a>':'New here? <a style="color:var(--gold-dark);cursor:pointer" onclick="authModal(true)">Create a free account</a>'}</p>
+   </div>`);
+}
+
+function doSignup(){
+  const name=val('a_name'),email=val('a_email').toLowerCase(),pw=val('a_pw');
+  const pw2=val('a_pw2');
+  const code=(document.getElementById('a_code')||{}).value||'';
+  if(!name||!email||!pw)return alert('Please fill in name, email, and password.');
+  if(pw!==pw2)return alert('Passwords don\'t match — please check and try again.');
+  if(pw.length<6)return alert('Password must be at least 6 characters.');
+  if(users.find(u=>u.email===email))return alert('That email is already registered. Sign in instead.');
+  // Determine role from invite code (or none)
+  let role='newcomer';
+  if(code.trim()===ADMIN_CODE)role='admin';
+  else if(code.trim()===ACTIVE_CODE)role='active';
+  else if(code.trim()&&code.trim()!==ADMIN_CODE&&code.trim()!==ACTIVE_CODE){
+    return alert('Invalid invite code. Leave it blank to join as a Newcomer, or ask an admin for the correct code.');
+  }
+  const u={id:'u'+Date.now(),name,email,pw,role,since:new Date().toISOString().slice(0,10)};
+  users.push(u);saveUsers();
+  cur={id:u.id,name:u.name,role:u.role};saveCur();
+  closeModal();setUserLabel();renderList();
+  if(role==='newcomer'){
+    setTimeout(()=>modal(`<h2>Welcome, ${esc(name)}! 🍺</h2>
+      <p>You can rate spots and write reviews to start. The more you contribute, the more you unlock!</p>
+      <button class="btn-gold" style="width:100%" onclick="closeModal()">Let's explore 🗺</button>`),200);
+  }
+}
+
+function doLogin(){
+  const email=val('a_email').toLowerCase(),pw=val('a_pw');
+  const u=users.find(x=>x.email===email&&x.pw===pw);
+  if(!u)return alert('Wrong email or password.');
+  cur={id:u.id,name:u.name,role:u.role};saveCur();closeModal();setUserLabel();renderList();
+}
+
+function logout(){cur=null;saveCur();setUserLabel();renderList()}
+
+function setUserLabel(){
+  document.getElementById('userLabel').innerHTML=cur
+    ?`👤 <a style="color:#fff;cursor:pointer" onclick="showProfile('${cur.id}')">${esc(cur.name)}</a> ${rolePill(cur.role)} <span style="cursor:pointer;text-decoration:underline;font-size:12px" onclick="logout()">sign out</span>`
+    :`<button class="btn-ghost btn-sm" onclick="authModal(false)">Sign in</button> <button class="btn-ghost btn-sm" onclick="authModal(true)">Join</button>`
+}
+
+/* ============ NEAR ME + EXPORT ============ */
+function nearMe(){
+  if(!navigator.geolocation)return alert('Location not available on this device.');
+  navigator.geolocation.getCurrentPosition(p=>{
+    window._me=[p.coords.latitude,p.coords.longitude];
+    map.setView(window._me,15);
+    if(window._meMarker)window._meMarker.remove();
+    window._meMarker=L.circleMarker(window._me,{radius:9,color:'#185fa5',fillColor:'#378add',fillOpacity:.9}).addTo(map).bindPopup('📍 You are here');
+    // Show radius dropdown, default to 1km
+    const sel=document.getElementById('fRadius');
+    sel.style.display='';sel.value='1';
+    document.getElementById('nearMeBtn').textContent='📍 Located';
+    renderList(true);
+  },()=>alert('Could not get your location — please allow location access.'));
+}
+function exportData(){
+  const blob=new Blob([JSON.stringify({spots,users:users.map(u=>({...u,pw:undefined}))},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bia-hoi-data.json';a.click();
+}
+
+/* ============ SAMPLES ============ */
+function loadSamples(){
+  if(!spots.length){
+    const me=cur?cur.id:'demo';
+    spots=[
+     {id:'s_a',name:'Bia Hơi Corner (Tạ Hiện)',lat:21.03448,lng:105.85247,district:'Hoàn Kiếm',address:'Tạ Hiện & Lương Ngọc Quyến',pricePerGlass:'15,000₫',openH:16,closeH:24,seating:'Outdoor · plastic stools',payment:'Cash or QR code transfer',vibes:['Touristy','Lively','Street-side'],desc:'The legendary Beer Corner — plastic stools spilling into the street.',status:'active',photos:[],reviews:[{id:'r1',userId:'demo',who:'Demo User',ratings:{beer:5,food:4,atmosphere:5,clean:3,value:5},txt:'Unbeatable atmosphere, get there before 7pm.',when:'2026-05-12',helpful:[]}],createdBy:me,createdAt:Date.now(),verified:true,verifiedBy:me,verifiedAt:'2026-05-12'},
+     {id:'s_b',name:'Bia Hơi Hà Nội (Đường Thành)',lat:21.03206,lng:105.84600,district:'Hoàn Kiếm',address:'34 Đường Thành',pricePerGlass:'12,000₫',openH:15,closeH:23,seating:'Indoor + street stools',payment:'Cash or QR code transfer',vibes:['Local-only','Cheap'],desc:'Proper local joint, great nem chua rán.',status:'active',photos:[],reviews:[],createdBy:'anon',createdAt:Date.now(),verified:false,verifiedBy:null,verifiedAt:null},
+     {id:'s_c',name:'Bia Hơi Lan Chín',lat:21.00580,lng:105.84360,district:'Hai Bà Trưng',address:'Near Bách Khoa University',pricePerGlass:'10,000₫',openH:16,closeH:24,seating:'Outdoor · low stools',payment:'Cash or QR code transfer',vibes:['Local-only','Cheap','Lively'],desc:'Student favourite, rock-bottom prices.',status:'active',photos:[],reviews:[],createdBy:'anon',createdAt:Date.now(),verified:false,verifiedBy:null,verifiedAt:null}
+    ];saveSpots();
+  }
+  renderList();
+}
+
+/* ============ MODAL / SIDEBAR ============ */
+function modal(html){closeModal();const bg=document.createElement('div');bg.className='modal-bg';bg.id='modal';bg.onclick=e=>{if(e.target===bg)closeModal()};bg.innerHTML='<div clas
