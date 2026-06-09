@@ -58,10 +58,13 @@
   .review .txt{font-size:13px;line-height:1.45;margin-top:3px}
   .review .when{font-size:11px;color:var(--muted);margin-top:4px}
   .vote{font-size:12px;color:var(--blue);cursor:pointer;font-weight:600;background:none;border:none;padding:0}
-  form label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:9px 0 3px}
-  form input,form textarea,form select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;font-size:14px;font-family:inherit}
-  form textarea{resize:vertical;min-height:54px}
-  .row2{display:flex;gap:8px}.row2>div{flex:1}
+  form label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin:0 0 4px;text-transform:uppercase;letter-spacing:.5px}
+  form input,form textarea,form select{width:100%;padding:9px 11px;border:1.5px solid var(--line);border-radius:9px;font-size:14px;font-family:inherit;background:#fff;transition:border-color .15s,box-shadow .15s;color:var(--ink)}
+  form input:focus,form textarea:focus,form select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(245,179,1,.15)}
+  form textarea{resize:vertical;min-height:72px;line-height:1.5}
+  .row2{display:flex;gap:10px}.row2>div{flex:1}
+  .form-section{background:#fbf8f2;border:1px solid var(--line);border-radius:11px;padding:13px 14px;margin:10px 0;display:flex;flex-direction:column;gap:10px}
+  .form-sec-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--line)}
   .rate-row{display:flex;align-items:center;justify-content:space-between;background:#fbf6ea;border:1px solid var(--line);border-radius:8px;padding:7px 11px;margin-top:6px}
   .rate-row .lbl{font-size:13px;font-weight:600}
   .gpick span{font-size:21px;cursor:pointer;color:#dcd4c4}.gpick span.on{color:var(--gold-dark)}
@@ -557,23 +560,48 @@ function startAdd(editId){
   openSidebar();adding=!editId;
   const s=editId?byId(editId):null;
   const body=document.getElementById('sidebarBody');
-  body.innerHTML=`<div class="panel"><span class="back" onclick="renderList()">← Cancel</span>
-    <h2 style="font-size:19px">${s?'Edit spot':'Add a Bia Hơi spot'}</h2>
-    ${s?'':'<div class="hint">📌 Click the map to drop the pin, or type coordinates below.<br>No sign-up needed to add a spot!</div>'}
-    <label>Name *</label><input id="f_name" value="${s?esc(s.name):''}" placeholder="e.g. Bia Hơi Minh">
-    <label>District</label><select id="f_district">${DISTRICTS.map(d=>`<option ${s&&s.district===d?'selected':''}>${d}</option>`).join('')}</select>
-    <label>Address</label><input id="f_addr" value="${s?esc(s.address):''}" placeholder="Street, area">
-    <label>Price per glass</label><input id="f_price" value="${s?esc(s.pricePerGlass):'15,000₫'}" placeholder="15,000₫">
-    <div class="row2"><div><label>Opens (24h)</label><input id="f_open" type="number" min="0" max="23" value="${s&&s.openH!=null?s.openH:16}"></div>
-    <div><label>Closes (24h)</label><input id="f_close" type="number" min="0" max="30" value="${s&&s.closeH!=null?s.closeH:23}"></div></div>
-    <label>Seating</label><input id="f_seat" value="${s?esc(s.seating):'Outdoor · plastic stools'}" placeholder="Outdoor · plastic stools">
-    <label>Payment</label><input id="f_pay" value="${s?esc(s.payment):'Cash or QR code transfer'}">
-    <label>Vibe tags</label><div class="tagpick" id="f_vibes">${VIBES.map(v=>`<label class="${s&&(s.vibes||[]).includes(v)?'on':''}"><input type="checkbox" value="${v}" ${s&&(s.vibes||[]).includes(v)?'checked':''} onchange="this.parentElement.classList.toggle('on',this.checked)">${v}</label>`).join('')}</div>
-    <label>Description</label><textarea id="f_desc" placeholder="Vibe, crowd, why go…">${s?esc(s.desc):''}</textarea>
-    <div class="row2"><div><label>Latitude *</label><input id="f_lat" value="${s?s.lat:''}" placeholder="21.0345"></div>
-    <div><label>Longitude *</label><input id="f_lng" value="${s?s.lng:''}" placeholder="105.8525"></div></div>
-    <button class="btn-gold" style="width:100%;margin-top:14px" onclick="saveSpot('${editId||''}')">${s?'Save changes':'Submit spot'}</button>
-    ${!cur&&!s?`<p style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center">Submitting anonymously. <a style="color:var(--gold-dark);cursor:pointer" onclick="authModal(true)">Create a free account</a> to track your contributions.</p>`:''}
+  body.innerHTML=`<div class="panel" style="padding-bottom:28px">
+    <span class="back" onclick="renderList()">← Cancel</span>
+    <h2 style="font-size:20px;margin:4px 0 2px;font-weight:800">${s?'Edit spot':'Add a spot'}</h2>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 4px">${s?'Update the details below.':'Fill in what you know — every field helps!'}</p>
+    ${s?'':'<div class="hint" style="margin:8px 0 2px">📌 Click the map to drop the pin, or enter coordinates below.</div>'}
+
+    <div class="form-sec-title">Basic info</div>
+    <div class="form-section">
+      <div><label>Name *</label><input id="f_name" value="${s?esc(s.name):''}" placeholder="e.g. Bia Hơi Minh"></div>
+      <div class="row2">
+        <div><label>District</label><select id="f_district">${DISTRICTS.map(d=>`<option ${s&&s.district===d?'selected':''}>${d}</option>`).join('')}</select></div>
+        <div><label>Price per glass</label><input id="f_price" value="${s?esc(s.pricePerGlass):'15,000₫'}" placeholder="15,000₫"></div>
+      </div>
+      <div><label>Address</label><input id="f_addr" value="${s?esc(s.address):''}" placeholder="Street or nearby landmark"></div>
+    </div>
+
+    <div class="form-sec-title">Hours &amp; details</div>
+    <div class="form-section">
+      <div class="row2">
+        <div><label>Opens (24h)</label><input id="f_open" type="number" min="0" max="23" value="${s&&s.openH!=null?s.openH:16}"></div>
+        <div><label>Closes (24h)</label><input id="f_close" type="number" min="0" max="30" value="${s&&s.closeH!=null?s.closeH:23}"></div>
+      </div>
+      <div><label>Seating</label><input id="f_seat" value="${s?esc(s.seating):'Outdoor · plastic stools'}" placeholder="Outdoor · plastic stools"></div>
+      <div><label>Payment</label><input id="f_pay" value="${s?esc(s.payment):'Cash or QR code transfer'}"></div>
+    </div>
+
+    <div class="form-sec-title">Vibe</div>
+    <div class="tagpick" id="f_vibes" style="margin:0 0 4px">${VIBES.map(v=>`<label class="${s&&(s.vibes||[]).includes(v)?'on':''}"><input type="checkbox" value="${v}" ${s&&(s.vibes||[]).includes(v)?'checked':''} onchange="this.parentElement.classList.toggle('on',this.checked)">${v}</label>`).join('')}</div>
+
+    <div class="form-sec-title">Description</div>
+    <textarea id="f_desc" placeholder="Atmosphere, crowd, what makes it special…" style="width:100%;padding:9px 11px;border:1.5px solid var(--line);border-radius:9px;font-size:14px;font-family:inherit;resize:vertical;min-height:80px;background:#fff;color:var(--ink)">${s?esc(s.desc):''}</textarea>
+
+    <div class="form-sec-title">📍 Pin location</div>
+    <div class="form-section">
+      <div class="row2">
+        <div><label>Latitude *</label><input id="f_lat" value="${s?s.lat:''}" placeholder="21.0345"></div>
+        <div><label>Longitude *</label><input id="f_lng" value="${s?s.lng:''}" placeholder="105.8525"></div>
+      </div>
+    </div>
+
+    <button class="btn-gold" style="width:100%;margin-top:16px;padding:12px;font-size:15px;border-radius:10px" onclick="saveSpot('${editId||''}')">${s?'Save changes':'Submit spot'}</button>
+    ${!cur&&!s?`<p style="font-size:12px;color:var(--muted);margin-top:10px;text-align:center">Submitting anonymously. <a style="color:var(--gold-dark);cursor:pointer" onclick="authModal(true)">Create a free account</a> to track your contributions.</p>`:''}
     </div>`;
 }
 
