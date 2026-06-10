@@ -470,6 +470,7 @@ function showDetail(id){
     <div class="actions">
       <a href="${gmaps}" target="_blank"><button class="btn-gold btn-sm">🧭 Directions</button></a>
       ${canVerify?`<button class="btn-verify" onclick="verifySpot('${s.id}')">✓ Verify spot</button>`:''}
+      <button class="btn-line btn-sm" onclick="shareSpot('${s.id}')">🔗 Share</button>
       <button class="btn-line btn-sm" onclick="reportSpot('${s.id}')">⚑ Report</button>
       ${canEdit?`<button class="btn-line btn-sm" onclick="startAdd('${s.id}')">✎ Edit</button>`:''}
       ${admin?`<button class="btn-line btn-sm" onclick="setStatus('${s.id}')">Status</button><button class="btn-line btn-sm" onclick="delSpot('${s.id}')">🗑 Delete</button>`:''}
@@ -655,6 +656,22 @@ async function reportSpot(id){
   await db.from('spots').update({reports}).eq('id',id);
   s.reports=reports;
   alert('Thanks — an admin will review this.');
+}
+async function shareSpot(id){
+  const s=byId(id);
+  const url=`https://woustache-max.github.io/Bia-Hoi-Hanoi/?spot=${encodeURIComponent(id)}`;
+  if(navigator.share){
+    try{
+      await navigator.share({title:s.name||'Bia Hơi Hanoi',text:`Check out ${s.name||'this bia hơi spot'} on Bia Hơi Hanoi 🍺`,url});
+      return;
+    }catch(e){if(e.name==='AbortError')return;}
+  }
+  try{
+    await navigator.clipboard.writeText(url);
+    showToast('🔗 Link copied to clipboard!');
+  }catch(e){
+    prompt('Copy this link:',url);
+  }
 }
 
 async function setStatus(id){
@@ -1254,6 +1271,19 @@ async function init(){
   const pids=[...new Set(spots.map(s=>s.createdBy).filter(id=>id&&id!=='anon'&&id!=='seed'))];
   if(pids.length){const{data:profiles}=await db.from('profiles').select('*').in('id',pids);(profiles||[]).forEach(p=>{profilesCache[p.id]=p;});}
   renderList();
+  // Deep-link: ?spot=ID opens that spot on load
+  const params=new URLSearchParams(window.location.search);
+  const deepSpot=params.get('spot');
+  if(deepSpot){
+    // Wait a tick for markers to render, then open
+    setTimeout(()=>{
+      const s=byId(deepSpot);
+      if(s){
+        map.setView([s.lat,s.lng],17);
+        showDetail(s.id);
+      }
+    },600);
+  }
 }
 
 function badgesFor(uid){
@@ -1302,6 +1332,12 @@ async function awardPhotoBadge(){
   if(b)showBadgeToast(b);
 }
 
+function showToast(msg,duration=2500){
+  const el=document.getElementById('badgeToast');
+  el.innerHTML=msg;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),duration);
+}
 function showBadgeToast(b){
   return new Promise(res=>{
     const el=document.getElementById('badgeToast');
