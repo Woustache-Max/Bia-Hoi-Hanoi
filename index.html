@@ -65,8 +65,11 @@
   .chip.closed{background:#fbe6e6;color:var(--red)}
   .chip.unverified{background:#fff3e0;color:var(--orange);border:1px solid #ffcc80}
   .chip.verified{background:#e8f5e9;color:var(--green)}
-  .list-item{padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+  .list-item{padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer;display:flex;gap:11px;align-items:flex-start}
   .list-item:hover{background:#fff8e6}
+  .list-item .list-thumb{width:62px;height:62px;border-radius:9px;object-fit:cover;flex-shrink:0;background:var(--line)}
+  .list-item .list-thumb-ph{width:62px;height:62px;border-radius:9px;flex-shrink:0;background:linear-gradient(135deg,#f0e8d6,#e8dcc8);display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--gold-dark)}
+  .list-item .list-text{flex:1;min-width:0}
   .list-item h3{margin:0 0 3px;font-size:15px}
   .list-item .meta{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
   .glass{color:var(--gold-dark);letter-spacing:1px}.glass .e{color:#dcd4c4}
@@ -419,10 +422,16 @@ function renderList(sortByDist){
     const open=isOpen(s),closed=s.status!=='active';
     const dtxt=(sortByDist&&window._me)?` · ${dist(window._me[0],window._me[1],s.lat,s.lng).toFixed(1)}km`:'';
     const verBadge=s.verified?'':`<span class="chip unverified">Unverified</span> `;
+    const thumb=s.photos&&s.photos.length
+      ?`<img class="list-thumb" src="${s.photos[0].url}" alt="" loading="lazy">`
+      :`<div class="list-thumb-ph">🍺</div>`;
     return `<div class="list-item" onclick="showDetail('${s.id}')">
-      <h3>${verBadge}${esc(s.name)} ${closed?'<span class="chip closed">'+(s.status==='perm_closed'?'Closed':'Temp closed')+'</span>':(open?'<span class="chip open">Open</span>':'')}</h3>
-      <div class="meta"><span>${glassStr(spotAvg(s))} ${s.reviews.length?'('+s.reviews.length+')':'<i>new</i>'}</span>
-      <span>${esc(s.district||'')}${dtxt} · ${esc(s.pricePerGlass||'')}</span></div></div>`;
+      ${thumb}
+      <div class="list-text">
+        <h3>${verBadge}${esc(s.name)} ${closed?'<span class="chip closed">'+(s.status==='perm_closed'?'Closed':'Temp closed')+'</span>':(open?'<span class="chip open">Open</span>':'')}</h3>
+        <div class="meta"><span>${glassStr(spotAvg(s))} ${s.reviews.length?'('+s.reviews.length+')':'<i>new</i>'}</span>
+        <span>${esc(s.district||'')}${dtxt} · ${esc(s.pricePerGlass||'')}</span></div>
+      </div></div>`;
   }).join('');
 }
 
