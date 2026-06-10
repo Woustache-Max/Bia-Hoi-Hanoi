@@ -336,7 +336,10 @@ function questProgressHTML(uid){
 
 /* ============ MAP ============ */
 const map=L.map('map').setView(HANOI,13);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>'}).addTo(map);
+const CARTO_ATTR='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>';
+const tileLight=L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,attribution:CARTO_ATTR});
+const tileDark=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19,attribution:CARTO_ATTR});
+(localStorage.getItem('theme')==='dark'?tileDark:tileLight).addTo(map);
 const cluster=L.markerClusterGroup({maxClusterRadius:45});map.addLayer(cluster);
 map.on('click',()=>{if(innerWidth<=680)document.getElementById('sidebar').classList.remove('open');});
 let tmpMarker=null,adding=false;
@@ -871,6 +874,8 @@ function toggleDark(){
   document.documentElement.setAttribute('data-theme',dark?'light':'dark');
   document.getElementById('darkBtn').textContent=dark?'🌙':'☀️';
   localStorage.setItem('theme',dark?'light':'dark');
+  if(dark){map.removeLayer(tileDark);tileLight.addTo(map);}
+  else{map.removeLayer(tileLight);tileDark.addTo(map);}
 }
 (function(){
   const t=localStorage.getItem('theme')||'light';
