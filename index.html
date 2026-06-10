@@ -193,8 +193,8 @@
     <span class="spacer"></span>
     <button class="btn-ghost btn-sm mobile-toggle" onclick="toggleSidebar()">☰</button>
     <button id="darkBtn" class="btn-ghost btn-sm" onclick="toggleDark()" title="Toggle dark mode" style="font-size:16px;padding:4px 8px">🌙</button>
-    <span class="user" id="userLabel"></span>
     <button class="btn-gold btn-sm" onclick="startAdd()">+ Add spot</button>
+    <span class="user" id="userLabel"></span>
   </header>
   <div class="sheet-overlay" id="sheetOverlay" onclick="closeSidebar()"></div>
   <div class="main" style="position:relative">
@@ -892,7 +892,7 @@ async function logout(){
 function setUserLabel(){
   document.getElementById('userLabel').innerHTML=cur
     ?`👤 <a style="color:#fff;cursor:pointer" onclick="showProfile('${cur.id}')">${esc(cur.name)}</a> ${rolePill(cur.role)} ${cur.role==='admin'?'<button class="btn-ghost btn-sm" style="padding:3px 8px;font-size:12px" onclick="openAdmin()">⚙ Admin</button>':''} <span style="cursor:pointer;text-decoration:underline;font-size:12px" onclick="logout()">sign out</span>`
-    :`<button class="btn-ghost btn-sm" onclick="authModal(false)">Sign in</button> <button class="btn-ghost btn-sm" onclick="authModal(true)">Join</button>`;
+    :`<button class="btn-ghost btn-sm" onclick="authModal(true)">Join</button> <button class="btn-ghost btn-sm" onclick="authModal(false)">Sign in</button>`;
 }
 
 /* ============ NEAR ME ============ */
