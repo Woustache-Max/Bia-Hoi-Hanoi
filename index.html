@@ -268,6 +268,34 @@
   .lb-tab{flex:1;padding:8px;font-size:12px;font-weight:700;background:var(--card);color:var(--muted);border:none;cursor:pointer;border-right:1px solid var(--line)}
   .lb-tab:last-child{border-right:none}
   .lb-tab.on{background:var(--gold);color:#000}
+
+  /* Quest & Legend styles */
+  @keyframes goldBorder{
+    0%,100%{box-shadow:0 0 0 3px #f5a623,0 0 10px 3px rgba(245,166,35,.4)}
+    50%{box-shadow:0 0 0 3px #ffd740,0 0 18px 6px rgba(255,215,64,.55)}
+  }
+  .gold-anim{animation:goldBorder 2s linear infinite;border-radius:50%}
+  .legends-wall{display:flex;flex-wrap:wrap;gap:16px;padding:6px 0 12px}
+  .legend-card{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;min-width:70px;max-width:86px;text-align:center}
+  .legend-av{width:52px;height:52px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:22px}
+  .legend-lbl{font-size:11px;font-weight:700;color:var(--gold-dark);line-height:1.2;max-width:80px}
+  .legend-name{font-size:12px;color:var(--ink);font-weight:600}
+  .legends-empty{text-align:center;padding:18px;background:var(--paper);border-radius:10px;border:1px dashed var(--line)}
+  .qsec{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin:14px 0 6px;padding:0}
+  .qitem{display:flex;align-items:flex-start;gap:10px;padding:9px 10px;background:var(--paper);border-radius:8px;border:1px solid var(--line);margin-bottom:7px}
+  .qitem.done{border-color:var(--green)}
+  .qi-icon{font-size:20px;line-height:1.2;flex-shrink:0;min-width:24px;text-align:center}
+  .qi-body{flex:1;min-width:0}
+  .qi-name{font-weight:700;font-size:13px;color:var(--ink)}
+  .qi-desc{font-size:11px;color:var(--muted);margin:1px 0 3px}
+  .qprog{height:5px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:3px}
+  .qprog-fill{height:100%;background:var(--gold);border-radius:3px}
+  .qprog-fill.gn{background:var(--green)}
+  .qi-num{font-size:11px;color:var(--muted);margin-top:2px}
+  .qi-chk{font-size:16px;flex-shrink:0;align-self:center}
+  .kotm-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);font-size:13px}
+  [data-theme="dark"] .qitem{background:var(--card)}
+  [data-theme="dark"] .legends-empty{background:var(--card)}
 </style>
 </head>
 <body>
@@ -293,6 +321,7 @@
         </div>
         <button class="btn-line btn-sm" onclick="toggleFilters()">⚲ Filters</button>
         <button class="btn-line btn-sm" onclick="showLeaderboard()">🏆</button>
+        <button class="btn-line btn-sm" onclick="showQuests()" title="Quests & Badges">🎯</button>
         <button class="btn-line btn-sm" id="nearMeBtn" onclick="nearMe()">📍 Near me</button>
         <select id="fRadius" onchange="renderList(true)" style="padding:5px 8px;border:1px solid var(--line);border-radius:7px;font-size:13px;display:none">
           <option value="0.5">Within 500m</option>
@@ -346,16 +375,44 @@ const DISTRICTS=["Hoàn Kiếm","Ba Đình","Đống Đa","Hai Bà Trưng","Tây
 const VIBES=["Touristy","Local-only","Lively","Chill","Cheap","Riverside","Rooftop","Live music","Good for groups","Street-side"];
 const RCATS=[["beer","Beer quality"],["food","Food & snacks"],["atmosphere","Atmosphere & location"],["clean","Cleanliness"],["value","Value for money"]];
 const BADGES=[
-  {id:'first_spot',   icon:'📍', name:'First Pour',       desc:'Added your first bia hơi spot'},
-  {id:'scout',        icon:'🗺️', name:'Scout',            desc:'Added 5 spots to the map'},
-  {id:'cartographer', icon:'🏙️', name:'Cartographer',     desc:'Added 10 spots to the map'},
-  {id:'first_review', icon:'✍️', name:'First Words',      desc:'Wrote your first review'},
-  {id:'regular',      icon:'📝', name:'Regular',          desc:'Wrote 10 reviews'},
-  {id:'critic',       icon:'🎙️', name:'Bia Hơi Critic',   desc:'Wrote 25 reviews'},
-  {id:'photographer', icon:'📷', name:'Photographer',     desc:'Uploaded your first photo'},
-  {id:'verified_spot',icon:'✅', name:'Legit',            desc:'Had one of your spots verified'},
-  {id:'trusted',      icon:'🌟', name:'Trusted Local',    desc:'Had 3 of your spots verified'},
-  {id:'helpful',      icon:'👍', name:'Crowd Favourite',  desc:'Received 10 helpful votes on reviews'},
+  /* Spots */
+  {id:'first_spot',       icon:'📍', name:'First Pour',           desc:'Added your first bia hơi spot'},
+  {id:'scout',            icon:'🔭', name:'Scout',                desc:'Added 5 spots to the map'},
+  {id:'cartographer',     icon:'🏙️', name:'Cartographer',         desc:'Added 15 spots to the map'},
+  /* Reviews */
+  {id:'first_review',     icon:'✍️', name:'First Words',          desc:'Wrote your first review'},
+  {id:'regular',          icon:'📝', name:'Regular',              desc:'Wrote 10 reviews'},
+  {id:'critic',           icon:'🎙️', name:'Bia Hơi Critic',       desc:'Wrote 25 reviews'},
+  {id:'pioneer',          icon:'🆕', name:'Pioneer',              desc:'First to review a new spot'},
+  {id:'wordsmith',        icon:'💬', name:'Wordsmith',            desc:'Wrote 500+ words across your reviews'},
+  {id:'all_rounder',      icon:'🎖️', name:'All-Rounder',          desc:'Rated all 5 categories in 10 reviews'},
+  {id:'beer_sommelier',   icon:'🍺', name:'Beer Sommelier',       desc:'Gave 5-star beer quality to 5 different spots'},
+  /* Photos */
+  {id:'photographer',     icon:'📷', name:'Photographer',         desc:'Uploaded your first photo'},
+  {id:'gallery_owner',    icon:'📸', name:'Gallery Owner',        desc:'Uploaded 10 photos total'},
+  {id:'lensman',          icon:'🎬', name:'Lensman',              desc:'Uploaded photos to 10 different spots'},
+  /* Social */
+  {id:'helpful',          icon:'👍', name:'Crowd Favourite',      desc:'Received 10 helpful votes on reviews'},
+  {id:'community_pillar', icon:'🤝', name:'Community Pillar',     desc:'Received 25 helpful votes on reviews'},
+  /* Verified */
+  {id:'verified_spot',    icon:'✅', name:'Legit',                desc:'Had one of your spots verified'},
+  {id:'trusted',          icon:'🌟', name:'Trusted Local',        desc:'Had 3 of your spots verified'},
+  /* Explorer */
+  {id:'district_explorer',icon:'🗺️', name:'District Explorer',    desc:'Reviewed spots in 4 different districts'},
+  {id:'city_wide',        icon:'🌆', name:'City-Wide',            desc:'Reviewed spots in 7 different districts'},
+  {id:'old_quarter',      icon:'🏘️', name:'Old Quarter Crawler',  desc:'Reviewed 5 spots in Hoàn Kiếm district'},
+  {id:'tay_ho',           icon:'🌊', name:'Tây Hồ Regular',       desc:'Reviewed 3 spots in Tây Hồ district'},
+  {id:'safety_inspector', icon:'🦺', name:'Safety Inspector',     desc:'Reported 3 spots for correction'},
+  /* Time & Vibe */
+  {id:'early_bird',       icon:'⏰', name:'Early Bird',           desc:'Reviewed a spot open before noon'},
+  {id:'golden_hour',      icon:'🌇', name:'Golden Hour',          desc:'Reviewed a spot open before 5pm'},
+  {id:'night_owl',        icon:'🌃', name:'Night Owl',            desc:'Reviewed 3 spots open after 10pm'},
+  {id:'plastic_stool',    icon:'🪑', name:'Plastic Stool Regular',desc:'Reviewed 5 street-side spots'},
+  /* Uncle */
+  {id:'uncle_approved',   icon:'👍', name:'Uncle Approved',       desc:'Uploaded a photo tagged with a thumbs-up'},
+  {id:'full_uncle',       icon:'🤙', name:'Full Uncle',           desc:'Uploaded a photo with 5+ people doing thumbs-up'},
+  /* Legend */
+  {id:'legend',           icon:'🏆', name:'Bia Hơi Legend',       desc:'Earned 15 other badges — a true Hanoi local'},
 ];
 
 /* ============================================================
@@ -615,7 +672,7 @@ function showDetail(id){
     })()}
     <div class="factbox">
       ${facts.map(f=>`<div class="factrow"><b>${f[0]}</b><span>${esc(f[1])}</span></div>`).join('')}
-      ${addedBy?`<div class="factrow"><b>Added by</b><span><a style="color:var(--blue);cursor:pointer" onclick="showProfile('${addedBy.id}')">${esc(addedBy.name)}</a></span></div>`:'<div class="factrow"><b>Added by</b><span style="color:var(--muted)">Anonymous</span></div>'}
+      ${addedBy?`<div class="factrow"><b>Added by</b><span><a style="color:var(--blue);cursor:pointer" onclick="showProfile('${addedBy.id}')">${crownFor(addedBy.id)}${esc(addedBy.name)}</a></span></div>`:'<div class="factrow"><b>Added by</b><span style="color:var(--muted)">Anonymous</span></div>'}
     </div>
     <div class="actions">
       <a href="${gmaps}" target="_blank"><button class="btn-gold btn-sm">🧭 Directions</button></a>
@@ -662,7 +719,7 @@ function reviewHTML(s,r){
   const isAnon=!r.userId||r.userId==='anon';
   const whoLink=isAnon
     ?`<span style="color:var(--muted)">Anonymous</span>`
-    :`<a style="color:inherit;cursor:pointer" onclick="showProfile('${r.userId}')">${esc(r.who)}</a>${inlineBadges(r.userId)}`;
+    :`<a style="color:inherit;cursor:pointer" onclick="showProfile('${r.userId}')">${crownFor(r.userId)}${esc(r.who)}</a>${inlineBadges(r.userId)}`;
   const avg=revAvg(r);
   const avgBadge=avg?`<span style="background:var(--gold);color:#000;font-size:11px;font-weight:800;padding:1px 7px;border-radius:20px;margin-left:4px">${avg.toFixed(1)} 🍺</span>`:'';
   return `<div class="review">
@@ -770,22 +827,43 @@ async function delReview(sid,rid){
 
 async function uploadPhoto(spotId){
   if(!cur||!(cur.role==='active'||cur.role==='admin'))return alert('Active members can upload photos.');
+  window._pendingUploadSpotId=spotId;
+  modal('<h2>📷 Add a Photo</h2>'+
+    '<p style="font-size:13px;color:var(--muted);margin:0 0 14px">Optionally tag your photo before selecting it.</p>'+
+    '<div style="margin-bottom:14px">'+
+    '<label style="display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--line);border-radius:8px;cursor:pointer;margin-bottom:8px">'+
+    '<input type="checkbox" id="tagThumbsUp" style="width:18px;height:18px;margin-top:2px;flex-shrink:0">'+
+    '<div><div style="font-weight:700">👍 Uncle Approved</div><div style="font-size:12px;color:var(--muted)">I\'m doing a thumbs-up in this photo</div></div>'+
+    '</label>'+
+    '<label style="display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--line);border-radius:8px;cursor:pointer">'+
+    '<input type="checkbox" id="tagFullUncle" style="width:18px;height:18px;margin-top:2px;flex-shrink:0">'+
+    '<div><div style="font-weight:700">🤙 Full Uncle</div><div style="font-size:12px;color:var(--muted)">5+ people all doing thumbs-up in the photo</div></div>'+
+    '</label></div>'+
+    '<button class="btn-gold" style="width:100%" onclick="proceedUpload()">Choose Photo & Upload</button>'+
+    '<button class="btn-ghost" style="width:100%;margin-top:8px" onclick="closeModal()">Cancel</button>');
+}
+
+async function proceedUpload(){
+  const spotId=window._pendingUploadSpotId;
+  if(!spotId||!cur)return;
+  const thumbsUp=!!(document.getElementById('tagThumbsUp')&&document.getElementById('tagThumbsUp').checked);
+  const fullUncle=!!(document.getElementById('tagFullUncle')&&document.getElementById('tagFullUncle').checked);
+  closeModal();
   const input=document.createElement('input');
   input.type='file';input.accept='image/jpeg,image/png,image/webp,image/gif';
   input.onchange=async e=>{
     const file=e.target.files[0];if(!file)return;
     if(file.size>5*1024*1024)return alert('Max 5 MB per photo.');
     const ext=file.name.split('.').pop().toLowerCase()||'jpg';
-    const path=`${spotId}/${cur.id}_${Date.now()}.${ext}`;
-    const uploadBtn=document.querySelector('button[onclick*="uploadPhoto"]');
-    if(uploadBtn){uploadBtn.disabled=true;uploadBtn.textContent='⏳ Uploading…';}
+    const path=spotId+'/'+cur.id+'_'+Date.now()+'.'+ext;
+    showToast('⏳ Uploading photo…',10000);
     const{error:upErr}=await db.storage.from('spot-photos').upload(path,file,{contentType:file.type,upsert:false});
-    if(upErr){if(uploadBtn){uploadBtn.disabled=false;uploadBtn.textContent='📷 Add photo';}return alert('Upload failed: '+upErr.message);}
+    if(upErr)return showToast('Upload failed: '+upErr.message);
     const{data:{publicUrl}}=db.storage.from('spot-photos').getPublicUrl(path);
-    const{data:row,error:dbErr}=await db.from('photos').insert({spot_id:spotId,uploaded_by:cur.id,url:publicUrl,path}).select().single();
-    if(dbErr){await db.storage.from('spot-photos').remove([path]);if(uploadBtn){uploadBtn.disabled=false;uploadBtn.textContent='📷 Add photo';}return alert('Save failed: '+dbErr.message);}
+    const{data:row,error:dbErr}=await db.from('photos').insert({spot_id:spotId,uploaded_by:cur.id,url:publicUrl,path,thumbs_up:thumbsUp,full_uncle:fullUncle}).select().single();
+    if(dbErr){await db.storage.from('spot-photos').remove([path]);return showToast('Save failed: '+dbErr.message);}
     const spot=byId(spotId);if(spot){if(!spot.photos)spot.photos=[];spot.photos.push(row);}
-    awardPhotoBadge();
+    await checkBadges();
     showDetail(spotId);
   };
   input.click();
@@ -1019,16 +1097,19 @@ async function showProfile(uid){
   const verified=spots.filter(s=>s.verifiedBy===uid).length;
   const isOwn=cur&&cur.id===uid;
   const isNewcomer=u.role==='newcomer';
+  const hasTitle=!!(u.title);
+  const avClass=hasTitle?' class="gold-anim"':'';
+  const avBorder=hasTitle?'':'border:2px solid var(--gold);';
   const profileThumb=added.length&&added[0].photos&&added[0].photos.length
-    ?`<img src="${added[0].photos[0].url}" style="width:54px;height:54px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);flex-shrink:0" alt="">`
-    :`<div style="width:54px;height:54px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">👤</div>`;
+    ?`<img src="${added[0].photos[0].url}" style="width:54px;height:54px;border-radius:50%;object-fit:cover;${avBorder}flex-shrink:0"${avClass} alt="">`
+    :`<div style="width:54px;height:54px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0"${avClass}>👤</div>`;
   document.getElementById('sidebarBody').innerHTML=`<div class="panel">
     <span class="back" onclick="renderList()">← All spots</span>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
       ${profileThumb}
       <div>
-        <h2 style="margin:0 0 2px">${esc(u.name)} ${rolePill(u.role)}</h2>
-        <div style="font-size:12px;color:var(--muted)">Member since ${u.since||'—'}</div>
+        <h2 style="margin:0 0 2px">${u.title?'<span style="color:var(--gold-dark)">'+u.title.split(' ')[0]+'</span> ':''}${esc(u.name)} ${rolePill(u.role)}</h2>
+        ${u.title?'<div style="font-size:12px;color:var(--gold-dark);font-weight:700;margin-bottom:2px">'+esc(u.title)+'</div>':''}<div style="font-size:12px;color:var(--muted)">Member since ${u.since||'—'}</div>
       </div>
     </div>
     <div class="factbox">
@@ -1515,19 +1596,52 @@ async function init(){
 
 function badgesFor(uid){
   const mySpots=spots.filter(s=>s.createdBy===uid);
-  const myReviews=spots.flatMap(s=>s.reviews).filter(r=>r.userId===uid);
-  const myVerified=spots.filter(s=>s.createdBy===uid&&s.verified);
-  const helpfulVotes=myReviews.reduce((a,r)=>(a+(r.helpful||[]).length),0);
+  const myReviews=[],reviewedDistricts=new Set();
+  spots.forEach(s=>s.reviews.forEach(r=>{
+    if(r.userId===uid){
+      myReviews.push(Object.assign({},r,{spotId:s.id,spotOpenH:s.openH,spotCloseH:s.closeH}));
+      if(s.district)reviewedDistricts.add(s.district);
+    }
+  }));
+  const myPhotos=spots.flatMap(s=>(s.photos||[]).filter(p=>p.uploaded_by===uid));
+  const photoSpots=new Set(myPhotos.map(p=>p.spot_id));
+  const myVerified=mySpots.filter(s=>s.verified);
+  const helpfulVotes=myReviews.reduce((a,r)=>a+(r.helpful||[]).length,0);
+  const myName=(profilesCache[uid]||{}).name||'';
+  const reportCount=spots.reduce((a,s)=>a+(s.reports||[]).filter(r=>r.by===myName).length,0);
+  const totalWords=myReviews.reduce((a,r)=>a+(r.txt?r.txt.trim().split(/\s+/).filter(Boolean).length:0),0);
+  const fullRated=myReviews.filter(r=>RCATS.every(c=>r.ratings[c[0]]>=1));
+  const beerFive=new Set(myReviews.filter(r=>r.ratings.beer===5).map(r=>r.spotId));
   const earned=[];
   if(mySpots.length>=1)  earned.push('first_spot');
   if(mySpots.length>=5)  earned.push('scout');
-  if(mySpots.length>=10) earned.push('cartographer');
+  if(mySpots.length>=15) earned.push('cartographer');
   if(myReviews.length>=1)  earned.push('first_review');
   if(myReviews.length>=10) earned.push('regular');
   if(myReviews.length>=25) earned.push('critic');
+  if(spots.some(s=>{const all=s.reviews.slice().sort((a,b)=>(a.when||'').localeCompare(b.when||''));return all.length>0&&all[0].userId===uid;})) earned.push('pioneer');
+  if(totalWords>=500) earned.push('wordsmith');
+  if(fullRated.length>=10) earned.push('all_rounder');
+  if(beerFive.size>=5) earned.push('beer_sommelier');
+  if(myPhotos.length>=1)  earned.push('photographer');
+  if(myPhotos.length>=10) earned.push('gallery_owner');
+  if(photoSpots.size>=10) earned.push('lensman');
+  if(helpfulVotes>=10) earned.push('helpful');
+  if(helpfulVotes>=25) earned.push('community_pillar');
   if(myVerified.length>=1) earned.push('verified_spot');
   if(myVerified.length>=3) earned.push('trusted');
-  if(helpfulVotes>=10)   earned.push('helpful');
+  if(reviewedDistricts.size>=4) earned.push('district_explorer');
+  if(reviewedDistricts.size>=7) earned.push('city_wide');
+  if(spots.filter(s=>s.district==='Hoàn Kiếm'&&s.reviews.some(r=>r.userId===uid)).length>=5) earned.push('old_quarter');
+  if(spots.filter(s=>s.district==='Tây Hồ'&&s.reviews.some(r=>r.userId===uid)).length>=3) earned.push('tay_ho');
+  if(reportCount>=3) earned.push('safety_inspector');
+  if(myReviews.some(r=>r.spotOpenH!=null&&r.spotOpenH!==''&&+r.spotOpenH<12)) earned.push('early_bird');
+  if(myReviews.some(r=>r.spotOpenH!=null&&r.spotOpenH!==''&&+r.spotOpenH<17)) earned.push('golden_hour');
+  if(new Set(myReviews.filter(r=>r.spotCloseH!=null&&r.spotCloseH!==''&&(+r.spotCloseH>=22||+r.spotCloseH<6)).map(r=>r.spotId)).size>=3) earned.push('night_owl');
+  if(spots.filter(s=>(s.vibes||[]).includes('Street-side')&&s.reviews.some(r=>r.userId===uid)).length>=5) earned.push('plastic_stool');
+  if(myPhotos.some(p=>p.thumbs_up)) earned.push('uncle_approved');
+  if(myPhotos.some(p=>p.full_uncle)) earned.push('full_uncle');
+  if(earned.length>=15) earned.push('legend');
   return earned;
 }
 
@@ -1545,19 +1659,192 @@ async function checkBadges(){
     const b=BADGES.find(x=>x.id===bid);
     if(b)await showBadgeToast(b);
   }
+  if(updated.length>=BADGES.length&&!cur.title){
+    setTimeout(()=>showTitlePicker(),1200);
+  }
 }
 
 async function awardPhotoBadge(){
-  if(!cur)return;
-  const existing=cur.badges||[];
-  if(existing.includes('photographer'))return;
-  const updated=[...existing,'photographer'];
-  await db.from('profiles').update({badges:updated}).eq('id',cur.id);
-  cur.badges=updated;
-  if(profilesCache[cur.id])profilesCache[cur.id].badges=updated;
-  const b=BADGES.find(x=>x.id==='photographer');
-  if(b)showBadgeToast(b);
+  await checkBadges();
 }
+
+function crownFor(uid){
+  const u=uid===cur?.id?cur:(profilesCache[uid]||null);
+  return u&&u.title?u.title.split(' ')[0]+' ':'';
+}
+
+function showTitlePicker(){
+  const titles=['👑 Bia Hơi King','👑 Bia Hơi Queen','🏮 Grand Uncle','🏮 Grand Auntie'];
+  const btns=titles.map(t=>'<button class="btn-line" style="padding:14px 8px;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:14px;cursor:pointer" data-tt="'+t+'" onclick="pickTitle(this)">'+
+    '<span style="font-size:30px">'+t.split(' ')[0]+'</span>'+
+    '<span style="font-weight:700">'+t.split(' ').slice(1).join(' ')+'</span></button>').join('');
+  modal('<div style="text-align:center">'+
+    '<div style="font-size:44px;margin-bottom:10px">🏆</div>'+
+    '<h2 style="margin:0 0 8px">You\'ve earned every badge!</h2>'+
+    '<p style="color:var(--muted);font-size:13px;margin:0 0 18px">You are a <strong>Bia Hơi Legend</strong>. Choose your title — it will appear before your name and place you in the hall of fame forever.</p>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">'+btns+'</div>'+
+    '<p style="font-size:11px;color:var(--muted)">This choice is permanent 🍺</p>'+
+    '</div>');
+}
+function pickTitle(el){setTitle(el.dataset.tt);}
+
+async function setTitle(t){
+  if(!cur)return;
+  const{error}=await db.from('profiles').update({title:t}).eq('id',cur.id);
+  if(error)return alert('Error saving title: '+error.message);
+  cur.title=t;
+  if(profilesCache[cur.id])profilesCache[cur.id].title=t;
+  closeModal();
+  showToast('🏆 '+t+' — You are now in the Bia Hơi Legends!',4000);
+}
+
+async function showQuests(){
+  openSidebar();
+  document.getElementById('sidebarBody').innerHTML=
+    '<div class="panel"><div style="text-align:center;padding:30px;color:var(--muted)">Loading…</div></div>';
+
+  const{data:legendData}=await db.from('profiles').select('id,name,title').not('title','is',null);
+  const legends=legendData||[];
+
+  const legendsHTML=legends.length
+    ?'<div class="legends-wall">'+legends.map(u=>
+        '<div class="legend-card" onclick="showProfile(\''+u.id+'\')">'+
+        '<div class="legend-av gold-anim"><span style="font-size:24px">'+u.title.split(' ')[0]+'</span></div>'+
+        '<div class="legend-lbl">'+esc(u.title.split(' ').slice(1).join(' '))+'</div>'+
+        '<div class="legend-name">'+esc(u.name)+'</div></div>'
+      ).join('')+'</div>'
+    :'<div class="legends-empty">'+
+      '<div style="font-size:36px;margin-bottom:8px">🍺</div>'+
+      '<p style="font-weight:700;margin:0 0 5px;font-size:15px">No Legends yet</p>'+
+      '<p style="color:var(--muted);font-size:13px;margin:0">Earn all '+BADGES.length+' badges, choose your title, and become the first Bia Hơi Legend. Glory awaits.</p>'+
+      '</div>';
+
+  // King of Thumbs — current month
+  const now=new Date(),cm=now.getMonth(),cy=now.getFullYear();
+  const mName=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][cm];
+  const thumbsCounts={};
+  spots.forEach(s=>(s.photos||[]).forEach(p=>{
+    if(!p.thumbs_up)return;
+    const d=new Date(p.created_at||0);
+    if(d.getMonth()===cm&&d.getFullYear()===cy){
+      thumbsCounts[p.uploaded_by]=(thumbsCounts[p.uploaded_by]||0)+1;
+    }
+  }));
+  const kotmRows=Object.entries(thumbsCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const kotmHTML=kotmRows.length
+    ?kotmRows.map(([uid2,cnt],i)=>{
+        const u2=profilesCache[uid2];
+        return '<div class="kotm-row">'+
+          '<span style="font-weight:700;min-width:24px">'+(i===0?'👑':(i+1)+'.')+'</span>'+
+          '<span style="flex:1">'+(u2?esc(u2.name):'User')+'</span>'+
+          '<span style="color:var(--gold-dark);font-weight:700">'+cnt+'</span>'+
+          '<span style="color:var(--muted);font-size:11px"> 👍</span></div>';
+      }).join('')
+    :'<div style="font-size:13px;color:var(--muted);padding:8px 0">No thumbs-up photos this month yet.</div>';
+
+  // Progress section for logged-in users
+  let progressHTML='';
+  if(cur){
+    const uid=cur.id;
+    const mySpots=spots.filter(s=>s.createdBy===uid);
+    const myReviews=[],reviewedDistricts=new Set();
+    spots.forEach(s=>s.reviews.forEach(r=>{
+      if(r.userId===uid){
+        myReviews.push(Object.assign({},r,{spotId:s.id,spotOpenH:s.openH,spotCloseH:s.closeH}));
+        if(s.district)reviewedDistricts.add(s.district);
+      }
+    }));
+    const myPhotos=spots.flatMap(s=>(s.photos||[]).filter(p=>p.uploaded_by===uid));
+    const photoSpots=new Set(myPhotos.map(p=>p.spot_id));
+    const myVerified=mySpots.filter(s=>s.verified);
+    const helpfulVotes=myReviews.reduce((a,r)=>a+(r.helpful||[]).length,0);
+    const myName=cur.name||'';
+    const reportCount=spots.reduce((a,s)=>a+(s.reports||[]).filter(r=>r.by===myName).length,0);
+    const totalWords=myReviews.reduce((a,r)=>a+(r.txt?r.txt.trim().split(/\s+/).filter(Boolean).length:0),0);
+    const fullRated=myReviews.filter(r=>RCATS.every(c=>r.ratings[c[0]]>=1));
+    const beerFive=new Set(myReviews.filter(r=>r.ratings.beer===5).map(r=>r.spotId));
+    const hkSpots=spots.filter(s=>s.district==='Hoàn Kiếm'&&s.reviews.some(r=>r.userId===uid));
+    const thSpots=spots.filter(s=>s.district==='Tây Hồ'&&s.reviews.some(r=>r.userId===uid));
+    const nightIds=new Set(myReviews.filter(r=>r.spotCloseH!=null&&r.spotCloseH!==''&&(+r.spotCloseH>=22||+r.spotCloseH<6)).map(r=>r.spotId));
+    const streetSpots=spots.filter(s=>(s.vibes||[]).includes('Street-side')&&s.reviews.some(r=>r.userId===uid));
+    const isPioneer=spots.some(s=>{const all=s.reviews.slice().sort((a,b)=>(a.when||'').localeCompare(b.when||''));return all.length>0&&all[0].userId===uid;});
+    const allEarned=[...new Set([...(cur.badges||[]),...badgesFor(uid)])];
+    const legendCount=allEarned.filter(b=>b!=='legend').length;
+    const done=allEarned.length;
+    const total=BADGES.length;
+
+    function qi(id,c,mx,extra){
+      const b=BADGES.find(x=>x.id===id);if(!b)return'';
+      const earned=allEarned.includes(id);
+      const pct=Math.min(100,Math.round((c/mx)*100));
+      return '<div class="qitem'+(earned?' done':'')+'">'+
+        '<div class="qi-icon">'+b.icon+'</div>'+
+        '<div class="qi-body">'+
+          '<div class="qi-name">'+b.name+'</div>'+
+          '<div class="qi-desc">'+b.desc+'</div>'+
+          (mx>1?'<div class="qprog"><div class="qprog-fill'+(earned?' gn':'')+'" style="width:'+pct+'%"></div></div>'+
+            '<div class="qi-num">'+Math.min(c,mx)+' / '+mx+'</div>':'')+(extra||'')+
+        '</div>'+
+        '<div class="qi-chk">'+(earned?'✅':'')+'</div></div>';
+    }
+
+    progressHTML=
+      '<div class="sec" style="margin-top:14px">Your Progress ('+done+' / '+total+' badges)</div>'+
+      '<div class="qsec">📍 Spots</div>'+
+        qi('first_spot',Math.min(mySpots.length,1),1)+
+        qi('scout',mySpots.length,5)+
+        qi('cartographer',mySpots.length,15)+
+      '<div class="qsec">✍️ Reviews</div>'+
+        qi('first_review',Math.min(myReviews.length,1),1)+
+        qi('regular',myReviews.length,10)+
+        qi('critic',myReviews.length,25)+
+        qi('pioneer',isPioneer?1:0,1)+
+        qi('wordsmith',totalWords,500)+
+        qi('all_rounder',fullRated.length,10)+
+        qi('beer_sommelier',beerFive.size,5)+
+      '<div class="qsec">📷 Photos</div>'+
+        qi('photographer',Math.min(myPhotos.length,1),1)+
+        qi('gallery_owner',myPhotos.length,10)+
+        qi('lensman',photoSpots.size,10)+
+      '<div class="qsec">👥 Community</div>'+
+        qi('helpful',helpfulVotes,10)+
+        qi('community_pillar',helpfulVotes,25)+
+      '<div class="qsec">✅ Verified</div>'+
+        qi('verified_spot',Math.min(myVerified.length,1),1)+
+        qi('trusted',myVerified.length,3)+
+      '<div class="qsec">🗺️ Explorer</div>'+
+        qi('district_explorer',reviewedDistricts.size,4)+
+        qi('city_wide',reviewedDistricts.size,7)+
+        qi('old_quarter',hkSpots.length,5)+
+        qi('tay_ho',thSpots.length,3)+
+        qi('safety_inspector',reportCount,3)+
+      '<div class="qsec">🕐 Time & Vibe</div>'+
+        qi('early_bird',myReviews.some(r=>r.spotOpenH!=null&&r.spotOpenH!==''&&+r.spotOpenH<12)?1:0,1)+
+        qi('golden_hour',myReviews.some(r=>r.spotOpenH!=null&&r.spotOpenH!==''&&+r.spotOpenH<17)?1:0,1)+
+        qi('night_owl',nightIds.size,3)+
+        qi('plastic_stool',streetSpots.length,5)+
+      '<div class="qsec">👍 Uncle Missions</div>'+
+        qi('uncle_approved',myPhotos.filter(p=>p.thumbs_up).length,1,'<div class="qi-num">(Honor system — tag when uploading)</div>')+
+        qi('full_uncle',myPhotos.filter(p=>p.full_uncle).length,1,'<div class="qi-num">(5+ people doing thumbs-up)</div>')+
+      '<div class="qsec">🌟 Legend</div>'+
+        qi('legend',legendCount,15);
+  }
+
+  document.getElementById('sidebarBody').innerHTML=
+    '<div class="panel">'+
+    '<span class="back" onclick="renderList()">← All spots</span>'+
+    '<h2 style="margin:0 0 4px">🎯 Quests & Badges</h2>'+
+    '<p style="font-size:13px;color:var(--muted);margin:0 0 14px">Explore Hanoi\'s bia hơi scene and earn badges</p>'+
+    '<div class="sec">🏆 Bia Hơi Legends</div>'+
+    legendsHTML+
+    '<div class="sec" style="margin-top:14px">👑 King of Thumbs — '+mName+' '+cy+'</div>'+
+    '<p style="font-size:12px;color:var(--muted);margin:0 0 8px">Most thumbs-up photos this month</p>'+
+    kotmHTML+
+    (cur?progressHTML:
+      '<div style="font-size:13px;color:var(--muted);text-align:center;padding:20px 0">Sign in to track your quest progress.</div>')+
+    '</div>';
+}
+
 
 function showToast(msg,duration=2500){
   const el=document.getElementById('badgeToast');
@@ -1612,7 +1899,8 @@ function showLeaderboard(tab='spots'){
 
   const tableRows=rows.map((u,i)=>{
     const profile=profilesCache[u.id];
-    const name=profile?esc(profile.name):`<span style="color:var(--muted)">User</span>`;
+    const crown=profile&&profile.title?profile.title.split(' ')[0]+' ':'';
+    const name=profile?crown+esc(profile.name):`<span style="color:var(--muted)">User</span>`;
     const badges=inlineBadges(u.id);
     return `<tr onclick="showProfile('${u.id}')">
       <td class="lb-rank">${rankIcon(i)}</td>
