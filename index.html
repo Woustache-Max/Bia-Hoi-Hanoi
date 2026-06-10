@@ -56,7 +56,13 @@
   #sidebar{position:relative;width:390px;max-width:44vw;background:var(--card);border-left:1px solid var(--line);overflow-y:auto;display:flex;flex-direction:column}
   .panel{padding:16px}
   .toolbar{display:flex;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--card);z-index:5;flex-wrap:wrap}
-  .toolbar input.search{flex:1;min-width:120px;padding:8px 11px;border:1px solid var(--line);border-radius:8px;font-size:14px}
+  .toolbar input.search{flex:1;min-width:120px;padding:8px 32px 8px 11px;border:1px solid var(--line);border-radius:8px;font-size:14px}
+  .search-wrap{position:relative;flex:1;min-width:120px;display:flex}
+  .search-wrap input.search{flex:1;width:100%;padding-right:28px}
+  .search-clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;padding:0;font-size:14px;color:var(--muted);cursor:pointer;line-height:1;border-radius:50%;width:18px;height:18px;display:none;align-items:center;justify-content:center}
+  .search-clear.show{display:flex}
+  .result-bar{font-size:11px;color:var(--muted);padding:4px 14px 6px;border-bottom:1px solid var(--line);display:none}
+  .result-bar.show{display:block}
   .filters{padding:0 14px 10px;border-bottom:1px solid var(--line);display:none;flex-wrap:wrap;gap:8px}
   .filters.open{display:flex}
   .filters select,.filters input{padding:6px 8px;border:1px solid var(--line);border-radius:7px;font-size:13px}
@@ -187,6 +193,8 @@
   .q-bar-fill.done{background:var(--green)}
   .q-step{font-size:12px;color:var(--muted);display:flex;justify-content:space-between}
   .leaflet-popup-content{font-family:inherit;margin:10px 12px}
+  .popup-thumb{width:100%;height:80px;object-fit:cover;border-radius:6px;display:block;margin-bottom:6px;cursor:pointer}
+  .leaflet-popup-content-wrapper{border-radius:10px!important;box-shadow:0 3px 14px rgba(0,0,0,.25)!important;min-width:160px}
   .bia-pin{font-size:30px;line-height:1;text-align:center;background:#fff;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.35),0 0 0 2px var(--gold)}
   .bia-pin.closed{filter:grayscale(1);opacity:.6;box-shadow:0 2px 6px rgba(0,0,0,.25),0 0 0 2px #aaa}
   .bia-pin.unverified{background:#ede9e0;box-shadow:0 2px 5px rgba(0,0,0,.18);outline:2.5px dashed #e65100;outline-offset:2px;filter:grayscale(40%);opacity:.8}
@@ -247,7 +255,10 @@
       <div class="sheet-handle" onclick="closeSidebar()" title="Close"></div>
       <button class="sidebar-close" onclick="closeSidebar()" title="Close sidebar">✕</button>
       <div class="toolbar">
-        <input class="search" id="searchBox" placeholder="Search spots…" oninput="renderList()">
+        <div class="search-wrap">
+          <input class="search" id="searchBox" placeholder="Search spots…" oninput="onSearch()">
+          <button class="search-clear" id="searchClear" onclick="clearSearch()" title="Clear search">✕</button>
+        </div>
         <button class="btn-line btn-sm" onclick="toggleFilters()">⚲ Filters</button>
         <button class="btn-line btn-sm" id="nearMeBtn" onclick="nearMe()">📍 Near me</button>
         <select id="fRadius" onchange="renderList(true)" style="padding:5px 8px;border:1px solid var(--line);border-radius:7px;font-size:13px;display:none">
@@ -273,6 +284,7 @@
         <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:var(--muted)">
           <input type="checkbox" id="fVerified" style="width:auto" onchange="renderList()"> Verified only</label>
       </div>
+      <div id="resultBar" class="result-bar"></div>
       <div id="sidebarBody"><div class="empty-note">🍺 Loading spots…</div></div>
     </div>
   </div>
@@ -445,7 +457,9 @@ function drawMarkers(){
     const closed=s.status!=='active',unverified=!s.verified;
     const m=L.marker([s.lat,s.lng],{icon:pinIcon(closed,unverified)});
     const badge=unverified?'<span style="color:#e65100;font-size:11px"> · unverified</span>':'';
-    m.bindPopup(`<b>${esc(s.name)}</b>${badge}<br>${glassStr(spotAvg(s))} ${s.reviews.length?'('+s.reviews.length+')':''}<br><small>${esc(s.pricePerGlass||'')}</small>`);
+    const popPhoto=s.photos&&s.photos.length?`<img class="popup-thumb" src="${s.photos[0].url}" onclick="showDetail('${s.id}')" alt="">`:'';
+    const popOpen=isOpen(s)?'<span style="color:#2e7d32;font-weight:700;font-size:11px"> · Open</span>':'';
+    m.bindPopup(`${popPhoto}<b style="font-size:14px">${esc(s.name)}</b>${popOpen}<br>${glassStr(spotAvg(s))} ${s.reviews.length?'('+s.reviews.length+' reviews)':'<i style="color:#aaa">no reviews yet</i>'}<br><small style="color:#888">${esc(s.pricePerGlass||'')}</small>`);
     m.on('click',()=>showDetail(s.id));cluster.addLayer(m);
   });
 }
@@ -453,6 +467,21 @@ function drawMarkers(){
 /* ============================================================
    FILTERING — spot search and filter logic
    ============================================================ */
+function onSearch(){
+  const q=document.getElementById('searchBox').value;
+  const clr=document.getElementById('searchClear');
+  if(clr)clr.classList.toggle('show',q.length>0);
+  renderList();
+}
+function clearSearch(){
+  const sb=document.getElementById('searchBox');
+  if(sb)sb.value='';
+  const clr=document.getElementById('searchClear');
+  if(clr)clr.classList.remove('show');
+  const rb=document.getElementById('resultBar');
+  if(rb){rb.textContent='';rb.classList.remove('show');}
+  renderList();
+}
 function visibleSpots(){
   const q=(document.getElementById('searchBox').value||'').toLowerCase();
   const d=document.getElementById('fDistrict').value,v=document.getElementById('fVibe').value;
@@ -484,6 +513,13 @@ function renderList(sortByDist){
   if(sortByDist&&window._me)list=list.slice().sort((a,b)=>dist(window._me[0],window._me[1],a.lat,a.lng)-dist(window._me[0],window._me[1],b.lat,b.lng));
   else list=list.slice().sort((a,b)=>spotAvg(b)-spotAvg(a));
   const body=document.getElementById('sidebarBody');
+  // Update result count bar
+  const rb=document.getElementById('resultBar');
+  if(rb){
+    const q=(document.getElementById('searchBox').value||'').trim();
+    if(q&&spots.length){rb.textContent=`${list.length} result${list.length===1?'':'s'} for "${q}"`;rb.classList.add('show');}
+    else{rb.textContent='';rb.classList.remove('show');}
+  }
   if(!spots.length){body.innerHTML='<div class="empty-note">🍺 No spots yet.<br><br>Tap <b>+ Add spot</b> to put a bia hơi on the map — no sign-up needed!</div>';return}
   if(!list.length){body.innerHTML='<div class="empty-note">No spots match your filters.</div>';return}
   body.innerHTML=list.map(s=>{
@@ -499,7 +535,7 @@ function renderList(sortByDist){
       <div class="list-text">
         <h3>${verBadge}${esc(s.name)} ${closed?'<span class="chip closed">'+(s.status==='perm_closed'?'Closed':'Temp closed')+'</span>':(open?'<span class="chip open">Open</span>':'')}</h3>
         <div class="meta"><span>${glassStr(spotAvg(s))} ${s.reviews.length?'('+s.reviews.length+')':'<i>new</i>'} ${dtxt}</span>
-        <span>${esc(s.district||'')} · ${esc(s.pricePerGlass||'')}</span></div>
+        <span>${esc(s.district||'')}${s.pricePerGlass?' · '+esc(s.pricePerGlass):''}${(s.openH!=null&&s.closeH!=null&&!closed)?' · '+fmtHr(s.openH)+'–'+fmtHr(s.closeH):''}</span></div>
       </div></div>`;
   }).join('');
 }
