@@ -101,7 +101,8 @@
   .form-section{background:#fbf8f2;border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin:6px 0 12px;display:flex;flex-direction:column;gap:12px}
   .form-sec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin:10px 0 0;padding-bottom:5px;border-bottom:1px solid var(--line)}
   .rate-row{display:flex;align-items:center;justify-content:space-between;background:#fbf6ea;border:1px solid var(--line);border-radius:8px;padding:7px 11px;margin-top:6px}
-  .rate-row .lbl{font-size:13px;font-weight:600}
+  .rate-row .lbl{font-size:13px;font-weight:600;flex:0 0 128px;line-height:1.35}
+  .gpick{white-space:nowrap;flex-shrink:0}
   .gpick span{font-size:21px;cursor:pointer;filter:grayscale(1);opacity:.3;transition:.12s;display:inline-block}.gpick span.on{filter:none;opacity:1;transform:scale(1.18)}
   .gpick .clr{font-size:11px;color:var(--muted);margin-left:6px;font-weight:600;filter:none!important;opacity:1!important;transform:none!important}
   .tagpick{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
@@ -639,7 +640,10 @@ function renderList(sortByDist){
     return `<div class="list-item" onclick="showDetail('${s.id}')">
       ${thumb}
       <div class="list-text">
-        <h3>${verBadge}${esc(s.name)} ${closed?'<span class="chip closed">'+(s.status==='perm_closed'?'Closed':'Temp closed')+'</span>':(open?'<span class="chip open">Open</span>':'')}</h3>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+          <h3 style="margin:0 0 3px;flex:1;min-width:0">${verBadge}${esc(s.name)}</h3>
+          ${closed?'<span class="chip closed" style="flex-shrink:0;white-space:nowrap;margin-top:1px">'+(s.status==='perm_closed'?'Closed':'Temp closed')+'</span>':(open?'<span class="chip open" style="flex-shrink:0;white-space:nowrap;margin-top:1px">Open</span>':'')}
+        </div>
         <div class="meta"><span>${(()=>{const a=spotAvg(s);return a?`<span style="background:var(--gold);color:#000;font-size:11px;font-weight:800;padding:1px 7px;border-radius:20px">${a.toFixed(1)} 🍺</span>`:'<i style="color:var(--muted)">new</i>';})()}&nbsp;${s.reviews.length?'('+s.reviews.length+') ':''}${dtxt}</span>
         <span>${esc(s.district||'')}${s.pricePerGlass?' · '+esc(s.pricePerGlass):''}${(s.openH!=null&&s.closeH!=null&&!closed)?' · '+fmtHr(s.openH)+'–'+fmtHr(s.closeH):''}</span></div>
       </div></div>`;
