@@ -16,7 +16,7 @@
   [data-theme="dark"]{
     --ink:#e8dcc8;--paper:#141210;--card:#1c1812;--muted:#8a7e6e;
     --line:#2a241c;--gold:#f5b301;--gold-dark:#ffc41f;--green:#4caf50;
-    --blue:#64b5f6;--shadow:rgba(0,0,0,.4);--card-alt:#231e17}
+    --blue:#64b5f6;--shadow:rgba(0,0,0,.4)}
   [data-theme="dark"] body{background:var(--paper);color:var(--ink)}
   [data-theme="dark"] #sidebar{background:var(--card)}
   [data-theme="dark"] .toolbar{background:var(--card)}
@@ -126,6 +126,14 @@
     display:flex;align-items:center;gap:8px;z-index:9999;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;white-space:nowrap}
   .badge-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .inline-badges{display:inline-flex;gap:2px;font-size:13px;vertical-align:middle;margin-left:3px}
+  /* ── Utility helpers ──────────────────────────────────── */
+  .txt-muted{font-size:13px;color:var(--muted)}
+  .txt-sm{font-size:12px;color:var(--muted)}
+  .link-gold{color:var(--gold-dark);cursor:pointer}
+  .link-blue{color:var(--blue);cursor:pointer;font-weight:600}
+  .link-white{color:#fff;cursor:pointer}
+  .btn-full{width:100%;margin-top:10px}
+  .w-full{width:100%}
   /* ── Custom cluster icons ─────────────────────────────── */
   .bh-cluster{display:flex;align-items:center;justify-content:center;
     border-radius:50%;font-weight:800;color:#000;cursor:pointer;
@@ -233,7 +241,7 @@
     <span class="user" id="userLabel"></span>
   </header>
   <div class="sheet-overlay" id="sheetOverlay" onclick="closeSidebar()"></div>
-  <div class="main" style="position:relative">
+  <div class="main">
     <div id="map"></div>
     <div id="sidebar">
       <div class="sheet-handle" onclick="closeSidebar()" title="Close"></div>
@@ -274,7 +282,9 @@
 <script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
-/* ============ CONFIG ============ */
+/* ============================================================
+   CONFIG — Supabase keys, constants, lookup tables
+   ============================================================ */
 const SUPABASE_URL  = 'https://genqahabkjsmnoqbnkob.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdlbnFhaGFia2pzbW5vcWJua29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5ODYzMzQsImV4cCI6MjA5NjU2MjMzNH0.66pxak3FnH-U5DPSvKMh3pybhQi-qtWV-FYLwnSoRH4';
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
@@ -303,12 +313,16 @@ const BADGES=[
   {id:'helpful',      icon:'👍', name:'Crowd Favourite',  desc:'Received 10 helpful votes on reviews'},
 ];
 
-/* ============ STATE ============ */
+/* ============================================================
+   STATE — runtime variables
+   ============================================================ */
 let spots = [];
 let cur   = null;            // current user: { id, name, role, since, email }
 const profilesCache = {};    // uuid → profile, for fast lookups
 
-/* ============ DB CONVERTERS ============ */
+/* ============================================================
+   DB CONVERTERS — Supabase row → app object
+   ============================================================ */
 function dbToSpot(s){
   return{
     id:s.id, name:s.name, lat:s.lat, lng:s.lng,
@@ -333,7 +347,9 @@ function dbToReview(r){
   };
 }
 
-/* ============ HELPERS ============ */
+/* ============================================================
+   HELPERS — pure utility functions
+   ============================================================ */
 const esc=t=>(t==null?'':String(t)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const byId=id=>spots.find(s=>s.id===id);
 const userById=id=>profilesCache[id]||null;
@@ -346,7 +362,9 @@ function isOpen(s){if(s.status!=='active'||s.openH==null||s.closeH==null)return 
 function rolePill(role){return `<span class="pill role-${role}">${role}</span>`}
 const val=id=>{const el=document.getElementById(id);return el?el.value.trim():''};
 
-/* ============ QUEST / PROGRESS ============ */
+/* ============================================================
+   QUESTS & PROGRESS — newcomer unlock system
+   ============================================================ */
 function getUserStats(uid){
   let spotsAdded=0,reviewCount=0;
   const spotIdsReviewed=new Set();
@@ -396,7 +414,9 @@ function questProgressHTML(uid){
   </div>`;
 }
 
-/* ============ MAP ============ */
+/* ============================================================
+   MAP — Leaflet setup, tile layers, markers
+   ============================================================ */
 const map=L.map('map').setView(HANOI,13);
 const CARTO_ATTR='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>';
 const tileLight=L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,attribution:CARTO_ATTR});
@@ -430,7 +450,9 @@ function drawMarkers(){
   });
 }
 
-/* ============ FILTERING ============ */
+/* ============================================================
+   FILTERING — spot search and filter logic
+   ============================================================ */
 function visibleSpots(){
   const q=(document.getElementById('searchBox').value||'').toLowerCase();
   const d=document.getElementById('fDistrict').value,v=document.getElementById('fVibe').value;
@@ -452,7 +474,9 @@ function visibleSpots(){
   });
 }
 
-/* ============ LIST ============ */
+/* ============================================================
+   LIST — sidebar spot list rendering
+   ============================================================ */
 function renderList(sortByDist){
   adding=false;if(tmpMarker){map.removeLayer(tmpMarker);tmpMarker=null}
   drawMarkers();
@@ -480,7 +504,9 @@ function renderList(sortByDist){
   }).join('');
 }
 
-/* ============ DETAIL ============ */
+/* ============================================================
+   DETAIL — spot detail panel
+   ============================================================ */
 let chosen={};
 function showDetail(id){
   openSidebar();const s=byId(id);if(!s)return;
@@ -533,7 +559,9 @@ function showDetail(id){
   chosen={};
 }
 
-/* ============ VERIFY ============ */
+/* ============================================================
+   VERIFY — spot verification
+   ============================================================ */
 async function verifySpot(id){
   if(!cur)return;
   const s=byId(id);
@@ -544,7 +572,9 @@ async function verifySpot(id){
   showDetail(id);renderList();
 }
 
-/* ============ REVIEWS ============ */
+/* ============================================================
+   REVIEWS — review rendering, submission, voting
+   ============================================================ */
 function reviewHTML(s,r){
   const admin=cur&&cur.role==='admin';
   const helped=r.helpful?r.helpful.length:0;
@@ -741,7 +771,9 @@ async function delSpot(id){
   renderList();
 }
 
-/* ============ ADD / EDIT SPOT ============ */
+/* ============================================================
+   ADD / EDIT SPOT — spot creation and editing form
+   ============================================================ */
 function startAdd(editId){
   openSidebar();adding=!editId;
   const s=editId?byId(editId):null;
@@ -856,7 +888,9 @@ async function saveSpot(editId){
   renderList();showDetail(id);
 }
 
-/* ============ PROFILES ============ */
+/* ============================================================
+   PROFILES — user profile view
+   ============================================================ */
 async function showProfile(uid){
   let u=userById(uid);
   if(!u){
@@ -887,10 +921,12 @@ async function showProfile(uid){
   </div>`;
 }
 
-/* ============ AUTH ============ */
+/* ============================================================
+   AUTH — sign up, login, logout
+   ============================================================ */
 function pwField(id,placeholder,mb='10px'){
   return `<div style="position:relative;margin-bottom:${mb}">
-    <input id="${id}" type="password" placeholder="${placeholder}" style="width:100%;padding:8px 36px 8px 8px;border:1px solid #ddd;border-radius:7px">
+    <input id="${id}" type="password" placeholder="${placeholder}" style="width:100%;padding:8px 36px 8px 8px;border:1px solid var(--line);border-radius:7px">
     <span onclick="togglePw('${id}')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:16px;user-select:none" id="${id}_eye">👁</span>
   </div>`;
 }
@@ -902,12 +938,12 @@ function authModal(signup){
   modal(`<h2>${signup?'Create a free account 🍺':'Welcome back 🍺'}</h2>
    <p>${signup?'Free to join. Rate spots, write reviews, and track your contributions.':'Sign in to your account.'}</p>
    <div>
-     <input id="a_name" placeholder="Display name" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px;margin-bottom:6px;display:${signup?'block':'none'}">
-     <input id="a_email" placeholder="Email" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px;margin-bottom:6px">
+     <input id="a_name" placeholder="Display name" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;margin-bottom:6px;display:${signup?'block':'none'}">
+     <input id="a_email" placeholder="Email" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;margin-bottom:6px">
      ${pwField('a_pw','Password','6px')}
      ${signup?`${pwField('a_pw2','Confirm password','6px')}
      <div id="codeToggle" style="text-align:center;margin-bottom:8px"><a style="font-size:12px;color:var(--muted);cursor:pointer" onclick="document.getElementById('codeWrap').style.display='block';document.getElementById('codeToggle').style.display='none'">Have an invite code?</a></div>
-     <div id="codeWrap" style="display:none;margin-bottom:10px"><input id="a_code" placeholder="Invite code" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:7px"></div>`:''}
+     <div id="codeWrap" style="display:none;margin-bottom:10px"><input id="a_code" placeholder="Invite code" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:7px"></div>`:''}
      <button class="btn-gold" style="width:100%;margin-bottom:8px" onclick="${signup?'doSignup()':'doLogin()'}">
        ${signup?'Create account':'Sign in'}
      </button>
@@ -956,7 +992,9 @@ function setUserLabel(){
     :`<button class="btn-ghost btn-sm" onclick="authModal(true)">Join</button> <button class="btn-ghost btn-sm" onclick="authModal(false)">Sign in</button>`;
 }
 
-/* ============ NEAR ME ============ */
+/* ============================================================
+   NEAR ME — geolocation and distance filtering
+   ============================================================ */
 function nearMe(){
   const btn=document.getElementById('nearMeBtn');
   // If already active, clear location
@@ -994,7 +1032,9 @@ function nearMe(){
   },{enableHighAccuracy:true,maximumAge:10000});
 }
 
-/* ============ MODAL / SIDEBAR ============ */
+/* ============================================================
+   MODAL / SIDEBAR — UI overlay helpers
+   ============================================================ */
 function modal(html){closeModal();const bg=document.createElement('div');bg.className='modal-bg';bg.id='modal';bg.onclick=e=>{if(e.target===bg)closeModal()};bg.innerHTML='<div class="modal">'+html+'</div>';document.body.appendChild(bg)}
 function closeModal(){const m=document.getElementById('modal');if(m)m.remove()}
 function toggleDark(){
@@ -1028,7 +1068,9 @@ function closeSidebar(){
 }
 
 
-/* ============ ADMIN PANEL ============ */
+/* ============================================================
+   ADMIN PANEL — admin-only management UI
+   ============================================================ */
 let adminData={spots:[],users:[],reviews:[]};
 
 async function openAdmin(){
@@ -1275,7 +1317,9 @@ async function adminDismissReports(id){
   renderAdmin('reports');
 }
 
-/* ============ INIT ============ */
+/* ============================================================
+   INIT — app bootstrap, data loading, deep-link handling
+   ============================================================ */
 DISTRICTS.forEach(d=>fDistrict.add(new Option(d,d)));
 VIBES.forEach(v=>fVibe.add(new Option(v,v)));
 
