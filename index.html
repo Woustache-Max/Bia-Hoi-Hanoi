@@ -221,6 +221,12 @@
   .mobile-toggle{display:none}
   .sidebar-close{display:none;position:absolute;top:10px;right:10px;z-index:10;background:var(--ink);color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:18px;line-height:32px;text-align:center;padding:0;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.3)}
   .sheet-handle{display:none}
+  @media(max-width:480px){
+    header h1{font-size:15px}
+    .btn-gold.btn-sm{padding:5px 8px;font-size:12px}
+    .toolbar{padding:6px 8px;gap:5px}
+    .near-lbl{display:none}
+  }
   @media(max-width:680px){
     .main{position:relative}
     #map{height:100%;min-height:0}
@@ -233,7 +239,7 @@
     .sidebar-close{display:none}
     .sheet-handle{display:block;width:40px;height:4px;background:var(--line);
       border-radius:2px;margin:12px auto 4px;cursor:pointer;flex-shrink:0}
-    .toolbar{padding-top:4px}
+    .toolbar{padding-top:4px;align-items:center}
     #app{overflow:hidden}
   }
   @media(max-width:680px) and (orientation:landscape){
@@ -322,7 +328,7 @@
         <button class="btn-line btn-sm" onclick="toggleFilters()">⚲ Filters</button>
         <button class="btn-line btn-sm" onclick="showLeaderboard()">🏆</button>
         <button class="btn-line btn-sm" onclick="showQuests()" title="Quests & Badges">🎯</button>
-        <button class="btn-line btn-sm" id="nearMeBtn" onclick="nearMe()">📍 Near me</button>
+        <button class="btn-line btn-sm" id="nearMeBtn" onclick="nearMe()">📍<span class="near-lbl"> Near me</span></button>
         <select id="fRadius" onchange="renderList(true)" style="padding:5px 8px;border:1px solid var(--line);border-radius:7px;font-size:13px;display:none">
           <option value="0.5">Within 500m</option>
           <option value="1">Within 1km</option>
@@ -1959,7 +1965,7 @@ showWelcomeIfNew();
       <div class="wf"><span class="wf-icon">🗺️</span><div class="wf-text"><strong>Explore the map</strong><span>Find bia hơi spots near you across Hanoi</span></div></div>
       <div class="wf"><span class="wf-icon">📍</span><div class="wf-text"><strong>Add a spot</strong><span>Know one we don't? Pin it on the map</span></div></div>
       <div class="wf"><span class="wf-icon">⭐</span><div class="wf-text"><strong>Rate & review</strong><span>Share your honest take on the beer &amp; vibe</span></div></div>
-      <div class="wf"><span class="wf-icon">🏅</span><div class="wf-text"><strong>Earn badges</strong><span>Build your reputation as a Hanoi local</span></div></div>
+      <div class="wf"><span class="wf-icon">🎯</span><div class="wf-text"><strong>Quests &amp; Legends</strong><span>29 badges, earn titles &amp; join the Bia Hơi Legends</span></div></div>
     </div>
     <button class="btn-welcome" onclick="dismissWelcome()">Vào bản đồ! 🍺</button>
     <span class="skip-link" onclick="dismissWelcome()">I've been here before</span>
