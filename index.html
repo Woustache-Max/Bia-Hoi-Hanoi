@@ -126,6 +126,31 @@
     display:flex;align-items:center;gap:8px;z-index:9999;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;white-space:nowrap}
   .badge-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .inline-badges{display:inline-flex;gap:2px;font-size:13px;vertical-align:middle;margin-left:3px}
+  /* ── Welcome / Onboarding overlay ─────────────────────── */
+  #welcomeOverlay{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;
+    padding:16px;background:rgba(10,8,4,.78);backdrop-filter:blur(4px)}
+  #welcomeOverlay.hidden{display:none}
+  .welcome-card{background:var(--paper);border-radius:20px;padding:32px 28px 24px;max-width:420px;width:100%;
+    box-shadow:0 8px 40px rgba(0,0,0,.45);text-align:center;position:relative}
+  [data-theme="dark"] .welcome-card{background:var(--card)}
+  .welcome-logo{font-size:52px;line-height:1;margin-bottom:4px}
+  .welcome-card h1{font-size:22px;font-weight:800;margin:0 0 2px;color:var(--ink)}
+  .welcome-card .sub{font-size:13px;color:var(--muted);margin:0 0 20px}
+  .welcome-features{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:22px;text-align:left}
+  .wf{background:var(--line);border-radius:12px;padding:12px 14px;display:flex;align-items:flex-start;gap:10px}
+  [data-theme="dark"] .wf{background:#221c14}
+  .wf-icon{font-size:22px;flex-shrink:0;margin-top:1px}
+  .wf-text strong{display:block;font-size:13px;font-weight:700;color:var(--ink);margin-bottom:1px}
+  .wf-text span{font-size:11px;color:var(--muted);line-height:1.4}
+  .welcome-card .btn-welcome{width:100%;padding:13px;font-size:16px;font-weight:700;background:var(--gold);
+    color:#000;border:none;border-radius:12px;cursor:pointer;transition:.15s}
+  .welcome-card .btn-welcome:hover{background:var(--gold-dark);color:#fff}
+  .welcome-card .skip-link{display:block;margin-top:10px;font-size:11px;color:var(--muted);cursor:pointer;
+    text-decoration:underline;text-underline-offset:2px}
+  @media(max-width:400px){
+    .welcome-features{grid-template-columns:1fr}
+    .welcome-card{padding:24px 18px 18px}
+  }
   .pill.role-admin{background:#185fa5;color:#fff}
   .pill.role-active{background:#2e7d32;color:#fff}
   .pill.role-newcomer{background:#f0e8d6;color:var(--ink)}
@@ -1353,8 +1378,36 @@ function inlineBadges(uid){
   return `<span class="inline-badges">${u.badges.slice(0,3).map(bid=>{const b=BADGES.find(x=>x.id===bid);return b?b.icon:''}).join('')}</span>`;
 }
 
+function dismissWelcome(){
+  localStorage.setItem('welcomed','1');
+  document.getElementById('welcomeOverlay').classList.add('hidden');
+}
+function showWelcomeIfNew(){
+  // Don't show if arriving via deep-link — they were sent here intentionally
+  const params=new URLSearchParams(window.location.search);
+  if(params.get('spot'))return;
+  if(!localStorage.getItem('welcomed')){
+    document.getElementById('welcomeOverlay').classList.remove('hidden');
+  }
+}
 init();
+showWelcomeIfNew();
 </script>
 <div class="badge-toast" id="badgeToast"></div>
+<div id="welcomeOverlay" class="hidden">
+  <div class="welcome-card">
+    <div class="welcome-logo">🍺</div>
+    <h1>Bia Hơi Hanoi</h1>
+    <p class="sub">Hanoi's crowdsourced map of the best bia hơi spots</p>
+    <div class="welcome-features">
+      <div class="wf"><span class="wf-icon">🗺️</span><div class="wf-text"><strong>Explore the map</strong><span>Find bia hơi spots near you across Hanoi</span></div></div>
+      <div class="wf"><span class="wf-icon">📍</span><div class="wf-text"><strong>Add a spot</strong><span>Know one we don't? Pin it on the map</span></div></div>
+      <div class="wf"><span class="wf-icon">⭐</span><div class="wf-text"><strong>Rate & review</strong><span>Share your honest take on the beer &amp; vibe</span></div></div>
+      <div class="wf"><span class="wf-icon">🏅</span><div class="wf-text"><strong>Earn badges</strong><span>Build your reputation as a Hanoi local</span></div></div>
+    </div>
+    <button class="btn-welcome" onclick="dismissWelcome()">Vào bản đồ! 🍺</button>
+    <span class="skip-link" onclick="dismissWelcome()">I've been here before</span>
+  </div>
+</div>
 </body>
 </html>
