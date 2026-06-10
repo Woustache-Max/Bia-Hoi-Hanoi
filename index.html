@@ -508,13 +508,18 @@ function reviewHTML(s,r){
 
 function reviewFormHTML(id){
   if(!cur){
-    return `<div style="background:#fbf6ea;border:1px solid var(--line);border-radius:10px;padding:16px;text-align:center">
-      <div style="font-size:22px;margin-bottom:8px">🍺</div>
-      <p style="margin:0 0 12px;font-size:14px;color:var(--ink);font-weight:600">Sign in to rate & review</p>
-      <p style="margin:0 0 14px;font-size:13px;color:var(--muted);line-height:1.5">Reviews help the community find the best bia hơi spots. You can still add a new spot without an account.</p>
-      <div style="display:flex;gap:8px;justify-content:center">
-        <button class="btn-gold btn-sm" onclick="authModal(true)">Join free</button>
-        <button class="btn-line btn-sm" onclick="authModal(false)">Sign in</button>
+    return `<div>
+      <div style="pointer-events:none;opacity:.45;user-select:none">
+        ${RCATS.map(c=>`
+        <div class="rate-row"><span class="lbl">${c[1]}</span>
+          <span class="gpick">${[1,2,3,4,5].map(i=>`<span>🍺</span>`).join('')}</span></div>`).join('')}
+      </div>
+      <div style="background:#fbf6ea;border:1px solid var(--line);border-radius:10px;padding:13px 16px;margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <p style="margin:0;font-size:13px;color:var(--ink);font-weight:600;line-height:1.4">Sign in to rate & review<br><span style="font-weight:400;color:var(--muted)">You can still add spots without an account.</span></p>
+        <div style="display:flex;gap:7px;flex-shrink:0">
+          <button class="btn-gold btn-sm" onclick="authModal(true)">Join free</button>
+          <button class="btn-line btn-sm" onclick="authModal(false)">Sign in</button>
+        </div>
       </div>
     </div>`;
   }
