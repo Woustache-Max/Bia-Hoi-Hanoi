@@ -302,6 +302,15 @@
   .kotm-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);font-size:13px}
   [data-theme="dark"] .qitem{background:var(--card)}
   [data-theme="dark"] .legends-empty{background:var(--card)}
+  .sort-btn{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;cursor:pointer;transition:.15s}
+  .sort-btn.on{background:var(--ink);color:var(--gold);border-color:var(--ink)}
+  .sort-btn:hover:not(.on){background:var(--line)}
+  .reply-list{margin:6px 0 4px 12px;border-left:2px solid var(--line);padding-left:10px}
+  .reply-item{font-size:13px;padding:4px 0;border-bottom:1px solid var(--line);line-height:1.4}
+  .reply-item:last-child{border-bottom:none}
+  .reply-who{font-weight:700;margin-right:3px}
+  .reply-textarea{width:100%;padding:7px 10px;border:1.5px solid var(--line);border-radius:7px;font-size:13px;font-family:inherit;resize:none;min-height:54px;background:#fff;color:var(--ink);display:block;box-sizing:border-box}
+  .av-sm{width:22px;height:22px;border-radius:50%;object-fit:cover;border:1.5px solid var(--gold);flex-shrink:0;vertical-align:middle}
 </style>
 </head>
 <body>
@@ -427,6 +436,7 @@ const BADGES=[
 let spots = [];
 let cur   = null;            // current user: { id, name, role, since, email }
 const profilesCache = {};    // uuid → profile, for fast lookups
+const repliesCache  = {};    // reviewId → [replies]
 
 /* ============================================================
    DB CONVERTERS — Supabase row → app object
@@ -640,7 +650,23 @@ function renderList(sortByDist){
    DETAIL — spot detail panel
    ============================================================ */
 let chosen={};
-function showDetail(id){
+function sortedReviews(s,mode){
+  const rs=[...s.reviews];
+  if(mode==='top') rs.sort((a,b)=>{
+    const avg=r=>{const v=Object.values(r.ratings||{}).filter(x=>x>0);return v.length?v.reduce((a,b)=>a+b,0)/v.length:0;};
+    return avg(b)-avg(a);
+  });
+  else if(mode==='helpful') rs.sort((a,b)=>(b.helpful||[]).length-(a.helpful||[]).length);
+  else rs.sort((a,b)=>(b.when||'').localeCompare(a.when||''));
+  return rs;
+}
+function sortReviews(sid,mode,btn){
+  const s=byId(sid);if(!s)return;
+  document.querySelectorAll('#sortBtns .sort-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('reviewList').innerHTML=sortedReviews(s,mode).map(r=>reviewHTML(s,r)).join('');
+}
+async function showDetail(id){
   openSidebar();const s=byId(id);if(!s)return;
   map.setView([s.lat,s.lng],16);
   const admin=cur&&cur.role==='admin';
@@ -694,12 +720,32 @@ function showDetail(id){
       ${(cur&&(cur.role==='active'||cur.role==='admin'))?`<button class="btn-line btn-sm" style="font-size:12px" onclick="uploadPhoto('${s.id}')" title="Add a photo of this spot">📷 Add photo</button>`:''}
     </div>
     <div class="photos">${s.photos&&s.photos.length?s.photos.map((p,i)=>`<div style="position:relative;display:inline-block;width:100%"><img src="${p.url}" onclick="viewPhoto('${s.id}',${i})" style="width:100%;height:78px;object-fit:cover;border-radius:6px;cursor:pointer">${(cur&&(p.uploaded_by===cur.id||cur.role==='admin'))?`<button onclick="deletePhoto('${p.id}','${p.path}','${s.id}')" title="Delete photo" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;padding:0;cursor:pointer;line-height:20px;text-align:center">✕</button>`:''}  </div>`).join(''):'<div style="grid-column:1/4;color:var(--muted);font-size:13px;padding:6px 0">No photos yet — be the first to add one!</div>'}</div>
-    <div class="sec">Reviews</div>
-    <div>${s.reviews.length?s.reviews.map(r=>reviewHTML(s,r)).join(''):'<div style="color:var(--muted);font-size:13px">No reviews yet — be the first.</div>'}</div>
+    <div class="sec" style="display:flex;justify-content:space-between;align-items:center">
+      <span>Reviews</span>
+      ${s.reviews.length>1?`<div style="display:flex;gap:4px" id="sortBtns">
+        <button class="sort-btn on" data-sort="newest" onclick="sortReviews('${s.id}','newest',this)">Newest</button>
+        <button class="sort-btn" data-sort="top" onclick="sortReviews('${s.id}','top',this)">Top rated</button>
+        <button class="sort-btn" data-sort="helpful" onclick="sortReviews('${s.id}','helpful',this)">Helpful</button>
+      </div>`:''}
+    </div>
+    <div id="reviewList">${s.reviews.length?sortedReviews(s,'newest').map(r=>reviewHTML(s,r)).join(''):'<div style="color:var(--muted);font-size:13px">No reviews yet — be the first.</div>'}</div>
     <div class="sec">Add your review</div>
     ${reviewFormHTML(s.id)}
   </div>`;
   chosen={};
+  // Async: fetch replies, then re-render review list
+  if(s.reviews.length){
+    const rids=s.reviews.map(r=>r.id);
+    const{data:rd}=await db.from('review_replies').select('*').in('review_id',rids);
+    (rd||[]).forEach(rep=>{
+      if(!repliesCache[rep.review_id])repliesCache[rep.review_id]=[];
+      if(!repliesCache[rep.review_id].find(x=>x.id===rep.id))repliesCache[rep.review_id].push(rep);
+    });
+    const rUids=[...new Set((rd||[]).map(r=>r.user_id).filter(id=>id&&!profilesCache[id]))];
+    if(rUids.length){const{data:rps}=await db.from('profiles').select('*').in('id',rUids);(rps||[]).forEach(p=>{profilesCache[p.id]=p;});}
+    const rl=document.getElementById('reviewList');
+    if(rl){const sb=document.querySelector('#sortBtns .sort-btn.on');rl.innerHTML=sortedReviews(s,sb?sb.dataset.sort:'newest').map(r=>reviewHTML(s,r)).join('');}
+  }
 }
 
 /* ============================================================
@@ -728,15 +774,44 @@ function reviewHTML(s,r){
     :`<a style="color:inherit;cursor:pointer" onclick="showProfile('${r.userId}')">${crownFor(r.userId)}${esc(r.who)}</a>${inlineBadges(r.userId)}`;
   const avg=revAvg(r);
   const avgBadge=avg?`<span style="background:var(--gold);color:#000;font-size:11px;font-weight:800;padding:1px 7px;border-radius:20px;margin-left:4px">${avg.toFixed(1)} 🍺</span>`:'';
+  const _reps=(repliesCache[r.id]||[]);
+  const repliesHtml=_reps.length?`<div class="reply-list">${_reps.map(rep=>{const rn=esc((profilesCache[rep.user_id]||{}).name||'User');const own=cur&&cur.id===rep.user_id;return `<div class="reply-item"><span class="reply-who">${rn}:</span> ${esc(rep.body)}${own?` <button class="vote" style="color:var(--red)" onclick="deleteReply('${rep.id}','${r.id}','${s.id}')">delete</button>`:''}</div>`;}).join('')}</div>`:'';
+  const canReply=cur&&(cur.role==='active'||cur.role==='admin');
+  const replyBtn=canReply?` · <button class="vote" onclick="toggleReplyForm('${r.id}')">💬 Reply</button>`:'';
+  const replyFormHtml=canReply?`<div id="rf_${r.id}" style="display:none;margin-top:6px"><textarea class="reply-textarea" id="rt_${r.id}" placeholder="Write a reply…"></textarea><div style="display:flex;gap:6px;margin-top:4px"><button class="btn-gold btn-sm" style="font-size:12px" onclick="submitReply('${r.id}','${s.id}')">Post</button><button class="btn-line btn-sm" style="font-size:12px" onclick="toggleReplyForm('${r.id}')">Cancel</button></div></div>`:'';
   return `<div class="review">
     <div class="who"><span>${whoLink}${avgBadge}</span>
       ${admin?`<button class="vote" style="color:var(--red)" onclick="delReview('${s.id}','${r.id}')">delete</button>`:''}</div>
     <div class="rgrid">${RCATS.filter(c=>r.ratings[c[0]]>0).map(c=>`<span><b style="font-size:13px">${r.ratings[c[0]]}🍺</b> <span style="color:var(--muted)">${c[1]}</span></span>`).join('')}</div>
     ${r.txt?`<div class="txt">${esc(r.txt)}</div>`:''}
-    <div class="when">${r.when} · <button class="vote" onclick="voteHelpful('${s.id}','${r.id}')">${didI?'✓ Helpful':'👍 Helpful'}${helped?' ('+helped+')':''}</button></div>
+    <div class="when">${r.when} · <button class="vote" onclick="voteHelpful('${s.id}','${r.id}')">${didI?'✓ Helpful':'👍 Helpful'}${helped?' ('+helped+')':''}</button>${replyBtn}</div>
+    ${repliesHtml}${replyFormHtml}
   </div>`;
 }
 
+function toggleReplyForm(rid){
+  const el=document.getElementById('rf_'+rid);
+  if(el)el.style.display=el.style.display==='none'?'block':'none';
+}
+async function submitReply(rid,sid){
+  if(!cur)return;
+  const el=document.getElementById('rt_'+rid);
+  const body=(el&&el.value||'').trim();
+  if(!body)return showToast('Write something first.');
+  el.disabled=true;
+  const{data,error}=await db.from('review_replies').insert({review_id:rid,user_id:cur.id,body}).select().single();
+  if(error){el.disabled=false;return showToast('Error: '+error.message);}
+  if(!repliesCache[rid])repliesCache[rid]=[];
+  repliesCache[rid].push(data);
+  showDetail(sid);
+}
+async function deleteReply(replyId,rid,sid){
+  if(!confirm('Delete this reply?'))return;
+  const{error}=await db.from('review_replies').delete().eq('id',replyId);
+  if(error)return showToast('Error: '+error.message);
+  if(repliesCache[rid])repliesCache[rid]=repliesCache[rid].filter(r=>r.id!==replyId);
+  showDetail(sid);
+}
 function reviewFormHTML(id){
   if(!cur){
     return `<div>
@@ -1106,13 +1181,18 @@ async function showProfile(uid){
   const hasTitle=!!(u.title);
   const avClass=hasTitle?' class="gold-anim"':'';
   const avBorder=hasTitle?'':'border:2px solid var(--gold);';
-  const profileThumb=added.length&&added[0].photos&&added[0].photos.length
-    ?`<img src="${added[0].photos[0].url}" style="width:54px;height:54px;border-radius:50%;object-fit:cover;${avBorder}flex-shrink:0"${avClass} alt="">`
-    :`<div style="width:54px;height:54px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0"${avClass}>👤</div>`;
+  const profileThumb=u.avatar_url
+    ?`<img src="${u.avatar_url}" style="width:54px;height:54px;border-radius:50%;object-fit:cover;${avBorder}flex-shrink:0"${avClass} alt="">`
+    :added.length&&added[0].photos&&added[0].photos.length
+      ?`<img src="${added[0].photos[0].url}" style="width:54px;height:54px;border-radius:50%;object-fit:cover;${avBorder}flex-shrink:0"${avClass} alt="">`
+      :`<div style="width:54px;height:54px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0"${avClass}>👤</div>`;
   document.getElementById('sidebarBody').innerHTML=`<div class="panel">
     <span class="back" onclick="renderList()">← All spots</span>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-      ${profileThumb}
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+        ${profileThumb}
+        ${isOwn?'<button class="vote" style="font-size:11px;margin-top:2px" onclick="changeAvatar()">📷 Change</button>':''}
+      </div>
       <div>
         <h2 style="margin:0 0 2px">${u.title?'<span style="color:var(--gold-dark)">'+u.title.split(' ')[0]+'</span> ':''}${esc(u.name)} ${rolePill(u.role)}</h2>
         ${u.title?'<div style="font-size:12px;color:var(--gold-dark);font-weight:700;margin-bottom:2px">'+esc(u.title)+'</div>':''}<div style="font-size:12px;color:var(--muted)">Member since ${u.since||'—'}</div>
@@ -1145,6 +1225,28 @@ async function showProfile(uid){
       </div>`).join('')
     :'<div class="txt-muted" style="padding:6px 0">No reviews yet.</div>'}
   </div>`;
+}
+
+async function changeAvatar(){
+  if(!cur)return;
+  const input=document.createElement('input');
+  input.type='file';input.accept='image/*';
+  input.onchange=async()=>{
+    const file=input.files[0];if(!file)return;
+    if(file.size>3*1024*1024)return showToast('Max file size is 3 MB.');
+    showToast('Uploading photo…',2500);
+    const ext=file.name.split('.').pop().toLowerCase()||'jpg';
+    const fpath='avatars/'+cur.id+'.'+ext;
+    const{error:upErr}=await db.storage.from('spot-photos').upload(fpath,file,{contentType:file.type,upsert:true});
+    if(upErr)return showToast('Upload failed: '+upErr.message);
+    const{data:{publicUrl}}=db.storage.from('spot-photos').getPublicUrl(fpath);
+    const{error:dbErr}=await db.from('profiles').update({avatar_url:publicUrl}).eq('id',cur.id);
+    if(dbErr)return showToast('Save failed: '+dbErr.message);
+    cur.avatar_url=publicUrl;profilesCache[cur.id]=cur;
+    setUserLabel();showProfile(cur.id);
+    showToast('✅ Profile photo updated!');
+  };
+  input.click();
 }
 
 /* ============================================================
@@ -1214,7 +1316,7 @@ async function logout(){
 
 function setUserLabel(){
   document.getElementById('userLabel').innerHTML=cur
-    ?`👤 <a style="color:#fff;cursor:pointer" onclick="showProfile('${cur.id}')">${esc(cur.name)}</a> ${rolePill(cur.role)} ${cur.role==='admin'?'<button class="btn-ghost btn-sm" style="padding:3px 8px;font-size:12px" onclick="openAdmin()">⚙ Admin</button>':''} <span style="cursor:pointer;text-decoration:underline;font-size:12px" onclick="logout()">sign out</span>`
+    ?`${cur.avatar_url?'<img class="av-sm" src="'+cur.avatar_url+'" onclick="showProfile(\''+cur.id+'\')" alt="">':'👤'} <a style="color:#fff;cursor:pointer" onclick="showProfile('${cur.id}')">${esc(cur.name)}</a> ${rolePill(cur.role)} ${cur.role==='admin'?'<button class="btn-ghost btn-sm" style="padding:3px 8px;font-size:12px" onclick="openAdmin()">⚙ Admin</button>':''} <span style="cursor:pointer;text-decoration:underline;font-size:12px" onclick="logout()">sign out</span>`
     :`<button class="btn-ghost btn-sm" onclick="authModal(true)">Join</button> <button class="btn-ghost btn-sm" onclick="authModal(false)">Sign in</button>`;
 }
 
