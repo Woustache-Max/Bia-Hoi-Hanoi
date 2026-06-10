@@ -420,7 +420,8 @@ function renderList(sortByDist){
   if(!list.length){body.innerHTML='<div class="empty-note">No spots match your filters.</div>';return}
   body.innerHTML=list.map(s=>{
     const open=isOpen(s),closed=s.status!=='active';
-    const dtxt=(sortByDist&&window._me)?` · ${dist(window._me[0],window._me[1],s.lat,s.lng).toFixed(1)}km`:'';
+    const d=window._me?dist(window._me[0],window._me[1],s.lat,s.lng):null;
+    const dtxt=d!==null?`<span style="background:#e8f0fe;color:#185fa5;border-radius:20px;padding:1px 7px;font-size:11px;font-weight:700">${d<1?(d*1000).toFixed(0)+'m':d.toFixed(1)+'km'}</span>`:'';
     const verBadge=s.verified?'':`<span class="chip unverified">Unverified</span> `;
     const thumb=s.photos&&s.photos.length
       ?`<img class="list-thumb" src="${s.photos[0].url}" alt="" loading="lazy">`
@@ -429,8 +430,8 @@ function renderList(sortByDist){
       ${thumb}
       <div class="list-text">
         <h3>${verBadge}${esc(s.name)} ${closed?'<span class="chip closed">'+(s.status==='perm_closed'?'Closed':'Temp closed')+'</span>':(open?'<span class="chip open">Open</span>':'')}</h3>
-        <div class="meta"><span>${glassStr(spotAvg(s))} ${s.reviews.length?'('+s.reviews.length+')':'<i>new</i>'}</span>
-        <span>${esc(s.district||'')}${dtxt} · ${esc(s.pricePerGlass||'')}</span></div>
+        <div class="meta"><span>${glassStr(spotAvg(s))} ${s.reviews.length?'('+s.reviews.length+')':'<i>new</i>'} ${dtxt}</span>
+        <span>${esc(s.district||'')} · ${esc(s.pricePerGlass||'')}</span></div>
       </div></div>`;
   }).join('');
 }
@@ -446,8 +447,9 @@ function showDetail(id){
   const facts=[
     ['District',s.district],['Address',s.address],['Price / glass',s.pricePerGlass],
     ['Hours',(s.openH!=null?fmtHr(s.openH)+' – '+fmtHr(s.closeH):'')],
-    ['Seating',s.seating],['Payment',s.payment],['Vibe',(s.vibes||[]).join(', ')]
-  ].filter(f=>f[1]);
+    ['Seating',s.seating],['Payment',s.payment],['Vibe',(s.vibes||[]).join(', ')],
+    window._me?['Distance',dist(window._me[0],window._me[1],s.lat,s.lng)<1?(dist(window._me[0],window._me[1],s.lat,s.lng)*1000).toFixed(0)+'m away':dist(window._me[0],window._me[1],s.lat,s.lng).toFixed(1)+'km away']:null
+  ].filter(f=>f&&f[1]);
   const gmaps=`https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`;
   const addedBy=s.createdBy&&s.createdBy!=='anon'&&s.createdBy!=='seed'?userById(s.createdBy):null;
   const body=document.getElementById('sidebarBody');
@@ -895,17 +897,40 @@ function setUserLabel(){
 
 /* ============ NEAR ME ============ */
 function nearMe(){
+  const btn=document.getElementById('nearMeBtn');
+  // If already active, clear location
+  if(window._meWatcher){
+    navigator.geolocation.clearWatch(window._meWatcher);
+    window._meWatcher=null;
+    if(window._meMarker){window._meMarker.remove();window._meMarker=null;}
+    window._me=null;
+    btn.innerHTML='📍 Near me';
+    btn.classList.remove('btn-gold');
+    document.getElementById('fRadius').style.display='none';
+    renderList(false);
+    return;
+  }
   if(!navigator.geolocation)return alert('Location not available on this device.');
-  navigator.geolocation.getCurrentPosition(p=>{
-    window._me=[p.coords.latitude,p.coords.longitude];
-    map.setView(window._me,15);
-    if(window._meMarker)window._meMarker.remove();
-    window._meMarker=L.circleMarker(window._me,{radius:9,color:'#185fa5',fillColor:'#378add',fillOpacity:.9}).addTo(map).bindPopup('📍 You are here');
-    const sel=document.getElementById('fRadius');
-    sel.style.display='';sel.value='1';
-    document.getElementById('nearMeBtn').textContent='📍 Located';
+  btn.innerHTML='⏳ Locating…';
+  window._meWatcher=navigator.geolocation.watchPosition(p=>{
+    const lat=p.coords.latitude,lng=p.coords.longitude;
+    window._me=[lat,lng];
+    if(!window._meMarker){
+      map.setView([lat,lng],15);
+      window._meMarker=L.circleMarker([lat,lng],{radius:10,color:'#185fa5',fillColor:'#4a9fe8',fillOpacity:.92,weight:2.5}).addTo(map).bindPopup('📍 You are here');
+      const sel=document.getElementById('fRadius');
+      sel.style.display='';sel.value='1';
+    } else {
+      window._meMarker.setLatLng([lat,lng]);
+    }
+    btn.innerHTML='📍 Near me ✕';
+    btn.classList.add('btn-gold');
     renderList(true);
-  },()=>alert('Could not get your location — please allow location access.'));
+  },()=>{
+    btn.innerHTML='📍 Near me';
+    btn.classList.remove('btn-gold');
+    alert('Could not get your location — please allow location access.');
+  },{enableHighAccuracy:true,maximumAge:10000});
 }
 
 /* ============ MODAL / SIDEBAR ============ */
