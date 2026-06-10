@@ -587,17 +587,17 @@ function showDetail(id){
       ${s.status==='perm_closed'?'<span class="chip closed">Permanently closed</span>':s.status==='temp_closed'?'<span class="chip closed">Temporarily closed</span>':''}
     </div>
     ${!s.verified?`<div class="hint-verify">Added anonymously — not yet verified.${canVerify?' If you\'ve been here and it\'s real, hit <b>Verify</b>.':' Sign in to verify it.'}</div>`:''}
-    \${(()=>{
+    ${(()=>{
       const avg=spotAvg(s);
-      const pill=avg?`<span style="background:var(--gold);color:#000;font-size:13px;font-weight:800;padding:2px 10px;border-radius:20px">\${avg.toFixed(1)} 🍺</span>`:'';
-      const cnt=`<small style="color:var(--muted);margin-left:6px">\${s.reviews.length} review\${s.reviews.length===1?'':'s'}</small>`;
+      const pill=avg?`<span style="background:var(--gold);color:#000;font-size:13px;font-weight:800;padding:2px 10px;border-radius:20px">${avg.toFixed(1)} 🍺</span>`:'';
+      const cnt=`<small style="color:var(--muted);margin-left:6px">${s.reviews.length} review${s.reviews.length===1?'':'s'}</small>`;
       const cats=s.reviews.length?RCATS.map(c=>{
         const vals=s.reviews.map(r=>r.ratings[c[0]]).filter(v=>v>0);
         if(!vals.length)return null;
         const ca=(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
-        return `<span><b style="font-size:13px">\${ca}🍺</b> <span style="color:var(--muted)">\${c[1]}</span></span>`;
+        return '<span><b style="font-size:13px">'+ca+'🍺</b> <span style="color:var(--muted)">'+c[1]+'</span></span>';
       }).filter(Boolean).join(''):'';
-      return `<div style="margin:8px 0">\${avg?pill+cnt:'<span style="color:var(--muted);font-size:13px">No ratings yet</span>'}</div>\${cats?`<div class="rgrid" style="margin-bottom:10px">\${cats}</div>`:''}`;
+      return '<div style="margin:8px 0">'+(avg?pill+cnt:'<span style="color:var(--muted);font-size:13px">No ratings yet</span>')+'</div>'+(cats?'<div class="rgrid" style="margin-bottom:10px">'+cats+'</div>':'');
     })()}
     <div class="factbox">
       ${facts.map(f=>`<div class="factrow"><b>${f[0]}</b><span>${esc(f[1])}</span></div>`).join('')}
