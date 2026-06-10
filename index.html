@@ -67,8 +67,8 @@
   .form-sec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin:10px 0 0;padding-bottom:5px;border-bottom:1px solid var(--line)}
   .rate-row{display:flex;align-items:center;justify-content:space-between;background:#fbf6ea;border:1px solid var(--line);border-radius:8px;padding:7px 11px;margin-top:6px}
   .rate-row .lbl{font-size:13px;font-weight:600}
-  .gpick span{font-size:21px;cursor:pointer;color:#dcd4c4}.gpick span.on{color:var(--gold-dark)}
-  .gpick .clr{font-size:11px;color:var(--muted);margin-left:6px;font-weight:600}
+  .gpick span{font-size:21px;cursor:pointer;filter:grayscale(1);opacity:.3;transition:.12s;display:inline-block}.gpick span.on{filter:none;opacity:1;transform:scale(1.18)}
+  .gpick .clr{font-size:11px;color:var(--muted);margin-left:6px;font-weight:600;filter:none!important;opacity:1!important;transform:none!important}
   .tagpick{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
   .tagpick label{display:inline-flex;align-items:center;gap:4px;font-size:12px;background:#f0e8d6;padding:4px 9px;border-radius:16px;cursor:pointer;color:var(--ink);margin:0;font-weight:600}
   .tagpick label.on{background:var(--gold);color:var(--ink)}
@@ -211,7 +211,7 @@ function dbToSpot(s){
     openH:s.open_h, closeH:s.close_h,
     seating:s.seating||'', payment:s.payment||'',
     vibes:s.vibes||[], desc:s.description||'',
-    status:s.status||'active', photos:s.photos||[],
+    status:s.status||'active',
     createdBy:s.created_by||'anon', createdAt:s.created_at,
     verified:s.verified||false,
     verifiedBy:s.verified_by||null, verifiedAt:s.verified_at||null,
@@ -394,9 +394,11 @@ function showDetail(id){
       ${admin?`<button class="btn-line btn-sm" onclick="setStatus('${s.id}')">Status</button><button class="btn-line btn-sm" onclick="delSpot('${s.id}')">🗑 Delete</button>`:''}
     </div>
     ${s.desc?`<div class="desc">${esc(s.desc)}</div>`:''}
-    <div class="sec">Photos</div>
-    <div class="photos">${s.photos.length?s.photos.map((p,i)=>`<img src="${p}" onclick="viewPhoto('${s.id}',${i})">`).join(''):'<div style="grid-column:1/4;color:var(--muted);font-size:13px">No photos yet.</div>'}</div>
-    <div style="margin-top:8px;font-size:13px;color:var(--muted)">📷 Photo upload coming soon</div>
+    <div class="sec" style="display:flex;justify-content:space-between;align-items:center">
+      <span>Photos</span>
+      ${(cur&&(cur.role==='active'||cur.role==='admin'))?`<button class="btn-line btn-sm" style="font-size:12px" onclick="uploadPhoto('${s.id}')" title="Add a photo of this spot">📷 Add photo</button>`:''}
+    </div>
+    <div class="photos">${s.photos&&s.photos.length?s.photos.map((p,i)=>`<div style="position:relative;display:inline-block;width:100%"><img src="${p.url}" onclick="viewPhoto('${s.id}',${i})" style="width:100%;height:78px;object-fit:cover;border-radius:6px;cursor:pointer">${(cur&&(p.uploaded_by===cur.id||cur.role==='admin'))?`<button onclick="deletePhoto('${p.id}','${p.path}','${s.id}')" title="Delete photo" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;padding:0;cursor:pointer;line-height:20px;text-align:center">✕</button>`:''}  </div>`).join(''):'<div style="grid-column:1/4;color:var(--muted);font-size:13px;padding:6px 0">No photos yet — be the first to add one!</div>'}</div>
     <div class="sec">Reviews</div>
     <div>${s.reviews.length?s.reviews.map(r=>reviewHTML(s,r)).join(''):'<div style="color:var(--muted);font-size:13px">No reviews yet — be the first.</div>'}</div>
     <div class="sec">Add your review</div>
@@ -441,7 +443,7 @@ function reviewFormHTML(id){
       ${RCATS.map(c=>`
       <div class="rate-row"><span class="lbl">${c[1]}</span>
         <span class="gpick" id="gp_${c[0]}">${[1,2,3,4,5].map(i=>`<span onclick="pick('${c[0]}',${i})">🍺</span>`).join('')}<span class="clr" onclick="pick('${c[0]}',0)">clear</span></span></div>`).join('')}
-      <button class="btn-gold" style="width:100%;margin-top:8px" onclick="submitReview('${id}')">Post rating</button>
+      <button class="btn-gold" style="width:100%;margin-top:10px;padding:11px;font-size:15px;border-radius:10px" onclick="submitReview('${id}')">Post rating</button>
     </div>`;
   }
   const isNewcomer=cur.role==='newcomer';
@@ -453,10 +455,12 @@ function reviewFormHTML(id){
     ${RCATS.map(c=>`
     <div class="rate-row"><span class="lbl">${c[1]}</span>
       <span class="gpick" id="gp_${c[0]}">${[1,2,3,4,5].map(i=>`<span onclick="pick('${c[0]}',${i})">🍺</span>`).join('')}<span class="clr" onclick="pick('${c[0]}',0)">clear</span></span></div>`).join('')}
-    <label style="margin-top:10px">Your thoughts${textNote}</label>
-    <textarea id="revTxt" placeholder="What's the crowd like? Best snacks? What makes it special…" ${oninput}></textarea>
-    ${charCounter}
-    <button class="btn-gold" style="width:100%;margin-top:8px" onclick="submitReview('${id}')">Post review</button>
+    <div style="background:#fbf6ea;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-top:6px">
+      <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px">Your thoughts${textNote}</div>
+      <textarea id="revTxt" placeholder="What's the crowd like? Best snacks? What makes it special…" ${oninput} style="width:100%;padding:8px 10px;border:1.5px solid var(--line);border-radius:7px;font-size:14px;font-family:inherit;resize:vertical;min-height:72px;background:#fff;color:var(--ink);display:block"></textarea>
+      ${charCounter}
+    </div>
+    <button class="btn-gold" style="width:100%;margin-top:10px;padding:11px;font-size:15px;border-radius:10px" onclick="submitReview('${id}')">Post review</button>
   </div>`;
 }
 
@@ -517,6 +521,38 @@ async function delReview(sid,rid){
   if(error){alert('Error: '+error.message);return;}
   const s=byId(sid);s.reviews=s.reviews.filter(x=>x.id!==rid);
   showDetail(sid);
+}
+
+async function uploadPhoto(spotId){
+  if(!cur||!(cur.role==='active'||cur.role==='admin'))return alert('Active members can upload photos.');
+  const input=document.createElement('input');
+  input.type='file';input.accept='image/jpeg,image/png,image/webp,image/gif';
+  input.onchange=async e=>{
+    const file=e.target.files[0];if(!file)return;
+    if(file.size>5*1024*1024)return alert('Max 5 MB per photo.');
+    const ext=file.name.split('.').pop().toLowerCase()||'jpg';
+    const path=`${spotId}/${cur.id}_${Date.now()}.${ext}`;
+    const uploadBtn=document.querySelector('button[onclick*="uploadPhoto"]');
+    if(uploadBtn){uploadBtn.disabled=true;uploadBtn.textContent='⏳ Uploading…';}
+    const{error:upErr}=await db.storage.from('spot-photos').upload(path,file,{contentType:file.type,upsert:false});
+    if(upErr){if(uploadBtn){uploadBtn.disabled=false;uploadBtn.textContent='📷 Add photo';}return alert('Upload failed: '+upErr.message);}
+    const{data:{publicUrl}}=db.storage.from('spot-photos').getPublicUrl(path);
+    const{data:row,error:dbErr}=await db.from('photos').insert({spot_id:spotId,uploaded_by:cur.id,url:publicUrl,path}).select().single();
+    if(dbErr){await db.storage.from('spot-photos').remove([path]);if(uploadBtn){uploadBtn.disabled=false;uploadBtn.textContent='📷 Add photo';}return alert('Save failed: '+dbErr.message);}
+    const spot=byId(spotId);if(spot){if(!spot.photos)spot.photos=[];spot.photos.push(row);}
+    showDetail(spotId);
+  };
+  input.click();
+}
+
+async function deletePhoto(photoId,path,spotId){
+  if(!confirm('Delete this photo?'))return;
+  const{error:stErr}=await db.storage.from('spot-photos').remove([path]);
+  const{error:dbErr}=await db.from('photos').delete().eq('id',photoId);
+  if(dbErr)return alert('Error: '+dbErr.message);
+  const spot=byId(spotId);
+  if(spot)spot.photos=(spot.photos||[]).filter(p=>p.id!==photoId);
+  showDetail(spotId);
 }
 
 function viewPhoto(id,i){modal(`<img class="full" src="${byId(id).photos[i]}">`)}
@@ -801,12 +837,13 @@ async function openAdmin(){
   const bg=document.createElement('div');bg.className='modal-bg';bg.id='modal';
   bg.innerHTML='<div class="modal modal-admin"><div style="text-align:center;padding:40px;color:var(--muted)">🍺 Loading admin data…</div></div>';
   document.body.appendChild(bg);
-  const[sr,ur,rr]=await Promise.all([
+  const[sr,ur,rr,pr]=await Promise.all([
     db.from('spots').select('*'),
     db.from('profiles').select('*'),
-    db.from('reviews').select('*')
+    db.from('reviews').select('*'),
+    db.from('photos').select('*')
   ]);
-  adminData={spots:sr.data||[],users:ur.data||[],reviews:rr.data||[]};
+  adminData={spots:sr.data||[],users:ur.data||[],reviews:rr.data||[],photos:pr.data||[]};
   renderAdmin('overview');
 }
 
@@ -814,7 +851,7 @@ function renderAdmin(tab){
   const d=adminData;
   const reported=d.spots.filter(s=>(s.reports||[]).length>0);
   const unverified=d.spots.filter(s=>!s.verified);
-  const tabDefs={overview:'📊 Overview',spots:'📍 Spots',users:'👥 Users',reports:'⚑ Reports'};
+  const tabDefs={overview:'📊 Overview',spots:'📍 Spots',users:'👥 Users',reports:'⚑ Reports',photos:'📷 Photos'};
   const tabs=Object.keys(tabDefs).map(t=>{
     const badge=(t==='reports'&&reported.length)?` <span style="background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px">${reported.length}</span>`:'';
     return `<button class="admin-tab${t===tab?' on':''}" onclick="renderAdmin('${t}')">${tabDefs[t]}${badge}</button>`;
@@ -876,6 +913,34 @@ function renderAdmin(tab){
         </tr>`;
       }).join('')}
     </table>`;
+  }
+  else if(tab==='photos'){
+    const photos=d.photos||[];
+    const flagged=photos.filter(p=>p.flagged);
+    const unflagged=photos.filter(p=>!p.flagged);
+    body=`<div style="margin-bottom:10px;font-size:13px;color:var(--muted)">${photos.length} total · ${flagged.length} flagged</div>
+    ${flagged.length?`<div class="form-sec-title" style="color:var(--red);border-color:var(--red);margin-bottom:8px">⚑ Flagged (${flagged.length})</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:16px">
+      ${flagged.map(p=>`<div style="position:relative;border:2px solid var(--red);border-radius:8px;overflow:hidden">
+        <img src="${p.url}" style="width:100%;height:90px;object-fit:cover;display:block">
+        <div style="padding:4px 6px;background:#fff3f3;font-size:11px;color:var(--muted)">Spot: ${esc((d.spots.find(s=>s.id===p.spot_id)||{}).name||'?')}</div>
+        <div style="padding:4px 6px;display:flex;gap:4px;flex-wrap:wrap">
+          <button class="btn-line btn-sm" style="font-size:11px" onclick="adminUnflagPhoto('${p.id}')" title="Unflag this photo">✓ Keep</button>
+          <button class="btn-line btn-sm" style="font-size:11px;color:var(--red)" onclick="adminDeletePhoto('${p.id}','${p.path}')" title="Delete permanently">🗑</button>
+        </div>
+      </div>`).join('')}
+    </div>`:''}
+    <div class="form-sec-title" style="margin-bottom:8px">All photos (${unflagged.length})</div>
+    ${unflagged.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px">
+      ${unflagged.map(p=>`<div style="position:relative;border:1px solid var(--line);border-radius:8px;overflow:hidden">
+        <img src="${p.url}" style="width:100%;height:90px;object-fit:cover;display:block;cursor:pointer" onclick="window.open('${p.url}')">
+        <div style="padding:4px 6px;font-size:11px;color:var(--muted)">${esc((d.spots.find(s=>s.id===p.spot_id)||{}).name||'?')}</div>
+        <div style="padding:4px 6px;display:flex;gap:4px">
+          <button class="btn-line btn-sm" style="font-size:11px;color:var(--orange)" onclick="adminFlagPhoto('${p.id}')" title="Flag for review">⚑ Flag</button>
+          <button class="btn-line btn-sm" style="font-size:11px;color:var(--red)" onclick="adminDeletePhoto('${p.id}','${p.path}')" title="Delete permanently">🗑</button>
+        </div>
+      </div>`).join('')}
+    </div>`:'<div style="color:var(--muted);font-size:13px">No photos yet.</div>'}`;
   }
   else if(tab==='reports'){
     body=reported.length?`<table class="admin-table">
@@ -980,6 +1045,28 @@ async function adminRemoveUser(uid,name){
   renderAdmin('users');
 }
 
+async function adminFlagPhoto(id){
+  const{error}=await db.from('photos').update({flagged:true}).eq('id',id);
+  if(error)return alert('Error: '+error.message);
+  const p=adminData.photos.find(x=>x.id===id);if(p)p.flagged=true;
+  renderAdmin('photos');
+}
+async function adminUnflagPhoto(id){
+  const{error}=await db.from('photos').update({flagged:false}).eq('id',id);
+  if(error)return alert('Error: '+error.message);
+  const p=adminData.photos.find(x=>x.id===id);if(p)p.flagged=false;
+  renderAdmin('photos');
+}
+async function adminDeletePhoto(id,path){
+  if(!confirm('Permanently delete this photo?'))return;
+  await db.storage.from('spot-photos').remove([path]);
+  const{error}=await db.from('photos').delete().eq('id',id);
+  if(error)return alert('Error: '+error.message);
+  adminData.photos=adminData.photos.filter(x=>x.id!==id);
+  const spotId=(adminData.photos.find(x=>x.id===id)||{}).spot_id;
+  if(spotId){const s=byId(spotId);if(s)s.photos=(s.photos||[]).filter(p=>p.id!==id);}
+  renderAdmin('photos');
+}
 async function adminDismissReports(id){
   const{error}=await db.from('spots').update({reports:[]}).eq('id',id);
   if(error){alert('Error: '+error.message);return;}
@@ -1010,13 +1097,21 @@ async function init(){
   // Load spots and reviews as separate queries to avoid PostgREST embedding 401s
   const{data:spotsData,error}=await db.from('spots').select('*');
   if(error){console.error('Load error:',error);document.getElementById('sidebarBody').innerHTML='<div class="empty-note">⚠ '+error.message+' ('+error.code+')</div>';return;}
-  const{data:reviewsData}=await db.from('reviews').select('*');
+  const[{data:reviewsData},{data:photosData}]=await Promise.all([
+    db.from('reviews').select('*'),
+    db.from('photos').select('*').eq('flagged',false)
+  ]);
   const reviewsBySpot={};
   (reviewsData||[]).forEach(r=>{
     if(!reviewsBySpot[r.spot_id])reviewsBySpot[r.spot_id]=[];
     reviewsBySpot[r.spot_id].push(dbToReview(r));
   });
-  spots=(spotsData||[]).map(s=>({...dbToSpot(s),reviews:reviewsBySpot[s.id]||[]}));
+  const photosBySpot={};
+  (photosData||[]).forEach(p=>{
+    if(!photosBySpot[p.spot_id])photosBySpot[p.spot_id]=[];
+    photosBySpot[p.spot_id].push(p);
+  });
+  spots=(spotsData||[]).map(s=>({...dbToSpot(s),reviews:reviewsBySpot[s.id]||[],photos:photosBySpot[s.id]||[]}));
   const pids=[...new Set(spots.map(s=>s.createdBy).filter(id=>id&&id!=='anon'&&id!=='seed'))];
   if(pids.length){const{data:profiles}=await db.from('profiles').select('*').in('id',pids);(profiles||[]).forEach(p=>{profilesCache[p.id]=p;});}
   renderList();
