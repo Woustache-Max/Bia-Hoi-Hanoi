@@ -6,7 +6,7 @@
 <title>Bia Hơi Hanoi</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<!-- MarkerCluster.Default.css omitted — using custom cluster icons -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -126,6 +126,17 @@
     display:flex;align-items:center;gap:8px;z-index:9999;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;white-space:nowrap}
   .badge-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .inline-badges{display:inline-flex;gap:2px;font-size:13px;vertical-align:middle;margin-left:3px}
+  /* ── Custom cluster icons ─────────────────────────────── */
+  .bh-cluster{display:flex;align-items:center;justify-content:center;
+    border-radius:50%;font-weight:800;color:#000;cursor:pointer;
+    background:var(--gold);border:3px solid rgba(0,0,0,.18);
+    box-shadow:0 2px 8px rgba(0,0,0,.32);transition:.12s;font-family:inherit}
+  .bh-cluster:hover{transform:scale(1.08)}
+  .bh-cluster.sm{width:36px;height:36px;font-size:13px}
+  .bh-cluster.md{width:46px;height:46px;font-size:15px}
+  .bh-cluster.lg{width:58px;height:58px;font-size:17px}
+  /* dark mode: invert so cluster pops on dark tiles */
+  [data-theme="dark"] .bh-cluster{background:#f5b301;border-color:rgba(255,255,255,.15);color:#0a0800}
   /* ── Welcome / Onboarding overlay ─────────────────────── */
   #welcomeOverlay{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;
     padding:16px;background:rgba(10,8,4,.78);backdrop-filter:blur(4px)}
@@ -391,7 +402,15 @@ const CARTO_ATTR='© <a href="https://www.openstreetmap.org/copyright">OpenStree
 const tileLight=L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,attribution:CARTO_ATTR});
 const tileDark=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19,attribution:CARTO_ATTR});
 (localStorage.getItem('theme')==='dark'?tileDark:tileLight).addTo(map);
-const cluster=L.markerClusterGroup({maxClusterRadius:45});map.addLayer(cluster);
+const cluster=L.markerClusterGroup({
+  maxClusterRadius:45,
+  iconCreateFunction(c){
+    const n=c.getChildCount();
+    const sz=n<10?'sm':n<30?'md':'lg';
+    const px=sz==='sm'?36:sz==='md'?46:58;
+    return L.divIcon({className:'',html:`<div class="bh-cluster ${sz}">${n}</div>`,iconSize:[px,px],iconAnchor:[px/2,px/2]});
+  }
+});map.addLayer(cluster);
 map.on('click',()=>{if(innerWidth<=680)document.getElementById('sidebar').classList.remove('open');});
 let tmpMarker=null,adding=false;
 function pinIcon(closed,unverified){
