@@ -553,7 +553,7 @@ function renderList(sortByDist){
       ${thumb}
       <div class="list-text">
         <h3>${verBadge}${esc(s.name)} ${closed?'<span class="chip closed">'+(s.status==='perm_closed'?'Closed':'Temp closed')+'</span>':(open?'<span class="chip open">Open</span>':'')}</h3>
-        <div class="meta"><span>\${(()=>{const a=spotAvg(s);return a?`<span style="background:var(--gold);color:#000;font-size:11px;font-weight:800;padding:1px 7px;border-radius:20px">\${a.toFixed(1)} 🍺</span>`:'<i style="color:var(--muted)">new</i>';})()}&nbsp;\${s.reviews.length?'('+s.reviews.length+') ':''}\${dtxt}</span>
+        <div class="meta"><span>${(()=>{const a=spotAvg(s);return a?`<span style="background:var(--gold);color:#000;font-size:11px;font-weight:800;padding:1px 7px;border-radius:20px">${a.toFixed(1)} 🍺</span>`:'<i style="color:var(--muted)">new</i>';})()}&nbsp;${s.reviews.length?'('+s.reviews.length+') ':''}${dtxt}</span>
         <span>${esc(s.district||'')}${s.pricePerGlass?' · '+esc(s.pricePerGlass):''}${(s.openH!=null&&s.closeH!=null&&!closed)?' · '+fmtHr(s.openH)+'–'+fmtHr(s.closeH):''}</span></div>
       </div></div>`;
   }).join('');
