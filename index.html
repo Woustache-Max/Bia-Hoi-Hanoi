@@ -255,6 +255,19 @@
   .stat-card{background:#f8f4eb;border-radius:10px;padding:14px;text-align:center}
   .stat-card .num{font-size:26px;font-weight:800;color:var(--gold-dark)}
   .stat-card .lbl{font-size:11px;color:var(--muted);margin-top:3px;font-weight:600}
+  /* ── Leaderboard ────────────────────────────────────────── */
+  .lb-table{width:100%;border-collapse:collapse;margin-bottom:20px}
+  .lb-table th{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);padding:6px 10px;border-bottom:2px solid var(--line);text-align:left}
+  .lb-table td{padding:9px 10px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}
+  .lb-table tr:hover td{background:#fff8e6;cursor:pointer}
+  [data-theme="dark"] .lb-table tr:hover td{background:#221c14}
+  .lb-rank{font-weight:800;font-size:15px;color:var(--muted);width:28px}
+  .lb-rank.gold{color:#f5b301}.lb-rank.silver{color:#9e9e9e}.lb-rank.bronze{color:#a1663a}
+  .lb-score{font-weight:800;color:var(--ink);text-align:right;white-space:nowrap}
+  .lb-tabs{display:flex;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:16px}
+  .lb-tab{flex:1;padding:8px;font-size:12px;font-weight:700;background:var(--card);color:var(--muted);border:none;cursor:pointer;border-right:1px solid var(--line)}
+  .lb-tab:last-child{border-right:none}
+  .lb-tab.on{background:var(--gold);color:#000}
 </style>
 </head>
 <body>
@@ -279,6 +292,7 @@
           <button class="search-clear" id="searchClear" onclick="clearSearch()" title="Clear search">✕</button>
         </div>
         <button class="btn-line btn-sm" onclick="toggleFilters()">⚲ Filters</button>
+        <button class="btn-line btn-sm" onclick="showLeaderboard()">🏆</button>
         <button class="btn-line btn-sm" id="nearMeBtn" onclick="nearMe()">📍 Near me</button>
         <select id="fRadius" onchange="renderList(true)" style="padding:5px 8px;border:1px solid var(--line);border-radius:7px;font-size:13px;display:none">
           <option value="0.5">Within 500m</option>
@@ -1564,6 +1578,63 @@ function inlineBadges(uid){
   const u=profilesCache[uid];
   if(!u||!u.badges||!u.badges.length)return '';
   return `<span class="inline-badges">${u.badges.slice(0,3).map(bid=>{const b=BADGES.find(x=>x.id===bid);return b?b.icon:''}).join('')}</span>`;
+}
+
+/* ============================================================
+   LEADERBOARD — top contributors by spots, reviews, helpful votes
+   ============================================================ */
+function showLeaderboard(tab='spots'){
+  openSidebar();
+  // Compute stats for every known user
+  const stats={};
+  const addUser=id=>{if(id&&id!=='anon'&&id!=='seed'&&!stats[id])stats[id]={spotsAdded:0,reviews:0,helpful:0};};
+  spots.forEach(s=>{
+    addUser(s.createdBy);
+    if(stats[s.createdBy])stats[s.createdBy].spotsAdded++;
+    s.reviews.forEach(r=>{
+      addUser(r.userId);
+      if(r.userId&&stats[r.userId]){
+        stats[r.userId].reviews++;
+        stats[r.userId].helpful+=(r.helpful||[]).length;
+      }
+    });
+  });
+  // Sort by selected tab
+  const key=tab==='spots'?'spotsAdded':tab==='reviews'?'reviews':'helpful';
+  const rows=Object.entries(stats)
+    .map(([id,s])=>({id,...s}))
+    .filter(u=>u[key]>0)
+    .sort((a,b)=>b[key]-a[key])
+    .slice(0,20);
+
+  const rankIcon=i=>i===0?'🥇':i===1?'🥈':i===2?'🥉':`<span class="lb-rank">${i+1}</span>`;
+  const scoreLabel=tab==='spots'?'Spots':tab==='reviews'?'Reviews':'Helpful votes';
+
+  const tableRows=rows.map((u,i)=>{
+    const profile=profilesCache[u.id];
+    const name=profile?esc(profile.name):`<span style="color:var(--muted)">User</span>`;
+    const badges=inlineBadges(u.id);
+    return `<tr onclick="showProfile('${u.id}')">
+      <td class="lb-rank">${rankIcon(i)}</td>
+      <td><a style="color:var(--ink);font-weight:600;cursor:pointer">${name}</a>${badges}${profile?` ${rolePill(profile.role)}`:''}</td>
+      <td class="lb-score">${u[key]}</td>
+    </tr>`;
+  }).join('');
+
+  const tabBtns=['spots','reviews','helpful'].map(t=>
+    `<button class="lb-tab${t===tab?' on':''}" onclick="showLeaderboard('${t}')">${t==='spots'?'📍 Spots':t==='reviews'?'✍️ Reviews':'👍 Helpful'}</button>`
+  ).join('');
+
+  document.getElementById('sidebarBody').innerHTML=`<div class="panel">
+    <span class="back" onclick="renderList()">← All spots</span>
+    <h2 style="margin:0 0 4px">🏆 Leaderboard</h2>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 14px">Top contributors to Bia Hơi Hanoi</p>
+    <div class="lb-tabs">${tabBtns}</div>
+    ${rows.length?`<table class="lb-table">
+      <tr><th></th><th>Contributor</th><th style="text-align:right">${scoreLabel}</th></tr>
+      ${tableRows}
+    </table>`:'<div class="empty-note">No data yet — be the first to contribute!</div>'}
+  </div>`;
 }
 
 function dismissWelcome(){
