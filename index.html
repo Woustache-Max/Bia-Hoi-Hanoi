@@ -112,6 +112,17 @@
   .seg button{flex:1;border-radius:0;background:#fff;color:var(--muted);border-right:1px solid var(--line)}
   .seg button:last-child{border-right:none}.seg button.on{background:var(--gold);color:var(--ink)}
   .pill{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:700;background:var(--gold);color:var(--ink)}
+  .badge-grid{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+  .badge-item{display:flex;flex-direction:column;align-items:center;gap:3px;width:72px;text-align:center}
+  .badge-icon{font-size:28px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.15))}
+  .badge-icon.locked{filter:grayscale(1);opacity:.25}
+  .badge-name{font-size:10px;font-weight:700;color:var(--ink);line-height:1.2}
+  .badge-name.locked{color:var(--muted)}
+  .badge-toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:#fff;border-radius:12px;padding:10px 18px;font-size:14px;font-weight:600;
+    display:flex;align-items:center;gap:8px;z-index:9999;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;white-space:nowrap}
+  .badge-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .inline-badges{display:inline-flex;gap:2px;font-size:13px;vertical-align:middle;margin-left:3px}
   .pill.role-admin{background:#185fa5;color:#fff}
   .pill.role-active{background:#2e7d32;color:#fff}
   .pill.role-newcomer{background:#f0e8d6;color:var(--ink)}
@@ -240,6 +251,18 @@ const HANOI=[21.0285,105.8500];
 const DISTRICTS=["Hoàn Kiếm","Ba Đình","Đống Đa","Hai Bà Trưng","Tây Hồ","Cầu Giấy","Thanh Xuân","Long Biên","Hoàng Mai","Other"];
 const VIBES=["Touristy","Local-only","Lively","Chill","Cheap","Riverside","Rooftop","Live music","Good for groups","Street-side"];
 const RCATS=[["beer","Beer quality"],["food","Food & snacks"],["atmosphere","Atmosphere & location"],["clean","Cleanliness"],["value","Value for money"]];
+const BADGES=[
+  {id:'first_spot',   icon:'📍', name:'First Pour',       desc:'Added your first bia hơi spot'},
+  {id:'scout',        icon:'🗺️', name:'Scout',            desc:'Added 5 spots to the map'},
+  {id:'cartographer', icon:'🏙️', name:'Cartographer',     desc:'Added 10 spots to the map'},
+  {id:'first_review', icon:'✍️', name:'First Words',      desc:'Wrote your first review'},
+  {id:'regular',      icon:'📝', name:'Regular',          desc:'Wrote 10 reviews'},
+  {id:'critic',       icon:'🎙️', name:'Bia Hơi Critic',   desc:'Wrote 25 reviews'},
+  {id:'photographer', icon:'📷', name:'Photographer',     desc:'Uploaded your first photo'},
+  {id:'verified_spot',icon:'✅', name:'Legit',            desc:'Had one of your spots verified'},
+  {id:'trusted',      icon:'🌟', name:'Trusted Local',    desc:'Had 3 of your spots verified'},
+  {id:'helpful',      icon:'👍', name:'Crowd Favourite',  desc:'Received 10 helpful votes on reviews'},
+];
 
 /* ============ STATE ============ */
 let spots = [];
@@ -473,7 +496,7 @@ function reviewHTML(s,r){
   const isAnon=!r.userId||r.userId==='anon';
   const whoLink=isAnon
     ?`<span style="color:var(--muted)">Anonymous</span>`
-    :`<a style="color:inherit;cursor:pointer" onclick="showProfile('${r.userId}')">${esc(r.who)}</a>`;
+    :`<a style="color:inherit;cursor:pointer" onclick="showProfile('${r.userId}')">${esc(r.who)}</a>${inlineBadges(r.userId)}`;
   return `<div class="review">
     <div class="who"><span>${whoLink} ${glassStr(revAvg(r))}</span>
       ${admin?`<button class="vote" style="color:var(--red)" onclick="delReview('${s.id}','${r.id}')">delete</button>`:''}</div>
@@ -548,7 +571,7 @@ async function submitReview(id){
   if(error){alert('Error saving review: '+error.message);return;}
   s.reviews.unshift({id:reviewData.id,userId:userId||'anon',who,ratings,txt,when:reviewData.review_date,helpful:[]});
   chosen={};
-  if(cur)await checkAndUpgrade();
+  if(cur){await checkAndUpgrade();await checkBadges();}
   showDetail(id);
 }
 
@@ -587,6 +610,7 @@ async function uploadPhoto(spotId){
     const{data:row,error:dbErr}=await db.from('photos').insert({spot_id:spotId,uploaded_by:cur.id,url:publicUrl,path}).select().single();
     if(dbErr){await db.storage.from('spot-photos').remove([path]);if(uploadBtn){uploadBtn.disabled=false;uploadBtn.textContent='📷 Add photo';}return alert('Save failed: '+dbErr.message);}
     const spot=byId(spotId);if(spot){if(!spot.photos)spot.photos=[];spot.photos.push(row);}
+    awardPhotoBadge();
     showDetail(spotId);
   };
   input.click();
@@ -776,6 +800,8 @@ async function showProfile(uid){
       <div class="factrow"><b>Reviews written</b><span>${revs}</span></div>
       <div class="factrow"><b>Spots verified</b><span>${verified}</span></div>
     </div>
+    ${(()=>{const earned=badgesFor(uid);const ub=u.badges||[];const allEarned=[...new Set([...earned,...ub])];
+    return allEarned.length?`<div class="sec">Badges</div><div class="badge-grid">${BADGES.filter(b=>allEarned.includes(b.id)).map(b=>`<div class="badge-item"><span class="badge-icon">${b.icon}</span><span class="badge-name">${b.name}</span></div>`).join('')}</div>`:'';})()}
     ${isOwn&&isNewcomer?questProgressHTML(uid):''}
     <div class="sec">Spots they added</div>
     ${added.length?added.map(s=>`<div class="list-item" onclick="showDetail('${s.id}')"><h3>${esc(s.name)}</h3><div class="meta"><span>${glassStr(spotAvg(s))}</span><span>${esc(s.district||'')}</span></div></div>`).join(''):'<div style="color:var(--muted);font-size:13px">None yet.</div>'}
@@ -1189,7 +1215,69 @@ async function init(){
   renderList();
 }
 
+function badgesFor(uid){
+  const mySpots=spots.filter(s=>s.createdBy===uid);
+  const myReviews=spots.flatMap(s=>s.reviews).filter(r=>r.userId===uid);
+  const myVerified=spots.filter(s=>s.createdBy===uid&&s.verified);
+  const helpfulVotes=myReviews.reduce((a,r)=>(a+(r.helpful||[]).length),0);
+  const earned=[];
+  if(mySpots.length>=1)  earned.push('first_spot');
+  if(mySpots.length>=5)  earned.push('scout');
+  if(mySpots.length>=10) earned.push('cartographer');
+  if(myReviews.length>=1)  earned.push('first_review');
+  if(myReviews.length>=10) earned.push('regular');
+  if(myReviews.length>=25) earned.push('critic');
+  if(myVerified.length>=1) earned.push('verified_spot');
+  if(myVerified.length>=3) earned.push('trusted');
+  if(helpfulVotes>=10)   earned.push('helpful');
+  return earned;
+}
+
+async function checkBadges(){
+  if(!cur)return;
+  const earned=badgesFor(cur.id);
+  const existing=cur.badges||[];
+  const newOnes=earned.filter(b=>!existing.includes(b));
+  if(!newOnes.length)return;
+  const updated=[...new Set([...existing,...earned])];
+  await db.from('profiles').update({badges:updated}).eq('id',cur.id);
+  cur.badges=updated;
+  if(profilesCache[cur.id])profilesCache[cur.id].badges=updated;
+  for(const bid of newOnes){
+    const b=BADGES.find(x=>x.id===bid);
+    if(b)await showBadgeToast(b);
+  }
+}
+
+async function awardPhotoBadge(){
+  if(!cur)return;
+  const existing=cur.badges||[];
+  if(existing.includes('photographer'))return;
+  const updated=[...existing,'photographer'];
+  await db.from('profiles').update({badges:updated}).eq('id',cur.id);
+  cur.badges=updated;
+  if(profilesCache[cur.id])profilesCache[cur.id].badges=updated;
+  const b=BADGES.find(x=>x.id==='photographer');
+  if(b)showBadgeToast(b);
+}
+
+function showBadgeToast(b){
+  return new Promise(res=>{
+    const el=document.getElementById('badgeToast');
+    el.innerHTML=`<span style="font-size:22px">${b.icon}</span> <span>New badge: <b>${b.name}</b></span>`;
+    el.classList.add('show');
+    setTimeout(()=>{el.classList.remove('show');setTimeout(res,400);},3000);
+  });
+}
+
+function inlineBadges(uid){
+  const u=profilesCache[uid];
+  if(!u||!u.badges||!u.badges.length)return '';
+  return `<span class="inline-badges">${u.badges.slice(0,3).map(bid=>{const b=BADGES.find(x=>x.id===bid);return b?b.icon:''}).join('')}</span>`;
+}
+
 init();
 </script>
+<div class="badge-toast" id="badgeToast"></div>
 </body>
 </html>
