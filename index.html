@@ -478,7 +478,7 @@ function drawMarkers(){
     const badge=unverified?'<span style="color:#e65100;font-size:11px"> · unverified</span>':'';
     const popPhoto=s.photos&&s.photos.length?`<img class="popup-thumb" src="${s.photos[0].url}" onclick="showDetail('${s.id}')" alt="">`:'';
     const popOpen=isOpen(s)?'<span style="color:#2e7d32;font-weight:700;font-size:11px"> · Open</span>':'';
-    m.bindPopup(`${popPhoto}<b style="font-size:14px">${esc(s.name)}</b>${popOpen}<br>${glassStr(spotAvg(s))} ${s.reviews.length?'('+s.reviews.length+' reviews)':'<i style="color:#aaa">no reviews yet</i>'}<br><small style="color:#888">${esc(s.pricePerGlass||'')}</small>`);
+    m.bindPopup(`${popPhoto}<b style="font-size:14px">${esc(s.name)}</b>${popOpen}<br>${(()=>{const a=spotAvg(s);return a?`<span style=\"background:var(--gold);color:#000;font-size:11px;font-weight:700;padding:1px 6px;border-radius:12px\">${a.toFixed(1)} 🍺</span> ${s.reviews.length}rev`:'no reviews';})()}<br><small style="color:#888">${esc(s.pricePerGlass||'')}</small>`);
     m.on('click',()=>showDetail(s.id));cluster.addLayer(m);
   });
 }
@@ -553,7 +553,7 @@ function renderList(sortByDist){
       ${thumb}
       <div class="list-text">
         <h3>${verBadge}${esc(s.name)} ${closed?'<span class="chip closed">'+(s.status==='perm_closed'?'Closed':'Temp closed')+'</span>':(open?'<span class="chip open">Open</span>':'')}</h3>
-        <div class="meta"><span>${glassStr(spotAvg(s))} ${s.reviews.length?'('+s.reviews.length+')':'<i>new</i>'} ${dtxt}</span>
+        <div class="meta"><span>\${(()=>{const a=spotAvg(s);return a?`<span style="background:var(--gold);color:#000;font-size:11px;font-weight:800;padding:1px 7px;border-radius:20px">\${a.toFixed(1)} 🍺</span>`:'<i style="color:var(--muted)">new</i>';})()}&nbsp;\${s.reviews.length?'('+s.reviews.length+') ':''}\${dtxt}</span>
         <span>${esc(s.district||'')}${s.pricePerGlass?' · '+esc(s.pricePerGlass):''}${(s.openH!=null&&s.closeH!=null&&!closed)?' · '+fmtHr(s.openH)+'–'+fmtHr(s.closeH):''}</span></div>
       </div></div>`;
   }).join('');
@@ -587,7 +587,18 @@ function showDetail(id){
       ${s.status==='perm_closed'?'<span class="chip closed">Permanently closed</span>':s.status==='temp_closed'?'<span class="chip closed">Temporarily closed</span>':''}
     </div>
     ${!s.verified?`<div class="hint-verify">Added anonymously — not yet verified.${canVerify?' If you\'ve been here and it\'s real, hit <b>Verify</b>.':' Sign in to verify it.'}</div>`:''}
-    <div style="margin:8px 0">${glassStr(spotAvg(s))} <b>${spotAvg(s)?spotAvg(s).toFixed(1):'–'}</b> <small style="color:var(--muted)">${s.reviews.length} review${s.reviews.length===1?'':'s'}</small></div>
+    \${(()=>{
+      const avg=spotAvg(s);
+      const pill=avg?`<span style="background:var(--gold);color:#000;font-size:13px;font-weight:800;padding:2px 10px;border-radius:20px">\${avg.toFixed(1)} 🍺</span>`:'';
+      const cnt=`<small style="color:var(--muted);margin-left:6px">\${s.reviews.length} review\${s.reviews.length===1?'':'s'}</small>`;
+      const cats=s.reviews.length?RCATS.map(c=>{
+        const vals=s.reviews.map(r=>r.ratings[c[0]]).filter(v=>v>0);
+        if(!vals.length)return null;
+        const ca=(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
+        return `<span><b style="font-size:13px">\${ca}🍺</b> <span style="color:var(--muted)">\${c[1]}</span></span>`;
+      }).filter(Boolean).join(''):'';
+      return `<div style="margin:8px 0">\${avg?pill+cnt:'<span style="color:var(--muted);font-size:13px">No ratings yet</span>'}</div>\${cats?`<div class="rgrid" style="margin-bottom:10px">\${cats}</div>`:''}`;
+    })()}
     <div class="factbox">
       ${facts.map(f=>`<div class="factrow"><b>${f[0]}</b><span>${esc(f[1])}</span></div>`).join('')}
       ${addedBy?`<div class="factrow"><b>Added by</b><span><a style="color:var(--blue);cursor:pointer" onclick="showProfile('${addedBy.id}')">${esc(addedBy.name)}</a></span></div>`:'<div class="factrow"><b>Added by</b><span style="color:var(--muted)">Anonymous</span></div>'}
@@ -1021,14 +1032,14 @@ async function showProfile(uid){
         :`<div class="list-thumb-ph">🍺</div>`;
       return `<div class="list-item" onclick="showDetail('${s.id}')">${thumb}
         <div class="list-text"><h3>${esc(s.name)}${s.verified?' <span class="chip verified" style="font-size:10px">✓</span>':''}</h3>
-        <div class="meta"><span>${glassStr(spotAvg(s))} ${s.reviews.length?'('+s.reviews.length+')':''}</span><span>${esc(s.district||'')}</span></div></div></div>`;}).join('')
+        <div class="meta"><span>${(()=>{const a=spotAvg(s);return a?`<span style="background:var(--gold);color:#000;font-size:11px;font-weight:800;padding:1px 6px;border-radius:20px">${a.toFixed(1)} 🍺</span>`:''})()}&nbsp;${s.reviews.length?'('+s.reviews.length+')':''}</span><span>${esc(s.district||'')}</span></div></div></div>`;}).join('')
     :'<div class="txt-muted" style="padding:6px 0">None yet.</div>'}
     <div class="sec">Reviews written (${userReviews.length})</div>
     ${userReviews.length?userReviews.map(r=>`
       <div class="review" style="cursor:pointer" onclick="showDetail('${r.spotId}')">
         <div class="who"><a style="color:var(--gold-dark);font-weight:700">${esc(r.spotName)}</a>
           <span style="font-size:11px;color:var(--muted)">${r.when||''}</span></div>
-        <div style="margin:3px 0">${glassStr(revAvg(r))} <span style="font-size:12px;color:var(--muted)">${revAvg(r)?revAvg(r).toFixed(1):''}</span></div>
+        <div style="margin:3px 0">${(()=>{const a=revAvg(r);return a?`<span style="background:var(--gold);color:#000;font-size:11px;font-weight:800;padding:1px 7px;border-radius:20px">${a.toFixed(1)} 🍺</span>`:''})()}</div>
         ${r.txt?`<div class="txt">${esc(r.txt.length>120?r.txt.slice(0,120)+'…':r.txt)}</div>`:''}
       </div>`).join('')
     :'<div class="txt-muted" style="padding:6px 0">No reviews yet.</div>'}
