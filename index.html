@@ -7,14 +7,40 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{--gold:#f5b301;--gold-dark:#b9780f;--ink:#1f1a12;--paper:#fffaf0;--card:#fff;
-        --muted:#7a7263;--line:#ece3d2;--green:#2e7d32;--red:#c0392b;--blue:#185fa5;--orange:#e65100}
+        --muted:#7a7263;--line:#ece3d2;--green:#2e7d32;--red:#c0392b;--blue:#185fa5;--orange:#e65100;
+        --shadow:rgba(0,0,0,.12)}
+  [data-theme="dark"]{
+    --ink:#e8dcc8;--paper:#141210;--card:#1c1812;--muted:#8a7e6e;
+    --line:#2a241c;--gold:#f5b301;--gold-dark:#ffc41f;--green:#4caf50;
+    --blue:#64b5f6;--shadow:rgba(0,0,0,.4);--card-alt:#231e17}
+  [data-theme="dark"] body{background:var(--paper);color:var(--ink)}
+  [data-theme="dark"] #sidebar{background:var(--card)}
+  [data-theme="dark"] .toolbar{background:var(--card)}
+  [data-theme="dark"] .list-item:hover{background:#221c14}
+  [data-theme="dark"] .factbox{background:#221c14;border-color:var(--line)}
+  [data-theme="dark"] .modal{background:var(--card)}
+  [data-theme="dark"] .rate-row{background:#221c14;border-color:var(--line)}
+  [data-theme="dark"] .form-section{background:#1e1912;border-color:var(--line)}
+  [data-theme="dark"] form input,[data-theme="dark"] form textarea,[data-theme="dark"] form select{background:#2a2318;border-color:var(--line);color:var(--ink)}
+  [data-theme="dark"] textarea{background:#2a2318;border-color:var(--line);color:var(--ink)}
+  [data-theme="dark"] .hint{background:#1e1a0e;border-color:#5a4a00}
+  [data-theme="dark"] .hint-verify{background:#1e140a;border-color:#7a4a00}
+  [data-theme="dark"] .hint-upgrade{background:#0e1e10;border-color:#2a6a30}
+  [data-theme="dark"] .quest-box{background:#1e1912;border-color:var(--line)}
+  [data-theme="dark"] .admin-table th{background:#221c14}
+  [data-theme="dark"] .admin-table tr:hover td{background:#1e1912}
+  [data-theme="dark"] .seg button{background:var(--card);color:var(--muted)}
+  [data-theme="dark"] .filters{background:var(--card)}
+  [data-theme="dark"] .filters select,.filters input{background:#2a2318;color:var(--ink);border-color:var(--line)}
   *{box-sizing:border-box}
-  html,body{margin:0;height:100%;font-family:'Segoe UI',system-ui,sans-serif;color:var(--ink);background:var(--paper)}
+  html,body{margin:0;height:100%;font-family:'Be Vietnam Pro',system-ui,sans-serif;color:var(--ink);background:var(--paper)}
   #app{display:flex;flex-direction:column;height:100vh}
   header{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--ink);color:var(--gold);z-index:1200;box-shadow:0 2px 8px rgba(0,0,0,.25)}
-  header h1{font-size:18px;margin:0;letter-spacing:.4px}
+  header h1{font-size:18px;margin:0;letter-spacing:.2px;font-weight:800}
   header .logo{font-size:22px}
   header .spacer{flex:1}
   header .user{font-size:13px;color:#fff;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
@@ -76,6 +102,8 @@
   .back{font-size:13px;color:var(--gold-dark);cursor:pointer;display:inline-block;margin-bottom:8px;font-weight:600}
   .empty-note{padding:30px 18px;color:var(--muted);font-size:14px;text-align:center;line-height:1.6}
   .actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1499}
+  @media(max-width:680px){.sheet-overlay.on{display:block}}
   .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:3000;padding:16px}
   .modal{background:#fff;border-radius:14px;padding:22px;width:360px;max-width:94vw;max-height:90vh;overflow-y:auto}
   .modal h2{margin:0 0 4px;font-size:20px}.modal p{font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.5}
@@ -107,11 +135,24 @@
   .loading-overlay{position:absolute;inset:0;background:rgba(255,250,240,.85);display:flex;align-items:center;justify-content:center;z-index:2000;font-size:15px;color:var(--muted)}
   .mobile-toggle{display:none}
   .sidebar-close{display:none;position:absolute;top:10px;right:10px;z-index:10;background:var(--ink);color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:18px;line-height:32px;text-align:center;padding:0;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+  .sheet-handle{display:none}
   @media(max-width:680px){
-    #sidebar{position:absolute;right:0;top:0;bottom:0;width:90vw;max-width:90vw;box-shadow:-4px 0 16px rgba(0,0,0,.2);transform:translateX(100%);transition:.25s;z-index:1500}
-    #sidebar.open{transform:translateX(0)}
+    .main{position:relative}
+    #map{height:100%;min-height:0}
+    #sidebar{position:fixed;left:0;right:0;bottom:0;width:100%;max-width:100%;height:72vh;
+      border-radius:20px 20px 0 0;box-shadow:0 -6px 28px rgba(0,0,0,.18);
+      transform:translateY(100%);transition:.28s cubic-bezier(.4,0,.2,1);z-index:1500;
+      overflow-y:auto;overflow-x:hidden}
+    #sidebar.open{transform:translateY(0)}
     .mobile-toggle{display:inline-block}
-    .sidebar-close{display:block}
+    .sidebar-close{display:none}
+    .sheet-handle{display:block;width:40px;height:4px;background:var(--line);
+      border-radius:2px;margin:12px auto 4px;cursor:pointer;flex-shrink:0}
+    .toolbar{padding-top:4px}
+    #app{overflow:hidden}
+  }
+  @media(max-width:680px) and (orientation:landscape){
+    #sidebar{height:88vh}
   }
 
   .modal-admin{width:96vw;max-width:1100px;max-height:93vh;padding:0;overflow:hidden;display:flex;flex-direction:column}
@@ -137,12 +178,15 @@
     <span class="logo">🍺</span><h1>Bia Hơi Hanoi</h1>
     <span class="spacer"></span>
     <button class="btn-ghost btn-sm mobile-toggle" onclick="toggleSidebar()">☰</button>
+    <button id="darkBtn" class="btn-ghost btn-sm" onclick="toggleDark()" title="Toggle dark mode" style="font-size:16px;padding:4px 8px">🌙</button>
     <span class="user" id="userLabel"></span>
     <button class="btn-gold btn-sm" onclick="startAdd()">+ Add spot</button>
   </header>
+  <div class="sheet-overlay" id="sheetOverlay" onclick="closeSidebar()"></div>
   <div class="main" style="position:relative">
     <div id="map"></div>
     <div id="sidebar">
+      <div class="sheet-handle" onclick="closeSidebar()" title="Close"></div>
       <button class="sidebar-close" onclick="closeSidebar()" title="Close sidebar">✕</button>
       <div class="toolbar">
         <input class="search" id="searchBox" placeholder="Search spots…" oninput="renderList()">
@@ -822,10 +866,33 @@ function nearMe(){
 /* ============ MODAL / SIDEBAR ============ */
 function modal(html){closeModal();const bg=document.createElement('div');bg.className='modal-bg';bg.id='modal';bg.onclick=e=>{if(e.target===bg)closeModal()};bg.innerHTML='<div class="modal">'+html+'</div>';document.body.appendChild(bg)}
 function closeModal(){const m=document.getElementById('modal');if(m)m.remove()}
+function toggleDark(){
+  const dark=document.documentElement.getAttribute('data-theme')==='dark';
+  document.documentElement.setAttribute('data-theme',dark?'light':'dark');
+  document.getElementById('darkBtn').textContent=dark?'🌙':'☀️';
+  localStorage.setItem('theme',dark?'light':'dark');
+}
+(function(){
+  const t=localStorage.getItem('theme')||'light';
+  document.documentElement.setAttribute('data-theme',t);
+  window.addEventListener('DOMContentLoaded',()=>{
+    const btn=document.getElementById('darkBtn');
+    if(btn)btn.textContent=t==='dark'?'☀️':'🌙';
+  });
+})();
+
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open')}
-function openSidebar(){if(innerWidth<=680)document.getElementById('sidebar').classList.add('open')}
+function openSidebar(){
+  if(innerWidth<=680){
+    document.getElementById('sidebar').classList.add('open');
+    document.getElementById('sheetOverlay').classList.add('on');
+  }
+}
 function toggleFilters(){document.getElementById('filters').classList.toggle('open')}
-function closeSidebar(){document.getElementById('sidebar').classList.remove('open')}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sheetOverlay').classList.remove('on');
+}
 
 
 /* ============ ADMIN PANEL ============ */
