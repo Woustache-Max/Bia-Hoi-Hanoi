@@ -366,6 +366,11 @@
 #fi-add{background:var(--gold);color:var(--ink)!important;border-radius:20px;padding:7px 16px;margin:0 2px;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,.3);justify-content:center;align-items:center}
 #fi-add .fi-lbl{color:var(--ink)!important;font-weight:700;font-size:10px}
 
+
+/* ── Quest collapsible ──────────────────────────────────── */
+details summary::-webkit-details-marker{display:none}
+details[open] summary{border-radius:8px 8px 0 0;border-bottom:none}
+details[open] .quest-box{border-radius:0 0 8px 8px;margin-top:0;border-top:none}
 /* ── PWA install prompt ─────────────────────────────────── */
 #pwaPrompt{position:fixed;bottom:82px;left:50%;transform:translateX(-50%);
   background:var(--nav-bg);color:#fff;border-radius:14px;padding:10px 14px;
@@ -582,24 +587,31 @@ async function checkAndUpgrade(){
       <button class="btn-gold" style="width:100%;margin-top:10px" onclick="closeModal()">Let's go 🍺</button>`);
   }
 }
-function questProgressHTML(uid){
+function questProgressHTML(uid,role){
   const{spotsAdded,reviewCount,uniqueSpotsReviewed}=getUserStats(uid);
-  const aSpot=Math.min(spotsAdded,QUEST_A_SPOTS),aRev=Math.min(reviewCount,QUEST_A_REVIEWS);
-  const bSpots=Math.min(uniqueSpotsReviewed,QUEST_B_SPOTS);
-  const aDone=spotsAdded>=QUEST_A_SPOTS&&reviewCount>=QUEST_A_REVIEWS;
-  const bDone=uniqueSpotsReviewed>=QUEST_B_SPOTS;
+  const done=role&&role!=='newcomer';
+  const aSpot=done?QUEST_A_SPOTS:Math.min(spotsAdded,QUEST_A_SPOTS);
+  const aRev=done?QUEST_A_REVIEWS:Math.min(reviewCount,QUEST_A_REVIEWS);
+  const bSpots=done?QUEST_B_SPOTS:Math.min(uniqueSpotsReviewed,QUEST_B_SPOTS);
+  const aDone=done||(spotsAdded>=QUEST_A_SPOTS&&reviewCount>=QUEST_A_REVIEWS);
+  const bDone=done||uniqueSpotsReviewed>=QUEST_B_SPOTS;
+  const subtitle=done
+    ?'<span style="color:var(--green);font-size:12px">&#10003; Completed &mdash; Active status unlocked</span>'
+    :'<span style="font-size:12px;color:var(--muted)">Complete either path to unlock full reviews and auto-verified spots.</span>';
   return `<div class="quest-box">
-    <h4>🗺 Quest — Unlock Active status</h4>
-    <p style="font-size:12px;color:var(--muted);margin:0 0 10px">Complete either path to unlock full reviews and auto-verified spots.</p>
+    <h4 style="display:flex;justify-content:space-between;align-items:center;margin:0 0 6px">
+      <span>&#128506; Quest &mdash; Active status</span>
+    </h4>
+    <div style="margin-bottom:10px">${subtitle}</div>
     <div class="quest-path">
-      <div class="label" style="color:${aDone?'var(--green)':'var(--ink)'}">Path A: Explorer ${aDone?'✓':''}</div>
+      <div class="label" style="color:${aDone?'var(--green)':'var(--ink)'}">Path A: Explorer ${aDone?'&#10003;':''}</div>
       <div class="q-step"><span>Add ${QUEST_A_SPOTS} spot</span><span>${aSpot}/${QUEST_A_SPOTS}</span></div>
       <div class="q-bar"><div class="q-bar-fill${aSpot>=QUEST_A_SPOTS?' done':''}" style="width:${(aSpot/QUEST_A_SPOTS)*100}%"></div></div>
-      <div class="q-step"><span>Write ${QUEST_A_REVIEWS} reviews (any spots)</span><span>${aRev}/${QUEST_A_REVIEWS}</span></div>
+      <div class="q-step"><span>Write ${QUEST_A_REVIEWS} reviews</span><span>${aRev}/${QUEST_A_REVIEWS}</span></div>
       <div class="q-bar"><div class="q-bar-fill${aRev>=QUEST_A_REVIEWS?' done':''}" style="width:${(aRev/QUEST_A_REVIEWS)*100}%"></div></div>
     </div>
     <div class="quest-path">
-      <div class="label" style="color:${bDone?'var(--green)':'var(--ink)'}">Path B: Reviewer ${bDone?'✓':''}</div>
+      <div class="label" style="color:${bDone?'var(--green)':'var(--ink)'}">Path B: Reviewer ${bDone?'&#10003;':''}</div>
       <div class="q-step"><span>Review ${QUEST_B_SPOTS} different spots</span><span>${bSpots}/${QUEST_B_SPOTS}</span></div>
       <div class="q-bar"><div class="q-bar-fill${bSpots>=QUEST_B_SPOTS?' done':''}" style="width:${(bSpots/QUEST_B_SPOTS)*100}%"></div></div>
     </div>
@@ -1340,7 +1352,10 @@ async function showProfile(uid){
     ${(()=>{const earned=badgesFor(uid);const ub=u.badges||[];const allEarned=[...new Set([...earned,...ub])];
     const earnedCount=allEarned.length;
     return `<div class="sec">Badges (${earnedCount}/${BADGES.length})</div><div class="badge-grid">${BADGES.map(b=>{const ok=allEarned.includes(b.id);return `<div class="badge-item" title="${b.desc}"><span class="badge-icon${ok?'':' locked'}">${b.icon}</span><span class="badge-name${ok?'':' locked'}">${b.name}</span></div>`;}).join('')}</div>`;})()}
-    ${isOwn&&isNewcomer?questProgressHTML(uid):''}
+    ${(()=>{
+      const questLabel=u.role==='newcomer'?'&#128506; Quest Progress':'&#128506; Quest Progress';
+      return '<details style="margin:10px 0"><summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--gold-dark);padding:8px 12px;background:var(--paper);border:1px solid var(--line);border-radius:8px;list-style:none;display:flex;justify-content:space-between;align-items:center">'+questLabel+'<span style="font-size:11px;color:var(--muted)">'+(u.role==='newcomer'?'tap to view':'completed &#10003;')+'</span></summary>'+questProgressHTML(uid,u.role)+'</details>';
+    })()}
     <div class="sec">Spots added (${added.length})</div>
     ${added.length?added.map(s=>{
       const thumb=s.photos&&s.photos.length
