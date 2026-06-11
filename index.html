@@ -224,6 +224,7 @@
   .sheet-handle{display:none}
   @media(max-width:480px){
     header h1{font-size:15px}
+    input,select,textarea{font-size:16px!important}
     .btn-gold.btn-sm{padding:5px 8px;font-size:12px}
     .toolbar{padding:6px 8px;gap:5px}
     .near-lbl{display:none}
@@ -312,6 +313,21 @@
   .reply-who{font-weight:700;margin-right:3px}
   .reply-textarea{width:100%;padding:7px 10px;border:1.5px solid var(--line);border-radius:7px;font-size:13px;font-family:inherit;resize:none;min-height:54px;background:#fff;color:var(--ink);display:block;box-sizing:border-box}
   .av-sm{width:22px;height:22px;border-radius:50%;object-fit:cover;border:1.5px solid var(--gold);flex-shrink:0;vertical-align:middle}
+  .new-strip{padding:10px 14px 6px;border-bottom:2px solid var(--line)}
+  .new-strip-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;margin-bottom:7px}
+  .new-strip-row{display:flex;gap:7px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .new-strip-row::-webkit-scrollbar{display:none}
+  .new-chip{flex-shrink:0;background:var(--gold);color:var(--ink);border:none;border-radius:20px;padding:5px 13px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+  .new-chip:hover{opacity:.85}
+  @keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+  .skel-item{display:flex;gap:11px;padding:12px 14px;border-bottom:1px solid var(--line)}
+  .skel-thumb{width:62px;height:62px;border-radius:9px;flex-shrink:0;background:linear-gradient(90deg,var(--line) 25%,#f5efe0 50%,var(--line) 75%);background-size:800px 100%;animation:shimmer 1.5s infinite}
+  .skel-text{flex:1;display:flex;flex-direction:column;gap:9px;justify-content:center}
+  .skel-line{height:11px;border-radius:6px;background:linear-gradient(90deg,var(--line) 25%,#f5efe0 50%,var(--line) 75%);background-size:800px 100%;animation:shimmer 1.5s infinite}
+  .skel-line.wide{width:75%}.skel-line.med{width:55%}.skel-line.narrow{width:38%}
+  .bh-popup .leaflet-popup-content-wrapper{border-radius:12px;padding:0;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.2)}
+  .bh-popup .leaflet-popup-content{margin:0;min-width:190px}
+  .bh-popup .popup-thumb{border-radius:0;margin:0;height:100px;width:100%}
 </style>
 </head>
 <body>
@@ -363,7 +379,7 @@
           <input type="checkbox" id="fVerified" style="width:auto" onchange="renderList()"> Verified only</label>
       </div>
       <div id="resultBar" class="result-bar"></div>
-      <div id="sidebarBody"><div class="empty-note">🍺 Loading spots…</div></div>
+      <div id="sidebarBody"><div class="skel-item"><div class="skel-thumb"></div><div class="skel-text"><div class="skel-line wide"></div><div class="skel-line med"></div><div class="skel-line narrow"></div></div></div><div class="skel-item"><div class="skel-thumb"></div><div class="skel-text"><div class="skel-line wide"></div><div class="skel-line med"></div><div class="skel-line narrow"></div></div></div><div class="skel-item"><div class="skel-thumb"></div><div class="skel-text"><div class="skel-line wide"></div><div class="skel-line med"></div><div class="skel-line narrow"></div></div></div><div class="skel-item"><div class="skel-thumb"></div><div class="skel-text"><div class="skel-line wide"></div><div class="skel-line med"></div><div class="skel-line narrow"></div></div></div><div class="skel-item"><div class="skel-thumb"></div><div class="skel-text"><div class="skel-line wide"></div><div class="skel-line med"></div><div class="skel-line narrow"></div></div></div></div>
     </div>
   </div>
 </div>
@@ -563,11 +579,14 @@ function drawMarkers(){
   visibleSpots().forEach(s=>{
     const closed=s.status!=='active',unverified=!s.verified;
     const m=L.marker([s.lat,s.lng],{icon:pinIcon(closed,unverified)});
-    const badge=unverified?'<span style="color:#e65100;font-size:11px"> · unverified</span>':'';
-    const popPhoto=s.photos&&s.photos.length?`<img class="popup-thumb" src="${s.photos[0].url}" onclick="showDetail('${s.id}')" alt="">`:'';
-    const popOpen=isOpen(s)?'<span style="color:#2e7d32;font-weight:700;font-size:11px"> · Open</span>':'';
-    m.bindPopup(`${popPhoto}<b style="font-size:14px">${esc(s.name)}</b>${popOpen}<br>${(()=>{const a=spotAvg(s);return a?`<span style=\"background:var(--gold);color:#000;font-size:11px;font-weight:700;padding:1px 6px;border-radius:12px\">${a.toFixed(1)} 🍺</span> ${s.reviews.length}rev`:'no reviews';})()}<br><small style="color:#888">${esc(s.pricePerGlass||'')}</small>`);
-    m.on('click',()=>showDetail(s.id));cluster.addLayer(m);
+    const popPhoto=s.photos&&s.photos.length?`<img class="popup-thumb" src="${s.photos[0].url}" onclick="map.closePopup();showDetail('${s.id}')" alt="">`:'';
+    const popOpen=isOpen(s)?'<span style="color:#2e7d32;font-weight:700;font-size:11px"> · Open now</span>':'';
+    const popAvg=spotAvg(s);
+    m.bindPopup(
+      `${popPhoto}<div style="padding:6px 8px 6px"><b style="font-size:14px">${esc(s.name)}</b>${popOpen}<div style="margin:5px 0">${popAvg?`<span style="background:var(--gold);color:#000;font-size:11px;font-weight:700;padding:1px 7px;border-radius:12px">${popAvg.toFixed(1)} 🍺</span> <span style="color:#888;font-size:11px">(${s.reviews.length} review${s.reviews.length===1?'':'s'})</span>`:'<span style="color:#888;font-size:11px">No reviews yet</span>'}</div>${s.pricePerGlass?`<div style="color:#888;font-size:11px;margin-bottom:6px">${esc(s.pricePerGlass)}</div>`:''}<button onclick="map.closePopup();showDetail('${s.id}')" style="background:var(--gold);color:var(--ink);border:none;border-radius:7px;padding:6px 0;font-size:12px;font-weight:700;cursor:pointer;width:100%;font-family:inherit">View details →</button></div>`,
+      {maxWidth:220,className:'bh-popup'}
+    );
+    cluster.addLayer(m);
   });
 }
 
@@ -629,7 +648,10 @@ function renderList(sortByDist){
   }
   if(!spots.length){body.innerHTML='<div class="empty-note">🍺 No spots yet.<br><br>Tap <b>+ Add spot</b> to put a bia hơi on the map — no sign-up needed!</div>';return}
   if(!list.length){body.innerHTML='<div class="empty-note">No spots match your filters.</div>';return}
-  body.innerHTML=list.map(s=>{
+  const _wk=new Date(Date.now()-7*24*60*60*1000).toISOString();
+  const _new=spots.filter(s=>s.createdAt&&s.createdAt>_wk);
+  const _newSec=_new.length?`<div class="new-strip"><div class="new-strip-lbl">🆕 New this week</div><div class="new-strip-row">${_new.map(s=>`<button class="new-chip" onclick="showDetail('${s.id}')">${esc(s.name)}</button>`).join('')}</div></div>`:'';
+  body.innerHTML=_newSec+list.map(s=>{
     const open=isOpen(s),closed=s.status!=='active';
     const d=window._me?dist(window._me[0],window._me[1],s.lat,s.lng):null;
     const dtxt=d!==null?`<span style="background:#e8f0fe;color:#185fa5;border-radius:20px;padding:1px 7px;font-size:11px;font-weight:700">${d<1?(d*1000).toFixed(0)+'m':d.toFixed(1)+'km'}</span>`:'';
@@ -1283,9 +1305,7 @@ function authModal(signup){
      <input id="a_name" placeholder="Display name" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;margin-bottom:6px;display:${signup?'block':'none'}">
      <input id="a_email" placeholder="Email" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;margin-bottom:6px">
      ${pwField('a_pw','Password','6px')}
-     ${signup?`${pwField('a_pw2','Confirm password','6px')}
-     <div id="codeToggle" style="text-align:center;margin-bottom:8px"><a style="font-size:12px;color:var(--muted);cursor:pointer" onclick="document.getElementById('codeWrap').style.display='block';document.getElementById('codeToggle').style.display='none'">Have an invite code?</a></div>
-     <div id="codeWrap" style="display:none;margin-bottom:10px"><input id="a_code" placeholder="Invite code" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:7px"></div>`:''}
+     ${signup?`${pwField('a_pw2','Confirm password','6px')}`:''}
      <button class="btn-gold" style="width:100%;margin-bottom:8px" onclick="${signup?'doSignup()':'doLogin()'}">
        ${signup?'Create account':'Sign in'}
      </button>
@@ -1974,6 +1994,16 @@ async function showQuests(){
 }
 
 
+function fireConfetti(){
+  const c=document.createElement('canvas');
+  c.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999';
+  document.body.appendChild(c);
+  const x=c.getContext('2d');c.width=innerWidth;c.height=innerHeight;
+  const cols=['#f5b301','#ff6b35','#4caf50','#2196f3','#e91e63','#ff9800'];
+  const ps=Array.from({length:70},()=>({x:Math.random()*innerWidth,y:-20,vx:(Math.random()-.5)*5,vy:Math.random()*3+2,col:cols[Math.floor(Math.random()*cols.length)],sz:Math.random()*7+4,r:Math.random()*360,vr:(Math.random()-.5)*10}));
+  let f=0;
+  (function draw(){x.clearRect(0,0,c.width,c.height);ps.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.r+=p.vr;p.vy+=.06;x.save();x.translate(p.x,p.y);x.rotate(p.r*Math.PI/180);x.fillStyle=p.col;x.fillRect(-p.sz/2,-p.sz/2,p.sz,p.sz);x.restore();});if(++f<100)requestAnimationFrame(draw);else c.remove();})();
+}
 function showToast(msg,duration=2500){
   const el=document.getElementById('badgeToast');
   el.innerHTML=msg;
@@ -1984,7 +2014,7 @@ function showBadgeToast(b){
   return new Promise(res=>{
     const el=document.getElementById('badgeToast');
     el.innerHTML=`<span style="font-size:22px">${b.icon}</span> <span>New badge: <b>${b.name}</b></span>`;
-    el.classList.add('show');
+    el.classList.add('show');fireConfetti();
     setTimeout(()=>{el.classList.remove('show');setTimeout(res,400);},3000);
   });
 }
