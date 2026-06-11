@@ -1305,6 +1305,85 @@ async function saveSpot(editId){
   renderList();showDetail(id);
 }
 
+function badgeProgressList(uid){
+  const mySpots=spots.filter(s=>s.createdBy===uid);
+  const myReviews=[],reviewedDistricts=new Set();
+  spots.forEach(s=>s.reviews.forEach(r=>{
+    if(r.userId===uid){
+      myReviews.push(Object.assign({},r,{spotId:s.id,spotOpenH:s.openH,spotCloseH:s.closeH}));
+      if(s.district)reviewedDistricts.add(s.district);
+    }
+  }));
+  const myPhotos=spots.flatMap(s=>(s.photos||[]).filter(p=>p.uploaded_by===uid));
+  const photoSpots=new Set(myPhotos.map(p=>p.spot_id));
+  const myVerified=mySpots.filter(s=>s.verified);
+  const helpfulVotes=myReviews.reduce((a,r)=>a+(r.helpful||[]).length,0);
+  const myName=(profilesCache[uid]||{}).name||'';
+  const reportCount=spots.reduce((a,s)=>a+(s.reports||[]).filter(r=>r.by===myName).length,0);
+  const totalWords=myReviews.reduce((a,r)=>a+(r.txt?r.txt.trim().split(/\s+/).filter(Boolean).length:0),0);
+  const fullRated=myReviews.filter(r=>RCATS.every(c=>r.ratings[c[0]]>=1));
+  const beerFive=new Set(myReviews.filter(r=>r.ratings.beer===5).map(r=>r.spotId));
+  const hoankiemSpots=spots.filter(s=>s.district==='Hoàn Kiếm'&&s.reviews.some(r=>r.userId===uid)).length;
+  const tayhoSpots=spots.filter(s=>s.district==='Tây Hồ'&&s.reviews.some(r=>r.userId===uid)).length;
+  const nightOwlSpots=new Set(myReviews.filter(r=>r.spotCloseH!=null&&r.spotCloseH!==''&&(+r.spotCloseH>=22||+r.spotCloseH<6)).map(r=>r.spotId)).size;
+  const streetSideSpots=spots.filter(s=>(s.vibes||[]).includes('Street-side')&&s.reviews.some(r=>r.userId===uid)).length;
+  const isPioneer=spots.some(s=>{const all=s.reviews.slice().sort((a,b)=>(a.when||'').localeCompare(b.when||''));return all.length>0&&all[0].userId===uid;});
+  const isEarlyBird=myReviews.some(r=>r.spotOpenH!=null&&r.spotOpenH!==''&&+r.spotOpenH<12);
+  const isGoldenHour=myReviews.some(r=>r.spotOpenH!=null&&r.spotOpenH!==''&&+r.spotOpenH<17);
+  const isUncleApproved=myPhotos.some(p=>p.thumbs_up);
+  const isFullUncle=myPhotos.some(p=>p.full_uncle);
+  const earned=badgesFor(uid);
+  const pr=(cur,tot)=>({progress:Math.min(cur,tot)/tot,current:Math.min(cur,tot),total:tot,isCount:true});
+  const bn=(val)=>({progress:val?1:0,current:val?1:0,total:1,isCount:false});
+  const MAP={
+    first_spot:pr(mySpots.length,1),scout:pr(mySpots.length,5),cartographer:pr(mySpots.length,15),
+    first_review:pr(myReviews.length,1),regular:pr(myReviews.length,10),critic:pr(myReviews.length,25),
+    pioneer:bn(isPioneer),wordsmith:pr(totalWords,500),all_rounder:pr(fullRated.length,10),
+    beer_sommelier:pr(beerFive.size,5),photographer:pr(myPhotos.length,1),
+    gallery_owner:pr(myPhotos.length,10),lensman:pr(photoSpots.size,10),
+    helpful:pr(helpfulVotes,10),community_pillar:pr(helpfulVotes,25),
+    verified_spot:pr(myVerified.length,1),trusted:pr(myVerified.length,3),
+    district_explorer:pr(reviewedDistricts.size,4),city_wide:pr(reviewedDistricts.size,7),
+    old_quarter:pr(hoankiemSpots,5),tay_ho:pr(tayhoSpots,3),safety_inspector:pr(reportCount,3),
+    early_bird:bn(isEarlyBird),golden_hour:bn(isGoldenHour),night_owl:pr(nightOwlSpots,3),
+    plastic_stool:pr(streetSideSpots,5),uncle_approved:bn(isUncleApproved),full_uncle:bn(isFullUncle),
+    legend:pr(earned.filter(b=>b!=='legend').length,15)
+  };
+  return BADGES.map(b=>Object.assign({badge:b,isEarned:earned.includes(b.id)},MAP[b.id]||{progress:0,current:0,total:1,isCount:false}));
+}
+
+function incompleteQuestsHTML(uid){
+  const all=badgeProgressList(uid);
+  const unearned=all.filter(x=>!x.isEarned);
+  if(!unearned.length)return '<div style="color:var(--green);font-size:13px;padding:8px 0">&#127942; All badges earned!</div>';
+  unearned.sort((a,b)=>b.progress-a.progress);
+  const top5=unearned.slice(0,5);
+  const rest=unearned.slice(5);
+  const inProg=rest.filter(x=>x.progress>0);
+  const notStarted=rest.filter(x=>x.progress===0);
+  const item=(x,bar)=>{
+    const pct=Math.round(x.progress*100);
+    const barHtml=(bar&&x.isCount&&x.total>1)?`<div class="qprog"><div class="qprog-fill" style="width:${pct}%"></div></div><div class="qi-num">${x.current} / ${x.total}</div>`:'';
+    return `<div class="qitem"><div class="qi-icon">${x.badge.icon}</div><div class="qi-body"><div class="qi-name">${x.badge.name}</div><div class="qi-desc">${x.badge.desc}</div>${barHtml}</div></div>`;
+  };
+  let html='';
+  if(top5.length){html+='<div class="qsec">&#9889; Closest to earning</div>'+top5.map(x=>item(x,true)).join('');}
+  if(inProg.length){html+='<div class="qsec">&#128260; In progress</div>'+inProg.map(x=>item(x,true)).join('');}
+  if(notStarted.length){html+='<div class="qsec">&#9711; Not started</div>'+notStarted.map(x=>item(x,false)).join('');}
+  return html;
+}
+
+function setFlair(badgeId){
+  if(!cur)return;
+  if(badgeId===localStorage.getItem('bhFlair_'+cur.id)){
+    localStorage.removeItem('bhFlair_'+cur.id);
+  } else {
+    localStorage.setItem('bhFlair_'+cur.id,badgeId);
+  }
+  setUserLabel();
+  showProfile(cur.id);
+}
+
 /* ============================================================
    PROFILES — user profile view
    ============================================================ */
@@ -1352,6 +1431,19 @@ async function showProfile(uid){
     ${(()=>{const earned=badgesFor(uid);const ub=u.badges||[];const allEarned=[...new Set([...earned,...ub])];
     const earnedCount=allEarned.length;
     return `<div class="sec">Badges (${earnedCount}/${BADGES.length})</div><div class="badge-grid">${BADGES.map(b=>{const ok=allEarned.includes(b.id);return `<div class="badge-item" title="${b.desc}"><span class="badge-icon${ok?'':' locked'}">${b.icon}</span><span class="badge-name${ok?'':' locked'}">${b.name}</span></div>`;}).join('')}</div>`;})()}
+    ${(()=>{
+      const uCount=badgeProgressList(uid).filter(x=>!x.isEarned).length;
+      return '<details style="margin:10px 0"><summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--gold-dark);padding:8px 12px;background:var(--paper);border:1px solid var(--line);border-radius:8px;list-style:none;display:flex;justify-content:space-between;align-items:center">&#127919; Badge Progress<span style="font-size:11px;color:var(--muted)">'+uCount+' remaining</span></summary><div style="background:var(--paper);border:1px solid var(--line);border-top:none;border-radius:0 0 8px 8px;padding:10px 12px">'+incompleteQuestsHTML(uid)+'</div></details>';
+    })()}
+    ${(()=>{
+      if(!isOwn)return '';
+      const earned=badgesFor(uid);
+      if(!earned.length)return '';
+      const curFlair=localStorage.getItem('bhFlair_'+uid)||'';
+      const badges=BADGES.filter(b=>earned.includes(b.id));
+      const items=badges.map(b=>`<div title="${b.name}" onclick="setFlair('${b.id}')" style="cursor:pointer;padding:6px;border-radius:8px;text-align:center;border:2px solid ${curFlair===b.id?'var(--gold)':'transparent'};background:${curFlair===b.id?'#fff8e1':'transparent'};transition:.15s"><span style="font-size:22px">${b.icon}</span></div>`).join('');
+      return '<div class="sec">Display flair <span style="font-size:11px;color:var(--muted);font-weight:400;text-transform:none">— tap a badge to show it next to your name</span></div><div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px">'+items+'</div>'+(curFlair?'<div style="font-size:11px;color:var(--muted)">Tap again to remove.</div>':'');
+    })()}
     ${(()=>{
       const questLabel=u.role==='newcomer'?'&#128506; Quest Progress':'&#128506; Quest Progress';
       return '<details style="margin:10px 0"><summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--gold-dark);padding:8px 12px;background:var(--paper);border:1px solid var(--line);border-radius:8px;list-style:none;display:flex;justify-content:space-between;align-items:center">'+questLabel+'<span style="font-size:11px;color:var(--muted)">'+(u.role==='newcomer'?'tap to view':'completed &#10003;')+'</span></summary>'+questProgressHTML(uid,u.role)+'</details>';
@@ -1473,7 +1565,7 @@ function setUserLabel(){
   const av=cur.avatar_url?'<img class="av-sm" src="'+cur.avatar_url+'" alt="">':'👤';
   const bkCount=(cur.bookmarks||[]).length;
   let html='<div class="user-dropdown" id="userDropWrap">';
-  html+='<button class="user-btn" onclick="toggleUserMenu()">'+av+' <span>'+esc(cur.name)+'</span> '+rolePill(cur.role)+' <span style="font-size:9px;opacity:.6">&#9660;</span></button>';
+  const _flair=localStorage.getItem('bhFlair_'+cur.id);const _flairIcon=_flair?(BADGES.find(b=>b.id===_flair)||{}).icon||'':'';html+='<button class="user-btn" onclick="toggleUserMenu()">'+av+' <span>'+esc(cur.name)+'</span>'+(_flairIcon?' <span title="'+(_flair||'')+'">'+_flairIcon+'</span>':' '+rolePill(cur.role))+' <span style="font-size:9px;opacity:.6">&#9660;</span></button>';
   html+='<div class="user-menu" id="userMenu" style="display:none">';
   html+='<button class="user-menu-item" onclick="closeUserMenu();showProfile(cur.id)">&#128100; My profile</button>';
   if(bkCount)html+='<button class="user-menu-item" onclick="closeUserMenu();showProfile(cur.id)">&#128278; Saved spots ('+bkCount+')</button>';
@@ -1666,6 +1758,38 @@ async function openAdmin(){
   renderAdmin('overview');
 }
 
+function exportCSV(type){
+  const d=adminData;
+  let rows=[],filename='';
+  const csvCell=v=>{
+    if(v==null)return '';
+    const s=String(v).replace(/"/g,'""');
+    return /[,"\n]/.test(s)?'"'+s+'"':s;
+  };
+  const row=cols=>cols.map(csvCell).join(',');
+  if(type==='spots'){
+    filename='bia-hoi-spots-'+new Date().toISOString().slice(0,10)+'.csv';
+    rows.push(row(['Name','District','Address','Lat','Lng','Price/Glass','Open','Close','Seating','Payment','Vibes','Avg Rating','Reviews','Verified','Created']));
+    d.spots.forEach(s=>{
+      const revs=d.reviews.filter(r=>r.spot_id===s.id);
+      const avgR=revs.length?( revs.reduce((a,r)=>{const cats=Object.values(r.ratings||{}).filter(v=>v>0);return a+(cats.length?cats.reduce((x,y)=>x+y,0)/cats.length:0);},0)/revs.length).toFixed(1):'';
+      rows.push(row([s.name,s.district||'',s.address||'',s.lat,s.lng,s.price_per_glass||'',(s.open_h!=null?s.open_h:''),(s.close_h!=null?s.close_h:''),(s.seating||''),(s.payment||''),(s.vibes||[]).join(';'),avgR,revs.length,s.verified?'Yes':'No',(s.created_at||'').slice(0,10)]));
+    });
+  } else if(type==='users'){
+    filename='bia-hoi-users-'+new Date().toISOString().slice(0,10)+'.csv';
+    rows.push(row(['Name','Role','Member Since','Spots Added','Reviews Written','Badges']));
+    d.users.forEach(u=>{
+      const uSpots=d.spots.filter(s=>s.created_by===u.id).length;
+      const uRevs=d.reviews.filter(r=>r.user_id===u.id).length;
+      const uBadges=(u.badges||[]).length;
+      rows.push(row([u.name||'',u.role||'',u.since||'',uSpots,uRevs,uBadges]));
+    });
+  }
+  const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),5000);
+}
 function renderAdmin(tab){
   const d=adminData;
   const reported=d.spots.filter(s=>(s.reports||[]).length>0);
@@ -1707,11 +1831,16 @@ function renderAdmin(tab){
         <option value="reported">Reported only</option>
         <option value="closed">Closed/temp closed</option>
       </select>
+      <button class="btn-line btn-sm" onclick="exportCSV('spots')" style="margin-left:auto">📥 Export CSV</button>
     </div>
     <div id="adminSpotTable">${renderAdminSpotTable(d.spots)}</div>`;
   }
   else if(tab==='users'){
-    body=`<table class="admin-table">
+    body=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <b style="font-size:13px">${d.users.length} registered users</b>
+      <button class="btn-line btn-sm" onclick="exportCSV('users')">📥 Export CSV</button>
+    </div>
+    <table class="admin-table">
       <tr><th>Name</th><th>Role</th><th>Since</th><th>Spots</th><th>Reviews</th><th>Actions</th></tr>
       ${d.users.map(u=>{
         const uSpots=d.spots.filter(s=>s.created_by===u.id).length;
