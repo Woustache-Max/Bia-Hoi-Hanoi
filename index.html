@@ -12,10 +12,10 @@
 <style>
   :root{--gold:#f5b301;--gold-dark:#b9780f;--ink:#1f1a12;--paper:#fffaf0;--card:#fff;
         --muted:#7a7263;--line:#ece3d2;--green:#2e7d32;--red:#c0392b;--blue:#185fa5;--orange:#e65100;
-        --shadow:rgba(0,0,0,.12)}
+        --shadow:rgba(0,0,0,.12);--nav-bg:#1f1a12}
   [data-theme="dark"]{
     --ink:#e8dcc8;--paper:#141210;--card:#1c1812;--muted:#8a7e6e;
-    --line:#2a241c;--gold:#f5b301;--gold-dark:#ffc41f;--green:#4caf50;
+    --line:#2a241c;--nav-bg:#1c1812;--gold:#f5b301;--gold-dark:#ffc41f;--green:#4caf50;
     --blue:#64b5f6;--shadow:rgba(0,0,0,.4)}
   [data-theme="dark"] body{background:var(--paper);color:var(--ink)}
   [data-theme="dark"] #sidebar{background:var(--card)}
@@ -39,7 +39,7 @@
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;font-family:'Be Vietnam Pro',system-ui,sans-serif;color:var(--ink);background:var(--paper)}
   #app{display:flex;flex-direction:column;height:100vh}
-  header{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--ink);color:var(--gold);z-index:1200;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+  header{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--nav-bg);color:var(--gold);z-index:1200;box-shadow:0 2px 8px rgba(0,0,0,.25)}
   header h1{font-size:18px;margin:0;letter-spacing:.2px;font-weight:800}
   header .logo{font-size:22px}
   header .spacer{flex:1}
@@ -331,6 +331,12 @@
   .bh-popup .leaflet-popup-content-wrapper{border-radius:12px;padding:0;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.2)}
   .bh-popup .leaflet-popup-content{margin:0;min-width:190px}
   .bh-popup .popup-thumb{border-radius:0;margin:0;height:100px;width:100%}
+.activity-feed{display:flex;flex-direction:column;gap:8px}
+.activity-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--paper);border-radius:10px;border:1px solid var(--line)}
+.activity-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.activity-body{flex:1;min-width:0}
+.activity-title{font-size:13px;font-weight:600;margin-bottom:3px}
+.activity-meta{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .btn-bk{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:20px;padding:5px 10px;font-size:13px;cursor:pointer;transition:.15s;font-family:inherit}
 .btn-bk.on{background:#fff8e1;border-color:var(--gold-dark);color:var(--gold-dark);font-weight:600}
 /* user dropdown */
@@ -343,7 +349,7 @@
 .user-menu-item:hover{background:rgba(255,255,255,.1)}
 .user-menu-item.danger{color:#ff6b6b}
 /* floating island */
-.floating-island{display:none;position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);border-radius:40px;padding:8px 18px;z-index:1600;box-shadow:0 4px 20px rgba(0,0,0,.4);align-items:center;gap:6px}
+.floating-island{display:none;position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--nav-bg);border-radius:40px;padding:8px 18px;z-index:1600;box-shadow:0 4px 20px rgba(0,0,0,.4);align-items:center;gap:6px}
 .fi-btn{background:transparent;border:none;color:rgba(255,255,255,.65);cursor:pointer;font-size:21px;padding:8px 14px;border-radius:30px;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:inherit;line-height:1;transition:.15s}
 .fi-lbl{font-size:10px;font-weight:600;letter-spacing:.2px}
 .fi-btn.fi-active{color:var(--gold)}
@@ -1596,7 +1602,7 @@ function renderAdmin(tab){
   const d=adminData;
   const reported=d.spots.filter(s=>(s.reports||[]).length>0);
   const unverified=d.spots.filter(s=>!s.verified);
-  const tabDefs={overview:'📊 Overview',spots:'📍 Spots',users:'👥 Users',reports:'⚑ Reports',photos:'📷 Photos'};
+  const tabDefs={overview:'📊 Overview',spots:'📍 Spots',users:'👥 Users',reports:'⚑ Reports',photos:'📷 Photos',activity:'🔔 Activity'};
   const tabs=Object.keys(tabDefs).map(t=>{
     const badge=(t==='reports'&&reported.length)?` <span style="background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px">${reported.length}</span>`:'';
     return `<button class="admin-tab${t===tab?' on':''}" onclick="renderAdmin('${t}')">${tabDefs[t]}${badge}</button>`;
@@ -1704,6 +1710,39 @@ function renderAdmin(tab){
     </table>`:'<div class="empty-note">No reports. All clear! 🍺</div>';
   }
 
+  else if(tab==='activity'){
+    const evts=[];
+    d.spots.forEach(s=>{
+      if(s.created_at)evts.push({icon:'📍',color:'#2e7d32',
+        title:'New spot: '+esc(s.name),meta:esc(s.district||''),date:s.created_at});
+    });
+    d.users.forEach(u=>{
+      if(u.created_at)evts.push({icon:'👤',color:'#185fa5',
+        title:'New user: '+esc(u.name||u.email||'Unknown'),meta:u.role||'',date:u.created_at});
+    });
+    d.reviews.forEach(r=>{
+      if(r.review_date){
+        const sn=(d.spots.find(s=>s.id===r.spot_id)||{}).name||'Unknown spot';
+        evts.push({icon:'⭐',color:'#b9780f',
+          title:'Review on: '+esc(sn),meta:esc((r.txt||'No text').slice(0,55)),date:r.review_date});
+      }
+    });
+    d.spots.forEach(s=>(s.reports||[]).forEach(rp=>{
+      if(rp.when)evts.push({icon:'⚑',color:'#c0392b',
+        title:'Report: '+esc(s.name),meta:esc(rp.why||'')+(rp.by?' — '+esc(rp.by):''),date:rp.when});
+    }));
+    evts.sort((a,b)=>b.date.localeCompare(a.date));
+    const top10=evts.slice(0,10);
+    body=top10.length
+      ?'<div class="activity-feed">'+top10.map(ev=>
+        '<div class="activity-item">'
+        +'<span class="activity-dot" style="background:'+ev.color+'"></span>'
+        +'<div class="activity-body">'
+        +'<div class="activity-title">'+ev.icon+' '+ev.title+'</div>'
+        +'<div class="activity-meta">'+ev.meta+(ev.meta?' &middot; ':'')+ev.date.slice(0,10)+'</div>'
+        +'</div></div>').join('')+'</div>'
+      :'<div style="color:var(--muted);font-size:13px;padding:20px 0">No activity yet.</div>';
+  }
   document.querySelector('#modal .modal').innerHTML=`
     <div class="admin-header">
       <span style="font-size:22px">🍺</span>
