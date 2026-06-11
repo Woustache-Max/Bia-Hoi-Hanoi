@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bia Hơi Hanoi</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#f5b301">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bia Hơi">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
 <!-- MarkerCluster.Default.css omitted — using custom cluster icons -->
@@ -358,6 +365,20 @@
 @media(max-width:680px){#sidebarBody{padding-bottom:80px}}
 #fi-add{background:var(--gold);color:var(--ink)!important;border-radius:20px;padding:7px 16px;margin:0 2px;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,.3);justify-content:center;align-items:center}
 #fi-add .fi-lbl{color:var(--ink)!important;font-weight:700;font-size:10px}
+
+/* ── PWA install prompt ─────────────────────────────────── */
+#pwaPrompt{position:fixed;bottom:82px;left:50%;transform:translateX(-50%);
+  background:var(--nav-bg);color:#fff;border-radius:14px;padding:10px 14px;
+  display:none;align-items:center;gap:10px;z-index:1700;
+  box-shadow:0 4px 20px rgba(0,0,0,.45);white-space:nowrap;
+  border:1px solid rgba(255,255,255,.1);max-width:92vw}
+#pwaPrompt.show{display:flex}
+#pwaPrompt .pwa-text{font-size:13px;flex:1;min-width:0;white-space:normal;line-height:1.35}
+#pwaPrompt .pwa-install{background:var(--gold);color:var(--ink);border:none;
+  border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+#pwaPrompt .pwa-dismiss{background:transparent;border:none;color:rgba(255,255,255,.5);
+  font-size:18px;cursor:pointer;padding:0 2px;line-height:1}
+@media(min-width:681px){#pwaPrompt{bottom:24px}}
 </style>
 </head>
 <body>
@@ -2324,6 +2345,63 @@ window.addEventListener('popstate',function(){
   if(sb&&sb.classList.contains('open')&&window.innerWidth<=680){closeSidebar();return;}
 });
 
+
+
+/* ── Service Worker registration ── */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js',{scope:'/Bia-Hoi-Hanoi/'})
+      .then(r=>console.log('SW registered:',r.scope))
+      .catch(e=>console.warn('SW registration failed:',e));
+  });
+}
+
+/* ── PWA install prompt ── */
+(function(){
+  var _deferredPrompt=null;
+  var _prompted=localStorage.getItem('pwaPrompted');
+  var _installed=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone;
+  if(_installed||_prompted)return;
+
+  window.addEventListener('beforeinstallprompt',function(e){
+    e.preventDefault();
+    _deferredPrompt=e;
+    setTimeout(function(){
+      var el=document.getElementById('pwaPrompt');
+      if(el)el.classList.add('show');
+    },30000); // show after 30 s
+  });
+
+  window.addEventListener('appinstalled',function(){
+    var el=document.getElementById('pwaPrompt');
+    if(el)el.classList.remove('show');
+    localStorage.setItem('pwaPrompted','1');
+  });
+
+  document.addEventListener('DOMContentLoaded',function(){
+    var installBtn=document.getElementById('pwaInstallBtn');
+    var dismissBtn=document.getElementById('pwaDismissBtn');
+    if(installBtn){
+      installBtn.addEventListener('click',function(){
+        if(!_deferredPrompt)return;
+        _deferredPrompt.prompt();
+        _deferredPrompt.userChoice.then(function(c){
+          localStorage.setItem('pwaPrompted','1');
+          var el=document.getElementById('pwaPrompt');
+          if(el)el.classList.remove('show');
+          _deferredPrompt=null;
+        });
+      });
+    }
+    if(dismissBtn){
+      dismissBtn.addEventListener('click',function(){
+        localStorage.setItem('pwaPrompted','1');
+        var el=document.getElementById('pwaPrompt');
+        if(el)el.classList.remove('show');
+      });
+    }
+  });
+})();
 </script>
 <div class="badge-toast" id="badgeToast"></div>
 <div id="photoLightbox" onclick="lbBgClick(event)">
@@ -2349,6 +2427,13 @@ window.addEventListener('popstate',function(){
     <button class="btn-welcome" onclick="dismissWelcome()">Vào bản đồ! 🍺</button>
     <span class="skip-link" onclick="dismissWelcome()">I've been here before</span>
   </div>
+</div>
+
+<div id="pwaPrompt">
+  <span style="font-size:22px">📲</span>
+  <span class="pwa-text">Add <b>Bia Hơi Hanoi</b> to your home screen</span>
+  <button class="pwa-install" id="pwaInstallBtn">Install</button>
+  <button class="pwa-dismiss" id="pwaDismissBtn">✕</button>
 </div>
 </body>
 </html>
