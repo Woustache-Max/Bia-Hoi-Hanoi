@@ -343,15 +343,15 @@
 .user-menu-item:hover{background:rgba(255,255,255,.1)}
 .user-menu-item.danger{color:#ff6b6b}
 /* floating island */
-.floating-island{display:none;position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);border-radius:40px;padding:6px 10px;z-index:1600;box-shadow:0 4px 20px rgba(0,0,0,.4);align-items:center;gap:2px}
-.fi-btn{background:transparent;border:none;color:rgba(255,255,255,.65);cursor:pointer;font-size:19px;padding:6px 11px;border-radius:30px;display:flex;flex-direction:column;align-items:center;gap:1px;font-family:inherit;line-height:1;transition:.15s}
-.fi-lbl{font-size:9px;letter-spacing:.2px}
+.floating-island{display:none;position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);border-radius:40px;padding:8px 18px;z-index:1600;box-shadow:0 4px 20px rgba(0,0,0,.4);align-items:center;gap:6px}
+.fi-btn{background:transparent;border:none;color:rgba(255,255,255,.65);cursor:pointer;font-size:21px;padding:8px 14px;border-radius:30px;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:inherit;line-height:1;transition:.15s}
+.fi-lbl{font-size:10px;font-weight:600;letter-spacing:.2px}
 .fi-btn.fi-active{color:var(--gold)}
 .fi-btn.fi-active .fi-lbl{color:var(--gold)}
 @media(max-width:600px){.floating-island{display:flex}#headerAddBtn{display:none}}
 @media(max-width:680px){#sidebarBody{padding-bottom:80px}}
-#fi-add{background:var(--gold);color:var(--ink)!important;border-radius:50%;width:40px;height:40px;padding:0;margin:0 4px;font-size:20px;box-shadow:0 2px 8px rgba(0,0,0,.3)}
-#fi-add .fi-lbl{color:var(--ink)!important;font-weight:700}
+#fi-add{background:var(--gold);color:var(--ink)!important;border-radius:20px;padding:7px 16px;margin:0 2px;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,.3);justify-content:center;align-items:center}
+#fi-add .fi-lbl{color:var(--ink)!important;font-weight:700;font-size:10px}
 </style>
 </head>
 <body>
@@ -366,7 +366,7 @@
   <div class="floating-island" id="floatingIsland">
     <button class="fi-btn" id="fi-near" onclick="fiNav('near')">&#128205;<span class="fi-lbl">Near me</span></button>
     <button class="fi-btn fi-active" id="fi-list" onclick="fiNav('list')">&#128203;<span class="fi-lbl">List</span></button>
-    <button class="fi-btn" id="fi-add" onclick="startAdd()">&#10133;<span class="fi-lbl">Add</span></button>
+    <button class="fi-btn" id="fi-add" onclick="startAdd()">✏️<span class="fi-lbl">Add</span></button>
     <button class="fi-btn" id="fi-new" onclick="fiNav('new')">&#10024;<span class="fi-lbl">New</span></button>
     <button class="fi-btn" id="fi-me" onclick="fiNav('me')">&#128100;<span class="fi-lbl">Me</span></button>
   </div>
@@ -596,7 +596,6 @@ const cluster=L.markerClusterGroup({
     return L.divIcon({className:'',html:`<div class="bh-cluster ${sz}">${n}</div>`,iconSize:[px,px],iconAnchor:[px/2,px/2]});
   }
 });map.addLayer(cluster);
-map.on('click',()=>{if(innerWidth<=680)document.getElementById('sidebar').classList.remove('open');});
 let tmpMarker=null,adding=false;
 function pinIcon(closed,unverified){
   let cls='bia-pin';
