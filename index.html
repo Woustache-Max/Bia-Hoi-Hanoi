@@ -391,7 +391,7 @@
         <button class="btn-line btn-sm" onclick="showLeaderboard()">🏆</button>
         <button class="btn-line btn-sm" onclick="showQuests()" title="Quests & Badges">🎯</button>
         <button class="btn-line btn-sm" id="nearMeBtn" onclick="nearMe()">📍<span class="near-lbl"> Near me</span></button>
-        <select id="fRadius" onchange="renderList(true)" style="padding:5px 8px;border:1px solid var(--line);border-radius:7px;font-size:13px;display:none">
+        <select id="fRadius" onchange="renderList(true);saveFilters()" style="padding:5px 8px;border:1px solid var(--line);border-radius:7px;font-size:13px;display:none">
           <option value="0.5">Within 500m</option>
           <option value="1">Within 1km</option>
           <option value="2">Within 2km</option>
@@ -401,18 +401,18 @@
         </select>
       </div>
       <div class="filters" id="filters">
-        <select id="fDistrict" onchange="renderList()"><option value="">All districts</option></select>
-        <select id="fVibe" onchange="renderList()"><option value="">Any vibe</option></select>
-        <select id="fRating" onchange="renderList()">
+        <select id="fDistrict" onchange="renderList();saveFilters()"><option value="">All districts</option></select>
+        <select id="fVibe" onchange="renderList();saveFilters()"><option value="">Any vibe</option></select>
+        <select id="fRating" onchange="renderList();saveFilters()">
           <option value="0">Any rating</option><option value="3">3+ 🍺</option>
           <option value="4">4+ 🍺</option><option value="4.5">4.5+ 🍺</option></select>
-        <select id="fPrice" onchange="renderList()">
+        <select id="fPrice" onchange="renderList();saveFilters()">
           <option value="0">Any price</option><option value="15000">≤15,000₫</option>
           <option value="20000">≤20,000₫</option><option value="30000">≤30,000₫</option></select>
         <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:var(--muted)">
-          <input type="checkbox" id="fOpen" style="width:auto" onchange="renderList()"> Open now</label>
+          <input type="checkbox" id="fOpen" style="width:auto" onchange="renderList();saveFilters()"> Open now</label>
         <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:var(--muted)">
-          <input type="checkbox" id="fVerified" style="width:auto" onchange="renderList()"> Verified only</label>
+          <input type="checkbox" id="fVerified" style="width:auto" onchange="renderList();saveFilters()"> Verified only</label>
       </div>
       <div id="resultBar" class="result-bar"></div>
       <div id="sidebarBody"><div class="skel-item"><div class="skel-thumb"></div><div class="skel-text"><div class="skel-line wide"></div><div class="skel-line med"></div><div class="skel-line narrow"></div></div></div><div class="skel-item"><div class="skel-thumb"></div><div class="skel-text"><div class="skel-line wide"></div><div class="skel-line med"></div><div class="skel-line narrow"></div></div></div><div class="skel-item"><div class="skel-thumb"></div><div class="skel-text"><div class="skel-line wide"></div><div class="skel-line med"></div><div class="skel-line narrow"></div></div></div><div class="skel-item"><div class="skel-thumb"></div><div class="skel-text"><div class="skel-line wide"></div><div class="skel-line med"></div><div class="skel-line narrow"></div></div></div><div class="skel-item"><div class="skel-thumb"></div><div class="skel-text"><div class="skel-line wide"></div><div class="skel-line med"></div><div class="skel-line narrow"></div></div></div></div>
@@ -642,6 +642,32 @@ function clearSearch(){
   const rb=document.getElementById('resultBar');
   if(rb){rb.textContent='';rb.classList.remove('show');}
   renderList();
+}
+function saveFilters(){
+  try{
+    const f={
+      d:(document.getElementById('fDistrict')||{}).value||'',
+      v:(document.getElementById('fVibe')||{}).value||'',
+      r:(document.getElementById('fRating')||{}).value||'0',
+      p:(document.getElementById('fPrice')||{}).value||'0',
+      o:!!(document.getElementById('fOpen')||{}).checked,
+      vf:!!(document.getElementById('fVerified')||{}).checked,
+      rad:(document.getElementById('fRadius')||{}).value||''
+    };
+    localStorage.setItem('bhFilters',JSON.stringify(f));
+  }catch(e){}
+}
+function loadFilters(){
+  try{
+    const raw=localStorage.getItem('bhFilters');
+    if(!raw)return;
+    const f=JSON.parse(raw);
+    const setV=(id,val)=>{const el=document.getElementById(id);if(el&&val!=null)el.value=val;};
+    const setC=(id,val)=>{const el=document.getElementById(id);if(el)el.checked=!!val;};
+    setV('fDistrict',f.d);setV('fVibe',f.v);setV('fRating',f.r);setV('fPrice',f.p);
+    setC('fOpen',f.o);setC('fVerified',f.vf);
+    if(f.rad)setV('fRadius',f.rad);
+  }catch(e){}
 }
 function visibleSpots(){
   const q=(document.getElementById('searchBox').value||'').toLowerCase();
@@ -1556,7 +1582,12 @@ function toggleDark(){
   });
 })();
 
-function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open')}
+function toggleSidebar(){
+  const _sb=document.getElementById('sidebar');
+  _sb.classList.toggle('open');
+  const _so=document.getElementById('sheetOverlay');
+  if(_so){if(_sb.classList.contains('open'))_so.classList.add('on');else _so.classList.remove('on');}
+}
 function openSidebar(){
   if(innerWidth<=680){
     document.getElementById('sidebar').classList.add('open');
@@ -1900,6 +1931,7 @@ async function init(){
   spots=(spotsData||[]).map(s=>({...dbToSpot(s),reviews:reviewsBySpot[s.id]||[],photos:photosBySpot[s.id]||[]}));
   const pids=[...new Set(spots.map(s=>s.createdBy).filter(id=>id&&id!=='anon'&&id!=='seed'))];
   if(pids.length){const{data:profiles}=await db.from('profiles').select('*').in('id',pids);(profiles||[]).forEach(p=>{profilesCache[p.id]=p;});}
+  loadFilters();
   renderList();
   // Deep-link: ?spot=ID opens that spot on load
   const params=new URLSearchParams(window.location.search);
