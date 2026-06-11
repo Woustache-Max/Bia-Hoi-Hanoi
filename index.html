@@ -1308,6 +1308,7 @@ async function showProfile(uid){
     :'<div class="txt-muted" style="padding:6px 0">No reviews yet.</div>'}
     ${(()=>{if(!isOwn||(cur.bookmarks||[]).length===0)return '';const bkSpots=spots.filter(s=>(cur.bookmarks||[]).includes(s.id));if(!bkSpots.length)return '';return '<div class="sec">Saved spots ('+bkSpots.length+')</div>'+bkSpots.map(s=>{const th=s.photos&&s.photos.length?'<img class="list-thumb" src="'+s.photos[0].url+'" alt="" loading="lazy">':'<div class="list-thumb-ph">\u{1F37A}</div>';const av=spotAvg(s);const avHtml=av?'<span style="background:var(--gold);color:#000;font-size:11px;font-weight:800;padding:1px 6px;border-radius:20px">'+av.toFixed(1)+' \u{1F37A}</span>':'';const rv=s.reviews.length?' ('+s.reviews.length+')':'';const dt=esc(s.district||'');return '<div class="list-item" onclick="showDetail(\''+s.id+'\')"><div style=\'position:relative;flex-shrink:0\'>'+(s.verified?'<span style=\'position:absolute;top:2px;left:2px;font-size:10px;background:var(--gold);border-radius:3px;padding:0 3px;font-weight:700\'>✓</span>':'')+th+'</div><div class="list-text"><h3>'+esc(s.name)+'</h3><div class="meta"><span>'+avHtml+rv+'</span><span>'+dt+'</span></div></div></div>';}).join('');})()}
   </div>`;
+  document.getElementById('sidebar').scrollTop=0;
 }
 
 async function changeAvatar(){
