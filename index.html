@@ -2228,16 +2228,16 @@ function showWelcomeIfNew(){
   const params=new URLSearchParams(window.location.search);
   if(params.get('spot'))return;
   if(!localStorage.getItem('welcomed')){
-    document.getElementById('welcomeOverlay').classList.remove('hidden');
+    const _wo=document.getElementById('welcomeOverlay');if(_wo)_wo.classList.remove('hidden');
   }
 }
 init();
-showWelcomeIfNew();
+window.addEventListener('DOMContentLoaded',function(){showWelcomeIfNew();});
 
 /* ============================================================
    BACK-BUTTON NAVIGATION (mobile history intercept)
    ============================================================ */
-let _histPushed=false;
+var _histPushed=false;
 function pushNav(){
   if(!_histPushed){history.pushState({bhNav:true},'');_histPushed=true;}
 }
