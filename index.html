@@ -328,6 +328,8 @@
   .bh-popup .leaflet-popup-content-wrapper{border-radius:12px;padding:0;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.2)}
   .bh-popup .leaflet-popup-content{margin:0;min-width:190px}
   .bh-popup .popup-thumb{border-radius:0;margin:0;height:100px;width:100%}
+.btn-bk{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:20px;padding:5px 10px;font-size:13px;cursor:pointer;transition:.15s;font-family:inherit}
+.btn-bk.on{background:#fff8e1;border-color:var(--gold-dark);color:var(--gold-dark);font-weight:600}
 </style>
 </head>
 <body>
@@ -658,9 +660,10 @@ function renderList(sortByDist){
     const verBadge=s.verified?'':`<span class="chip unverified">Unverified</span> `;
     const reviewed=cur&&s.reviews.some(r=>r.userId===cur.id);
     const rvBadge=reviewed?'<span style="position:absolute;bottom:3px;right:3px;background:#4caf50;color:#fff;border-radius:50%;width:17px;height:17px;font-size:10px;font-weight:700;line-height:17px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.25)">✓</span>':'';
+    const bkBadge=cur&&(cur.bookmarks||[]).includes(s.id)?'<span style="position:absolute;top:3px;left:3px;font-size:13px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))">🔖</span>':'';
     const thumb=s.photos&&s.photos.length
-      ?`<div style="position:relative;flex-shrink:0">${rvBadge}<img class="list-thumb" src="${s.photos[0].url}" alt="" loading="lazy"></div>`
-      :`<div class="list-thumb-ph" style="position:relative">${rvBadge}🍺</div>`;
+      ?`<div style="position:relative;flex-shrink:0">${bkBadge}${rvBadge}<img class="list-thumb" src="${s.photos[0].url}" alt="" loading="lazy"></div>`
+      :`<div class="list-thumb-ph" style="position:relative">${bkBadge}${rvBadge}🍺</div>`;
     return `<div class="list-item" onclick="showDetail('${s.id}')">
       ${thumb}
       <div class="list-text">
@@ -746,6 +749,7 @@ async function showDetail(id){
       <a href="${gmaps}" target="_blank"><button class="btn-gold btn-sm">🧭 Directions</button></a>
       ${canVerify?`<button class="btn-verify" onclick="verifySpot('${s.id}')">✓ Verify spot</button>`:''}
       <button class="btn-line btn-sm" onclick="shareSpot('${s.id}')">🔗 Share</button>
+      ${cur?`<button id="bk-btn-${s.id}" class="btn-line btn-sm btn-bk${(cur.bookmarks||[]).includes(s.id)?' on':''}" onclick="toggleBookmark('${s.id}')">${(cur.bookmarks||[]).includes(s.id)?'🔖 Saved':'🔖 Save'}</button>`:''}
       <button class="btn-line btn-sm" onclick="reportSpot('${s.id}')">⚑ Report</button>
       ${canEdit?`<button class="btn-line btn-sm" onclick="startAdd('${s.id}')">✎ Edit</button>`:''}
       ${admin?`<button class="btn-line btn-sm" onclick="setStatus('${s.id}')">Status</button><button class="btn-line btn-sm" onclick="delSpot('${s.id}')">🗑 Delete</button>`:''}
@@ -1028,6 +1032,20 @@ function lbKey(e){
 }
 function lbBgClick(e){if(e.target===document.getElementById('photoLightbox'))closeLightbox();}
 
+async function toggleBookmark(id){
+  if(!cur){showToast('Sign in to save spots');return;}
+  const bk=cur.bookmarks||[];
+  const idx=bk.indexOf(id);
+  const next=idx>-1?bk.filter(x=>x!==id):[...bk,id];
+  const added=next.length>bk.length;
+  cur.bookmarks=next;
+  if(profilesCache[cur.id])profilesCache[cur.id].bookmarks=next;
+  await db.from('profiles').update({bookmarks:next}).eq('id',cur.id);
+  const btn=document.getElementById('bk-btn-'+id);
+  if(btn){btn.className='btn-line btn-sm btn-bk'+(added?' on':'');btn.textContent=added?'🔖 Saved':'🔖 Save';}
+  renderList();
+  showToast(added?'Spot saved!':'Removed from saved');
+}
 async function reportSpot(id){
   const why=prompt('Report this spot (e.g. closed down, wrong location, duplicate):');
   if(!why)return;
@@ -1260,6 +1278,7 @@ async function showProfile(uid){
         ${r.txt?`<div class="txt">${esc(r.txt.length>120?r.txt.slice(0,120)+'…':r.txt)}</div>`:''}
       </div>`).join('')
     :'<div class="txt-muted" style="padding:6px 0">No reviews yet.</div>'}
+    ${isOwn&&(cur.bookmarks||[]).length?`<div class="sec">Saved spots (${(cur.bookmarks||[]).length})</div>${spots.filter(s=>(cur.bookmarks||[]).includes(s.id)).map(s=>{const thumb=s.photos&&s.photos.length?'<img class="list-thumb" src="'+s.photos[0].url+'" alt="" loading="lazy">':'<div class="list-thumb-ph">🍺</div>';return '<div class="list-item" onclick="showDetail(''+s.id+'')">'+thumb+'<div class="list-text"><h3>'+esc(s.name)+(s.verified?' <span class="chip verified" style="font-size:10px">✓</span>':'')+'</h3><div class="meta"><span>'+(()=>{const a=spotAvg(s);return a?'<span style="background:var(--gold);color:#000;font-size:11px;font-weight:800;padding:1px 6px;border-radius:20px">'+a.toFixed(1)+' 🍺</span>':''})()+(s.reviews.length?' ('+s.reviews.length+')':'')+'</span><span>'+esc(s.district||'')+'</span></div></div></div>';}).join('')}`:''}
   </div>`;
 }
 
