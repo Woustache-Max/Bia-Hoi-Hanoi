@@ -348,7 +348,9 @@
 .fi-lbl{font-size:9px;letter-spacing:.2px}
 .fi-btn.fi-active{color:var(--gold)}
 .fi-btn.fi-active .fi-lbl{color:var(--gold)}
-@media(max-width:600px){.floating-island{display:flex}}
+@media(max-width:600px){.floating-island{display:flex}#headerAddBtn{display:none}}
+#fi-add{background:var(--gold);color:var(--ink)!important;border-radius:50%;width:46px;height:46px;padding:0;margin:0 3px;font-size:22px;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+#fi-add .fi-lbl{color:var(--ink)!important;font-weight:700}
 </style>
 </head>
 <body>
@@ -357,7 +359,7 @@
     <span class="logo">🍺</span><h1>Bia Hơi Hanoi</h1>
     <span class="spacer"></span>
     <button class="btn-ghost btn-sm mobile-toggle" onclick="toggleSidebar()">☰</button>
-    <button class="btn-gold btn-sm" onclick="startAdd()">+ Add spot</button>
+    <button id="headerAddBtn" class="btn-gold btn-sm" onclick="startAdd()">+ Add spot</button>
     <span class="user" id="userLabel"></span>
   </header>
   <div class="floating-island" id="floatingIsland">
@@ -731,7 +733,7 @@ function sortReviews(sid,mode,btn){
   document.getElementById('reviewList').innerHTML=sortedReviews(s,mode).map(r=>reviewHTML(s,r)).join('');
 }
 async function showDetail(id){
-  openSidebar();const s=byId(id);if(!s)return;
+  pushNav();openSidebar();const s=byId(id);if(!s)return;
   map.setView([s.lat,s.lng],16);
   const admin=cur&&cur.role==='admin';
   const canEdit=(cur&&(s.createdBy===cur.id||admin));
@@ -1242,7 +1244,7 @@ async function saveSpot(editId){
    PROFILES — user profile view
    ============================================================ */
 async function showProfile(uid){
-  let u=userById(uid);
+  pushNav();let u=userById(uid);
   if(!u){
     const{data}=await db.from('profiles').select('*').eq('id',uid).single();
     if(!data)return;
@@ -1534,6 +1536,7 @@ let adminData={spots:[],users:[],reviews:[]};
 
 async function openAdmin(){
   if(!cur||cur.role!=='admin')return;
+  pushNav();
   closeModal();
   const bg=document.createElement('div');bg.className='modal-bg';bg.id='modal';
   bg.innerHTML='<div class="modal modal-admin"><div style="text-align:center;padding:40px;color:var(--muted)">🍺 Loading admin data…</div></div>';
@@ -2188,6 +2191,27 @@ function showWelcomeIfNew(){
 }
 init();
 showWelcomeIfNew();
+
+/* ============================================================
+   BACK-BUTTON NAVIGATION (mobile history intercept)
+   ============================================================ */
+let _histPushed=false;
+function pushNav(){
+  if(!_histPushed){history.pushState({bhNav:true},'');_histPushed=true;}
+}
+window.addEventListener('popstate',function(){
+  _histPushed=false;
+  // 1. Close admin modal if open
+  const modal=document.getElementById('modal');
+  if(modal){modal.remove();return;}
+  // 2. Close detail/profile panel — return to list
+  const body=document.getElementById('sidebarBody');
+  if(body&&body.querySelector('.panel')){renderList();return;}
+  // 3. Close sidebar on mobile
+  const sb=document.getElementById('sidebar');
+  if(sb&&sb.classList.contains('open')&&window.innerWidth<=680){closeSidebar();return;}
+});
+
 </script>
 <div class="badge-toast" id="badgeToast"></div>
 <div id="photoLightbox" onclick="lbBgClick(event)">
