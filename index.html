@@ -343,13 +343,14 @@
 .user-menu-item:hover{background:rgba(255,255,255,.1)}
 .user-menu-item.danger{color:#ff6b6b}
 /* floating island */
-.floating-island{display:none;position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);border-radius:40px;padding:6px 10px;z-index:1500;box-shadow:0 4px 20px rgba(0,0,0,.4);align-items:center;gap:2px}
+.floating-island{display:none;position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);border-radius:40px;padding:6px 10px;z-index:1600;box-shadow:0 4px 20px rgba(0,0,0,.4);align-items:center;gap:2px}
 .fi-btn{background:transparent;border:none;color:rgba(255,255,255,.65);cursor:pointer;font-size:19px;padding:6px 11px;border-radius:30px;display:flex;flex-direction:column;align-items:center;gap:1px;font-family:inherit;line-height:1;transition:.15s}
 .fi-lbl{font-size:9px;letter-spacing:.2px}
 .fi-btn.fi-active{color:var(--gold)}
 .fi-btn.fi-active .fi-lbl{color:var(--gold)}
 @media(max-width:600px){.floating-island{display:flex}#headerAddBtn{display:none}}
-#fi-add{background:var(--gold);color:var(--ink)!important;border-radius:50%;width:46px;height:46px;padding:0;margin:0 3px;font-size:22px;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+@media(max-width:680px){#sidebarBody{padding-bottom:80px}}
+#fi-add{background:var(--gold);color:var(--ink)!important;border-radius:50%;width:40px;height:40px;padding:0;margin:0 4px;font-size:20px;box-shadow:0 2px 8px rgba(0,0,0,.3)}
 #fi-add .fi-lbl{color:var(--ink)!important;font-weight:700}
 </style>
 </head>
@@ -360,7 +361,7 @@
     <span class="spacer"></span>
     <button class="btn-ghost btn-sm mobile-toggle" onclick="toggleSidebar()">☰</button>
     <button id="headerAddBtn" class="btn-gold btn-sm" onclick="startAdd()">+ Add spot</button>
-    <span class="user" id="userLabel"></span>
+    <div class="user" id="userLabel"></div>
   </header>
   <div class="floating-island" id="floatingIsland">
     <button class="fi-btn" id="fi-near" onclick="fiNav('near')">&#128205;<span class="fi-lbl">Near me</span></button>
@@ -613,7 +614,7 @@ function drawMarkers(){
     const popAvg=spotAvg(s);
     m.bindPopup(
       `${popPhoto}<div style="padding:6px 8px 6px"><b style="font-size:14px">${esc(s.name)}</b>${popOpen}<div style="margin:5px 0">${popAvg?`<span style="background:var(--gold);color:#000;font-size:11px;font-weight:700;padding:1px 7px;border-radius:12px">${popAvg.toFixed(1)} 🍺</span> <span style="color:#888;font-size:11px">(${s.reviews.length} review${s.reviews.length===1?'':'s'})</span>`:'<span style="color:#888;font-size:11px">No reviews yet</span>'}</div>${s.pricePerGlass?`<div style="color:#888;font-size:11px;margin-bottom:6px">${esc(s.pricePerGlass)}</div>`:''}<button onclick="map.closePopup();showDetail('${s.id}')" style="background:var(--gold);color:var(--ink);border:none;border-radius:7px;padding:6px 0;font-size:12px;font-weight:700;cursor:pointer;width:100%;font-family:inherit">View details →</button></div>`,
-      {maxWidth:220,className:'bh-popup'}
+      {maxWidth:220,autoPanPaddingBottomRight:L.point(0,80),className:'bh-popup'}
     );
     cluster.addLayer(m);
   });
@@ -1446,7 +1447,7 @@ function fiNav(tab){
   document.querySelectorAll('.fi-btn').forEach(b=>b.classList.remove('fi-active'));
   const btn=document.getElementById('fi-'+tab);
   if(btn)btn.classList.add('fi-active');
-  if(tab==='list'){openSidebar();}
+  if(tab==='list'){openSidebar();renderList();}
   else if(tab==='new'){renderNewPanel();}
   else if(tab==='me'){
     if(!cur){authModal(false);return;}
@@ -1468,10 +1469,10 @@ function renderNewPanel(){
   }else{
     html+=ns.map(s=>{
       const avg=spotAvg(s);
-      const avgHtml=avg?'<span style="background:var(--gold);color:#000;font-size:11px;font-weight:800;padding:1px 7px;border-radius:20px">'+avg.toFixed(1)+' \U0001F37A</span>':'<i style="color:var(--muted)">new</i>';
+      const avgHtml=avg?'<span style="background:var(--gold);color:#000;font-size:11px;font-weight:800;padding:1px 7px;border-radius:20px">'+avg.toFixed(1)+' 🍺</span>':'<i style="color:var(--muted)">new</i>';
       const thumb=s.photos&&s.photos.length
         ?'<img class="list-thumb" src="'+s.photos[0].url+'" alt="" loading="lazy">'
-        :'<div class="list-thumb-ph">\U0001F37A</div>';
+        :'<div class="list-thumb-ph">🍺</div>';
       const open=isOpen(s);const closed=s.status!=='active';
       const openChip=closed?'<span class="chip closed" style="flex-shrink:0">'+(s.status==='perm_closed'?'Closed':'Temp closed')+'</span>':(open?'<span class="chip open" style="flex-shrink:0">Open</span>':'');
       return '<div class="list-item" onclick="showDetail(\''+s.id+'\')">'+thumb
@@ -1535,7 +1536,7 @@ function closeModal(){const m=document.getElementById('modal');if(m)m.remove()}
 function toggleDark(){
   const dark=document.documentElement.getAttribute('data-theme')==='dark';
   document.documentElement.setAttribute('data-theme',dark?'light':'dark');
-  document.getElementById('darkBtn').textContent=dark?'🌙':'☀️';
+  const _dbtn=document.getElementById('darkBtn');if(_dbtn)_dbtn.textContent=dark?'🌙':'☀️';
   localStorage.setItem('theme',dark?'light':'dark');
   if(dark){map.removeLayer(tileDark);tileLight.addTo(map);}
   else{map.removeLayer(tileLight);tileDark.addTo(map);}
