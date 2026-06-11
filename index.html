@@ -86,7 +86,7 @@
   .desc{font-size:14px;line-height:1.5;margin:10px 0}
   .sec{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:18px 0 8px;font-weight:700;border-top:1px solid var(--line);padding-top:12px}
   .photos{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-  .photos img{width:100%;height:78px;object-fit:cover;border-radius:6px;cursor:pointer}
+  .photos img{width:100%;height:90px;object-fit:cover;border-radius:6px;cursor:pointer}
   .review{border-top:1px solid var(--line);padding:10px 0}
   .review .who{font-weight:600;font-size:13px;display:flex;justify-content:space-between;align-items:center}
   .rgrid{display:flex;flex-direction:column;gap:3px;margin:6px 0;font-size:12px;color:var(--ink)}
@@ -634,9 +634,11 @@ function renderList(sortByDist){
     const d=window._me?dist(window._me[0],window._me[1],s.lat,s.lng):null;
     const dtxt=d!==null?`<span style="background:#e8f0fe;color:#185fa5;border-radius:20px;padding:1px 7px;font-size:11px;font-weight:700">${d<1?(d*1000).toFixed(0)+'m':d.toFixed(1)+'km'}</span>`:'';
     const verBadge=s.verified?'':`<span class="chip unverified">Unverified</span> `;
+    const reviewed=cur&&s.reviews.some(r=>r.userId===cur.id);
+    const rvBadge=reviewed?'<span style="position:absolute;bottom:3px;right:3px;background:#4caf50;color:#fff;border-radius:50%;width:17px;height:17px;font-size:10px;font-weight:700;line-height:17px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.25)">✓</span>':'';
     const thumb=s.photos&&s.photos.length
-      ?`<img class="list-thumb" src="${s.photos[0].url}" alt="" loading="lazy">`
-      :`<div class="list-thumb-ph">🍺</div>`;
+      ?`<div style="position:relative;flex-shrink:0">${rvBadge}<img class="list-thumb" src="${s.photos[0].url}" alt="" loading="lazy"></div>`
+      :`<div class="list-thumb-ph" style="position:relative">${rvBadge}🍺</div>`;
     return `<div class="list-item" onclick="showDetail('${s.id}')">
       ${thumb}
       <div class="list-text">
@@ -654,6 +656,14 @@ function renderList(sortByDist){
    DETAIL — spot detail panel
    ============================================================ */
 let chosen={};
+function toggleMore(id){
+  const m=document.getElementById('txm_'+id);
+  const b=document.getElementById('txb_'+id);
+  if(!m)return;
+  const open=m.style.display!=='none';
+  m.style.display=open?'none':'inline';
+  b.textContent=open?'Read more':'Show less';
+}
 function sortedReviews(s,mode){
   const rs=[...s.reviews];
   if(mode==='top') rs.sort((a,b)=>{
@@ -723,7 +733,7 @@ async function showDetail(id){
       <span>Photos</span>
       ${(cur&&(cur.role==='active'||cur.role==='admin'))?`<button class="btn-line btn-sm" style="font-size:12px" onclick="uploadPhoto('${s.id}')" title="Add a photo of this spot">📷 Add photo</button>`:''}
     </div>
-    <div class="photos">${s.photos&&s.photos.length?s.photos.map((p,i)=>`<div style="position:relative;display:inline-block;width:100%"><img src="${p.url}" onclick="viewPhoto('${s.id}',${i})" style="width:100%;height:78px;object-fit:cover;border-radius:6px;cursor:pointer">${(cur&&(p.uploaded_by===cur.id||cur.role==='admin'))?`<button onclick="deletePhoto('${p.id}','${p.path}','${s.id}')" title="Delete photo" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;padding:0;cursor:pointer;line-height:20px;text-align:center">✕</button>`:''}  </div>`).join(''):'<div style="grid-column:1/4;color:var(--muted);font-size:13px;padding:6px 0">No photos yet — be the first to add one!</div>'}</div>
+    <div class="photos">${s.photos&&s.photos.length?s.photos.map((p,i)=>`<div style="position:relative"><img src="${p.url}" onclick="viewPhoto('${s.id}',${i})" style="width:100%;height:90px;object-fit:cover;border-radius:6px;cursor:pointer">${(cur&&(p.uploaded_by===cur.id||cur.role==='admin'))?`<button onclick="deletePhoto('${p.id}','${p.path}','${s.id}')" title="Delete photo" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;padding:0;cursor:pointer;line-height:20px;text-align:center">✕</button>`:''}  </div>`).join(''):'<div style="grid-column:1/4;color:var(--muted);font-size:13px;padding:6px 0">No photos yet — be the first to add one!</div>'}</div>
     <div class="sec" style="display:flex;justify-content:space-between;align-items:center">
       <span>Reviews</span>
       ${s.reviews.length>1?`<div style="display:flex;gap:4px" id="sortBtns">
@@ -787,7 +797,7 @@ function reviewHTML(s,r){
     <div class="who"><span>${whoLink}${avgBadge}</span>
       ${admin?`<button class="vote" style="color:var(--red)" onclick="delReview('${s.id}','${r.id}')">delete</button>`:''}</div>
     <div class="rgrid">${RCATS.filter(c=>r.ratings[c[0]]>0).map(c=>`<span><b style="font-size:13px">${r.ratings[c[0]]}🍺</b> <span style="color:var(--muted)">${c[1]}</span></span>`).join('')}</div>
-    ${r.txt?`<div class="txt">${esc(r.txt)}</div>`:''}
+    ${r.txt?(r.txt.length>200?`<div class="txt">${esc(r.txt.slice(0,200))}<span id="txm_${r.id}" style="display:none">${esc(r.txt.slice(200))}</span>… <button class="vote" id="txb_${r.id}" onclick="toggleMore('${r.id}')">Read more</button></div>`:`<div class="txt">${esc(r.txt)}</div>`):''}
     <div class="when">${r.when} · <button class="vote" onclick="voteHelpful('${s.id}','${r.id}')">${didI?'✓ Helpful':'👍 Helpful'}${helped?' ('+helped+')':''}</button>${replyBtn}</div>
     ${repliesHtml}${replyFormHtml}
   </div>`;
@@ -1394,6 +1404,12 @@ function openSidebar(){
   }
 }
 function toggleFilters(){document.getElementById('filters').classList.toggle('open')}
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape')return;
+  if(document.getElementById('photoLightbox')?.classList.contains('open'))return;
+  if(document.getElementById('modal')){closeModal();return;}
+  if(innerWidth<=680&&document.getElementById('sidebar').classList.contains('open'))closeSidebar();
+});
 function closeSidebar(){
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sheetOverlay').classList.remove('on');
