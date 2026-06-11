@@ -1260,7 +1260,7 @@ async function saveSpot(editId){
     });
     if(cur&&!existing.verified){existing.verified=true;existing.verifiedBy=cur.id;existing.verifiedAt=update.verified_at;}
     if(tmpMarker){map.removeLayer(tmpMarker);tmpMarker=null}
-    if(cur)await checkAndUpgrade();
+    if(cur){await checkAndUpgrade();await checkBadges();}
     renderList();showDetail(editId);return;
   }
   const dup=spots.find(s=>dist(s.lat,s.lng,lat,lng)<0.05);
@@ -1289,7 +1289,7 @@ async function saveSpot(editId){
     createdAt:Date.now()
   });
   if(tmpMarker){map.removeLayer(tmpMarker);tmpMarker=null}
-  if(cur)await checkAndUpgrade();
+  if(cur){await checkAndUpgrade();await checkBadges();}
   renderList();showDetail(id);
 }
 
@@ -1338,7 +1338,8 @@ async function showProfile(uid){
       <div class="factrow"><b>Spots verified</b><span>${verified}</span></div>
     </div>
     ${(()=>{const earned=badgesFor(uid);const ub=u.badges||[];const allEarned=[...new Set([...earned,...ub])];
-    return allEarned.length?`<div class="sec">Badges</div><div class="badge-grid">${BADGES.filter(b=>allEarned.includes(b.id)).map(b=>`<div class="badge-item"><span class="badge-icon">${b.icon}</span><span class="badge-name">${b.name}</span></div>`).join('')}</div>`:'';})()}
+    const earnedCount=allEarned.length;
+    return `<div class="sec">Badges (${earnedCount}/${BADGES.length})</div><div class="badge-grid">${BADGES.map(b=>{const ok=allEarned.includes(b.id);return `<div class="badge-item" title="${b.desc}"><span class="badge-icon${ok?'':' locked'}">${b.icon}</span><span class="badge-name${ok?'':' locked'}">${b.name}</span></div>`;}).join('')}</div>`;})()}
     ${isOwn&&isNewcomer?questProgressHTML(uid):''}
     <div class="sec">Spots added (${added.length})</div>
     ${added.length?added.map(s=>{
