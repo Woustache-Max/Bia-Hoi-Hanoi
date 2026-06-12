@@ -824,7 +824,25 @@ function renderList(sortByDist){
     else{rb.textContent='';rb.classList.remove('show');}
   }
   if(!spots.length){body.innerHTML='<div class="empty-note">🍺 No spots yet.<br><br>Tap <b>+ Add spot</b> to put a bia hơi on the map — no sign-up needed!</div>';return}
-  if(!list.length){body.innerHTML='<div class="empty-note">No spots match your filters.</div>';return}
+  if(!list.length){
+    const activeFilters=[];
+    const q=(document.getElementById('searchBox')||{}).value||'';
+    if(q.trim())activeFilters.push(`"${q.trim()}"`);
+    if((document.getElementById('fDistrict')||{}).value)activeFilters.push('district');
+    if((document.getElementById('fVibe')||{}).value)activeFilters.push('vibe');
+    if(parseFloat((document.getElementById('fRating')||{}).value)>0)activeFilters.push('rating');
+    if(parseFloat((document.getElementById('fPrice')||{}).value)>0)activeFilters.push('price');
+    if((document.getElementById('fOpen')||{}).checked)activeFilters.push('open now');
+    if((document.getElementById('fVerified')||{}).checked)activeFilters.push('verified only');
+    const filterTxt=activeFilters.length?`Filtering by: <b>${activeFilters.join(', ')}</b>`:'Your current filters returned nothing.';
+    body.innerHTML=`<div class="empty-note" style="padding:32px 20px;text-align:center">
+      <div style="font-size:36px;margin-bottom:12px">🔍</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:8px">No spots found</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:20px">${filterTxt}</div>
+      <button class="btn-gold btn-sm" onclick="clearFilters()" style="padding:9px 22px;font-size:14px">Clear filters</button>
+    </div>`;
+    return;
+  }
   const _wk=new Date(Date.now()-7*24*60*60*1000).toISOString();
   const _new=spots.filter(s=>s.createdAt&&s.createdAt>_wk);
   const _newSec=_new.length?`<div class="new-strip"><div class="new-strip-lbl">🆕 New this week</div><div class="new-strip-row">${_new.map(s=>`<button class="new-chip" onclick="showDetail('${s.id}')">${esc(s.name)}</button>`).join('')}</div></div>`:'';
