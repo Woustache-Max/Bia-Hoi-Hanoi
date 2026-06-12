@@ -363,6 +363,14 @@
 .user-menu-item:last-child{border-bottom:none}
 .user-menu-item:hover{background:rgba(255,255,255,.1)}
 .user-menu-item.danger{color:#ff6b6b}
+/* add-spot pin-drop banner */
+#pinDropBanner{position:fixed;top:0;left:0;right:0;z-index:2000;background:var(--ink);color:#fff;padding:14px 16px;display:flex;flex-direction:column;gap:10px;box-shadow:0 2px 12px rgba(0,0,0,.4)}
+#pinDropBanner .pdb-title{font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px}
+#pinDropBanner .pdb-sub{font-size:13px;opacity:.75;margin-top:-4px}
+#pinDropBanner .pdb-btns{display:flex;gap:8px}
+#pinDropBanner .pdb-btns button{flex:1;padding:10px;border-radius:9px;border:none;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+.pdb-use-loc{background:var(--gold);color:var(--ink)}
+.pdb-cancel{background:rgba(255,255,255,.15);color:#fff}
 /* welcome modal */
 .welcome-modal{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;background:rgba(10,8,4,.72);backdrop-filter:blur(3px);padding:20px}
 .welcome-card{background:var(--card);border-radius:18px;padding:28px 24px;max-width:360px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.35);animation:wc-in .25s ease}
@@ -1397,15 +1405,14 @@ async function delSpot(id){
 /* ============================================================
    ADD / EDIT SPOT — spot creation and editing form
    ============================================================ */
-function startAdd(editId){
-  openSidebar();adding=!editId;
+function renderAddForm(editId,lat,lng){
   const s=editId?byId(editId):null;
   const body=document.getElementById('sidebarBody');
   body.innerHTML=`<div class="panel" style="padding-bottom:28px"><form onsubmit="return false">
-    <span class="back" onclick="renderList()">← Cancel</span>
+    <span class="back" onclick="cancelAdd()">← Cancel</span>
     <h2 style="font-size:20px;margin:4px 0 2px;font-weight:800">${s?'Edit spot':'Add a spot'}</h2>
     <p style="font-size:13px;color:var(--muted);margin:0 0 4px">${s?'Update the details below.':'Fill in what you know — every field helps!'}</p>
-    ${s?'':'<div class="hint" style="margin:8px 0 2px">📌 Click the map to drop the pin, or enter coordinates below.</div>'}
+    ${(!s&&innerWidth>680)?'<div class="hint" style="margin:8px 0 2px">📌 Click the map to move the pin.</div>':''}
 
     <div class="form-sec-title">Basic info</div>
     <div class="form-section">
@@ -1436,22 +1443,105 @@ function startAdd(editId){
     <div class="form-sec-title">📍 Pin location</div>
     <div class="form-section">
       <div class="row2">
-        <div><label>Latitude *</label><input id="f_lat" value="${s?s.lat:''}" placeholder="21.0345"></div>
-        <div><label>Longitude *</label><input id="f_lng" value="${s?s.lng:''}" placeholder="105.8525"></div>
+        <div><label>Latitude *</label><input id="f_lat" value="${s?s.lat:(lat||'')}" placeholder="21.0345"></div>
+        <div><label>Longitude *</label><input id="f_lng" value="${s?s.lng:(lng||'')}" placeholder="105.8525"></div>
       </div>
     </div>
 
-    <button class="btn-gold" style="width:100%;margin-top:16px;padding:12px;font-size:15px;border-radius:10px" onclick="saveSpot('${editId||''}')">${s?'Save changes':'Submit spot'}</button>
+    <div id="addSpotErr" style="display:none;color:#c62828;font-size:13px;font-weight:600;margin-top:12px;padding:8px 10px;background:#fdecea;border-radius:7px"></div>
+    <button class="btn-gold" style="width:100%;margin-top:10px;padding:12px;font-size:15px;border-radius:10px" onclick="saveSpot('${editId||''}')">${s?'Save changes':'Submit spot'}</button>
     ${!cur&&!s?`<p style="font-size:12px;color:var(--muted);margin-top:10px;text-align:center">Submitting anonymously. <a style="color:var(--gold-dark);cursor:pointer" onclick="authModal(true)">Create a free account</a> to track your contributions.</p>`:''}
     </form></div>`;
 }
 
-map.on('click',e=>{if(!adding)return;document.getElementById('f_lat').value=e.latlng.lat.toFixed(5);document.getElementById('f_lng').value=e.latlng.lng.toFixed(5);if(tmpMarker)map.removeLayer(tmpMarker);tmpMarker=L.marker(e.latlng,{icon:pinIcon(false,true)}).addTo(map)});
+function startAdd(editId){
+  adding=!editId;
+  if(!editId&&innerWidth<=680){startPinDrop();return;}
+  openSidebar();
+  renderAddForm(editId,null,null);
+}
+function startPinDrop(){
+  adding=true;
+  const isl=document.getElementById('floatingIsland');if(isl)isl.style.display='none';
+  const b=document.createElement('div');b.id='pinDropBanner';
+  b.innerHTML=`<div class="pdb-title">📍 Drop a pin</div>
+    <div class="pdb-sub">Tap anywhere on the map to place your spot</div>
+    <div class="pdb-btns">
+      <button class="pdb-use-loc" onclick="useMyLocationForPin()">📡 Use my location</button>
+      <button class="pdb-cancel" onclick="cancelAdd()">✕ Cancel</button>
+    </div>`;
+  document.body.appendChild(b);
+}
+function confirmPinDrop(lat,lng){
+  const b=document.getElementById('pinDropBanner');if(b)b.remove();
+  openSidebar();
+  renderAddForm(null,lat,lng);
+  setTimeout(()=>reverseGeocode(lat,lng),100);
+}
+function cancelAdd(){
+  adding=false;
+  const b=document.getElementById('pinDropBanner');if(b)b.remove();
+  if(tmpMarker){map.removeLayer(tmpMarker);tmpMarker=null;}
+  const isl=document.getElementById('floatingIsland');if(isl)isl.style.display='';
+  renderList();
+}
+function useMyLocationForPin(){
+  const btn=document.querySelector('.pdb-use-loc');
+  if(btn)btn.textContent='⏳ Locating…';
+  if(window._me){
+    const[lat,lng]=window._me;
+    if(tmpMarker)map.removeLayer(tmpMarker);
+    tmpMarker=L.marker([lat,lng],{icon:pinIcon(false,true)}).addTo(map);
+    map.setView([lat,lng],17);
+    confirmPinDrop(lat,lng);
+    return;
+  }
+  if(!navigator.geolocation){showToast('Location not available');return;}
+  navigator.geolocation.getCurrentPosition(p=>{
+    const lat=p.coords.latitude,lng=p.coords.longitude;
+    window._me=[lat,lng];
+    if(!window._meMarker)window._meMarker=L.circleMarker([lat,lng],{radius:10,color:'#185fa5',fillColor:'#4a9fe8',fillOpacity:.92,weight:2.5}).addTo(map);
+    if(tmpMarker)map.removeLayer(tmpMarker);
+    tmpMarker=L.marker([lat,lng],{icon:pinIcon(false,true)}).addTo(map);
+    map.setView([lat,lng],17);
+    confirmPinDrop(lat,lng);
+  },()=>{showToast('Could not get your location — please allow location access.');if(btn)btn.textContent='📡 Use my location';},{enableHighAccuracy:true,timeout:8000});
+}
+async function reverseGeocode(lat,lng){
+  const el=document.getElementById('f_addr');if(!el||el.value)return;
+  el.placeholder='Looking up address…';
+  try{
+    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=en`,{headers:{'Accept-Language':'en'}});
+    const d=await r.json();const a=d.address||{};
+    const parts=[a.road,a.suburb||a.neighbourhood||a.quarter,a.city_district].filter(Boolean);
+    if(parts.length)el.value=parts.join(', ');
+  }catch(e){}
+  el.placeholder='Street or nearby landmark';
+}
+map.on('click',e=>{
+  if(!adding)return;
+  const lat=e.latlng.lat,lng=e.latlng.lng;
+  if(tmpMarker)map.removeLayer(tmpMarker);
+  tmpMarker=L.marker(e.latlng,{icon:pinIcon(false,true)}).addTo(map);
+  if(document.getElementById('pinDropBanner')){
+    confirmPinDrop(lat,lng);
+  } else {
+    const fl=document.getElementById('f_lat'),fn=document.getElementById('f_lng');
+    if(fl)fl.value=lat.toFixed(5);if(fn)fn.value=lng.toFixed(5);
+    reverseGeocode(lat,lng);
+  }
+});
 
 async function saveSpot(editId){
   const name=val('f_name'),lat=parseFloat(val('f_lat')),lng=parseFloat(val('f_lng'));
-  if(!name)return alert('Add a name.');
-  if(isNaN(lat)||isNaN(lng))return alert('Click the map or enter coordinates.');
+  const _ae=document.getElementById('addSpotErr');
+  const _errs=[];
+  const _ni=document.getElementById('f_name');
+  const _li=document.getElementById('f_lat');const _lni=document.getElementById('f_lng');
+  if(!name){_errs.push('Spot name is required');if(_ni){_ni.style.borderColor='#c62828';}}else{if(_ni)_ni.style.borderColor='';}
+  if(isNaN(lat)||isNaN(lng)){_errs.push('Drop a pin on the map or enter coordinates');if(_li)_li.style.borderColor='#c62828';if(_lni)_lni.style.borderColor='#c62828';}else{if(_li)_li.style.borderColor='';if(_lni)_lni.style.borderColor='';}
+  if(_errs.length){if(_ae){_ae.textContent=_errs.join(' · ');_ae.style.display='block';}return;}
+  if(_ae)_ae.style.display='none';
   const vibes=[...document.querySelectorAll('#f_vibes input:checked')].map(i=>i.value);
   const formData={
     name,lat,lng,
@@ -1470,7 +1560,7 @@ async function saveSpot(editId){
       update.verified_at=new Date().toISOString().slice(0,10);
     }
     const{error}=await db.from('spots').update(update).eq('id',editId);
-    if(error){alert('Error saving: '+error.message);return;}
+    if(error){showToast('⚠ Error saving: '+error.message);return;}
     Object.assign(existing,{
       name,lat,lng,district:formData.district,address:formData.address,
       pricePerGlass:formData.price_per_glass,openH:formData.open_h,closeH:formData.close_h,
