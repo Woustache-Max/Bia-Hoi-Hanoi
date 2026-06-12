@@ -542,6 +542,7 @@ function dbToSpot(s){
     verified:s.verified||false,
     verifiedBy:s.verified_by||null, verifiedAt:s.verified_at||null,
     reports:s.reports||[],
+    cover_photo_url:s.cover_photo_url||null,
     reviews:(s.reviews||[]).map(dbToReview)
   };
 }
@@ -2141,7 +2142,8 @@ async function adminSetCover(sid,url){
   if(!sid)return;
   const s=byId(sid);if(!s)return;
   const newUrl=s.cover_photo_url===url?null:url;
-  await db.from('spots').update({cover_photo_url:newUrl}).eq('id',sid);
+  const{error}=await db.from('spots').update({cover_photo_url:newUrl}).eq('id',sid);
+  if(error){showToast('⚠ Cover save failed: '+error.message);console.error('adminSetCover',error);return;}
   s.cover_photo_url=newUrl;
   showToast(newUrl?'★ Cover photo set':'Cover photo cleared');
   showDetail(sid);
