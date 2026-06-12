@@ -1879,13 +1879,12 @@ function renderAdmin(tab){
           <td style="color:var(--muted);font-size:12px">${u.since||'—'}</td>
           <td>${uSpots}</td><td>${uRevs}</td>
           <td style="white-space:nowrap">
-            ${u.id===cur.id?'<span style="font-size:11px;color:var(--muted)">you</span>':`
+            ${u.id===cur.id?'<span style="font-size:11px;color:var(--muted)">you</span> ':`
             ${u.role!=='admin'?`<button class="btn-line btn-sm" title="Promote to Admin" onclick="adminSetRole('${u.id}','admin')">👑 Admin</button> `:''}
             ${u.role!=='active'?`<button class="btn-line btn-sm" title="Set role to Active" onclick="adminSetRole('${u.id}','active')">⭐ Active</button> `:''}
             ${u.role!=='newcomer'?`<button class="btn-line btn-sm" title="Demote to Newcomer" onclick="adminSetRole('${u.id}','newcomer')">↓ Newcomer</button> `:''}
             <button class="btn-line btn-sm" title="Delete this user's profile (they can re-register)" style="color:var(--red)" onclick="adminRemoveUser('${u.id}','${esc(u.name)}')">🗑 Remove</button>
-            <button class="btn-line btn-sm" title="Recalculate badges from live data" onclick="adminRecalcBadges('${u.id}')">↺ Badges</button>
-            `}
+            `}<button class="btn-line btn-sm" title="Recalculate badges from live data" onclick="adminRecalcBadges('${u.id}')">↺ Badges</button>
           </td>
         </tr>`;
       }).join('')}
