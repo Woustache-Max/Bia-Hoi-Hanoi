@@ -249,9 +249,9 @@
       transform:translateY(100%);transition:.28s cubic-bezier(.4,0,.2,1);z-index:1500;
       overflow-y:auto;overflow-x:hidden}
     #sidebar.open{transform:translateY(0)}
-    #sidebar.peek{transform:translateY(0);overflow:hidden;max-height:165px}
+    #sidebar.peek{transform:translateY(0);overflow:hidden;max-height:180px}
     #sidebar.peek .toolbar,#sidebar.peek .result-bar{display:none}
-    #sidebar.open .sidebar-close,#sidebar.peek .sidebar-close{display:flex;align-items:center;justify-content:center}
+    #sidebar.peek .sidebar-close{display:flex;align-items:center;justify-content:center}
     .mobile-toggle{display:inline-block}
     .sidebar-close{display:none}
     .sheet-handle{display:block;width:40px;height:4px;background:var(--line);
@@ -672,13 +672,19 @@ function peekDetail(id){
   const avg=spotAvg(s);
   const pill=avg?`<span style="background:var(--gold);color:#000;font-size:13px;font-weight:800;padding:2px 10px;border-radius:20px">${avg.toFixed(1)} 🍺</span>`:'';
   const cnt=avg?`<small style="color:var(--muted);margin-left:6px">${s.reviews.length} review${s.reviews.length===1?'':'s'}</small>`:'';
-  document.getElementById('sidebarBody').innerHTML=`<div class="panel" onclick="expandFromPeek()" style="cursor:pointer;padding-bottom:14px">
-    <h2 style="margin:4px 0 8px;font-size:20px">${esc(s.name)}</h2>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px">
-      ${s.verified?'<span class="chip verified">✓ Verified</span>':''}
-      ${isOpen(s)?'<span class="chip open">Open now</span>':''}
+  const _pCover=s.cover_photo_url||(s.photos&&s.photos.length?s.photos[0].url:'');
+  const _pCoverCol=_pCover?`<div style="width:115px;flex-shrink:0;padding:0 44px 0 8px;display:flex;align-items:center"><img src="${_pCover}" style="width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:9px;display:block"></div>`:'';
+  document.getElementById('sidebarBody').innerHTML=`<div style="display:flex;align-items:stretch;cursor:pointer" onclick="expandFromPeek()">
+    <div style="flex:1;min-width:0;padding:4px 8px 14px 16px">
+      <h2 style="margin:4px 0 7px;font-size:19px;line-height:1.2">${esc(s.name)}</h2>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px">
+        ${s.verified?'<span class="chip verified">✓ Verified</span>':''}
+        ${isOpen(s)?'<span class="chip open">Open now</span>':''}
+      </div>
+      <div style="margin-bottom:6px">${avg?pill+cnt:'<span style="color:var(--muted);font-size:13px">No ratings yet</span>'}</div>
+      ${s.address?`<div style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.address)}</div>`:''}
     </div>
-    <div>${avg?pill+cnt:'<span style="color:var(--muted);font-size:13px">No ratings yet</span>'}</div>
+    ${_pCoverCol}
   </div>`;
   const sb=document.getElementById('sidebar');
   sb.classList.remove('open');sb.classList.add('peek');
@@ -713,7 +719,8 @@ function drawMarkers(){
   visibleSpots().forEach(s=>{
     const closed=s.status!=='active',unverified=!s.verified;
     const m=L.marker([s.lat,s.lng],{icon:pinIcon(closed,unverified)});
-    const popPhoto=s.photos&&s.photos.length?`<img class="popup-thumb" src="${s.photos[0].url}" onclick="map.closePopup();peekDetail('${s.id}')" alt="">`:'';
+    const _ptu=s.cover_photo_url||(s.photos&&s.photos.length?s.photos[0].url:'');
+    const popPhoto=_ptu?`<img class="popup-thumb" src="${_ptu}" onclick="map.closePopup();peekDetail('${s.id}')" alt="">`:'';
     const popOpen=isOpen(s)?'<span style="color:#2e7d32;font-weight:700;font-size:11px"> · Open now</span>':'';
     const popAvg=spotAvg(s);
     m.bindPopup(
@@ -896,11 +903,16 @@ async function showDetail(id){
   const body=document.getElementById('sidebarBody');
   body.innerHTML=`<div class="panel detail">
     <span class="back" onclick="renderList()">← All spots</span>
-    <h2>${esc(s.name)}</h2>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:4px">
-      ${s.verified?'<span class="chip verified">✓ Verified</span>':'<span class="chip unverified">⚠ Unverified</span>'}
-      ${isOpen(s)?'<span class="chip open">Open now</span>':''}
-      ${s.status==='perm_closed'?'<span class="chip closed">Permanently closed</span>':s.status==='temp_closed'?'<span class="chip closed">Temporarily closed</span>':''}
+    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:4px">
+      <div style="flex:1;min-width:0">
+        <h2 style="margin-top:0">${esc(s.name)}</h2>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+          ${s.verified?'<span class="chip verified">✓ Verified</span>':'<span class="chip unverified">⚠ Unverified</span>'}
+          ${isOpen(s)?'<span class="chip open">Open now</span>':''}
+          ${s.status==='perm_closed'?'<span class="chip closed">Permanently closed</span>':s.status==='temp_closed'?'<span class="chip closed">Temporarily closed</span>':''}
+        </div>
+      </div>
+      ${s.cover_photo_url?`<img src="${s.cover_photo_url}" style="width:110px;height:110px;object-fit:cover;border-radius:10px;flex-shrink:0">`:'' }
     </div>
     ${!s.verified?`<div class="hint-verify">Added anonymously — not yet verified.${canVerify?' If you\'ve been here and it\'s real, hit <b>Verify</b>.':' Sign in to verify it.'}</div>`:''}
     ${(()=>{
@@ -933,7 +945,7 @@ async function showDetail(id){
       <span>Photos</span>
       ${(cur&&(cur.role==='active'||cur.role==='admin'))?`<button class="btn-line btn-sm" style="font-size:12px" onclick="uploadPhoto('${s.id}')" title="Add a photo of this spot">📷 Add photo</button>`:''}
     </div>
-    <div class="photos">${s.photos&&s.photos.length?s.photos.map((p,i)=>`<div style="position:relative"><img src="${p.url}" onclick="viewPhoto('${s.id}',${i})" style="width:100%;height:90px;object-fit:cover;border-radius:6px;cursor:pointer">${(cur&&(p.uploaded_by===cur.id||cur.role==='admin'))?`<button onclick="deletePhoto('${p.id}','${p.path}','${s.id}')" title="Delete photo" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;padding:0;cursor:pointer;line-height:20px;text-align:center">✕</button>`:''}  </div>`).join(''):'<div style="grid-column:1/4;color:var(--muted);font-size:13px;padding:6px 0">No photos yet — be the first to add one!</div>'}</div>
+    <div class="photos">${s.photos&&s.photos.length?s.photos.map((p,i)=>`<div style="position:relative"><img src="${p.url}" onclick="viewPhoto('${s.id}',${i})" style="width:100%;height:90px;object-fit:cover;border-radius:6px;cursor:pointer">${(cur&&(p.uploaded_by===cur.id||cur.role==='admin'))?`<button onclick="deletePhoto('${p.id}','${p.path}','${s.id}')" title="Delete photo" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;padding:0;cursor:pointer;line-height:20px;text-align:center">✕</button>`:''}${admin?`<button onclick="adminSetCover('${s.id}','${p.url}')" style="position:absolute;bottom:3px;left:3px;background:${s.cover_photo_url===p.url?'var(--gold)':'rgba(0,0,0,.55)'};color:${s.cover_photo_url===p.url?'#000':'#fff'};border:none;border-radius:8px;font-size:10px;font-weight:700;padding:2px 5px;cursor:pointer;line-height:1.4">${s.cover_photo_url===p.url?'★ Cover':'☆ Cover'}</button>`:''}  </div>`).join(''):'<div style="grid-column:1/4;color:var(--muted);font-size:13px;padding:6px 0">No photos yet — be the first to add one!</div>'}</div>
     <div class="sec" style="display:flex;justify-content:space-between;align-items:center">
       <span>Reviews</span>
       ${s.reviews.length>1?`<div style="display:flex;gap:4px" id="sortBtns">
@@ -1992,6 +2004,7 @@ function renderAdmin(tab){
         <div style="padding:4px 6px;display:flex;gap:4px">
           <button class="btn-line btn-sm" style="font-size:11px;color:var(--orange)" onclick="adminFlagPhoto('${p.id}')" title="Flag for review">⚑ Flag</button>
           <button class="btn-line btn-sm" style="font-size:11px;color:var(--red)" onclick="adminDeletePhoto('${p.id}','${p.path}')" title="Delete permanently">🗑</button>
+          <button class="btn-line btn-sm" style="font-size:11px;font-weight:700" onclick="adminSetCover('${(d.spots.find(s=>s.id===p.spot_id)||{}).id}','${p.url}')" title="Set as cover photo">☆ Cover</button>
         </div>
       </div>`).join('')}
     </div>`:'<div style="color:var(--muted);font-size:13px">No photos yet.</div>'}`;
@@ -2123,6 +2136,15 @@ async function adminSetRole(uid,role){
   renderAdmin('users');
 }
 
+async function adminSetCover(sid,url){
+  if(!sid)return;
+  const s=byId(sid);if(!s)return;
+  const newUrl=s.cover_photo_url===url?null:url;
+  await db.from('spots').update({cover_photo_url:newUrl}).eq('id',sid);
+  s.cover_photo_url=newUrl;
+  showToast(newUrl?'★ Cover photo set':'Cover photo cleared');
+  showDetail(sid);
+}
 async function adminRecalcBadges(uid){
   const correct=badgesFor(uid);
   await db.from('profiles').update({badges:correct}).eq('id',uid);
