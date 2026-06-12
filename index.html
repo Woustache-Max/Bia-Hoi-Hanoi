@@ -439,6 +439,7 @@ details[open] .quest-box{border-radius:0 0 8px 8px;margin-top:0;border-top:none}
           <input type="checkbox" id="fOpen" style="width:auto" onchange="renderList();saveFilters()"> Open now</label>
         <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:var(--muted)">
           <input type="checkbox" id="fVerified" style="width:auto" onchange="renderList();saveFilters()"> Verified only</label>
+        <button class="btn-line btn-sm" onclick="clearFilters()" style="font-size:12px;align-self:center">✕ Clear</button>
       </div>
       <div id="resultBar" class="result-bar"></div>
       <div id="sidebarBody"><div class="skel-item"><div class="skel-thumb"></div><div class="skel-text"><div class="skel-line wide"></div><div class="skel-line med"></div><div class="skel-line narrow"></div></div></div><div class="skel-item"><div class="skel-thumb"></div><div class="skel-text"><div class="skel-line wide"></div><div class="skel-line med"></div><div class="skel-line narrow"></div></div></div><div class="skel-item"><div class="skel-thumb"></div><div class="skel-text"><div class="skel-line wide"></div><div class="skel-line med"></div><div class="skel-line narrow"></div></div></div><div class="skel-item"><div class="skel-thumb"></div><div class="skel-text"><div class="skel-line wide"></div><div class="skel-line med"></div><div class="skel-line narrow"></div></div></div><div class="skel-item"><div class="skel-thumb"></div><div class="skel-text"><div class="skel-line wide"></div><div class="skel-line med"></div><div class="skel-line narrow"></div></div></div></div>
@@ -674,6 +675,14 @@ function clearSearch(){
   if(clr)clr.classList.remove('show');
   const rb=document.getElementById('resultBar');
   if(rb){rb.textContent='';rb.classList.remove('show');}
+  renderList();
+}
+function clearFilters(){
+  const setV=(id,val)=>{const el=document.getElementById(id);if(el)el.value=val;};
+  const setC=(id,val)=>{const el=document.getElementById(id);if(el)el.checked=val;};
+  setV('fDistrict','');setV('fVibe','');setV('fRating','0');setV('fPrice','0');
+  setC('fOpen',false);setC('fVerified',false);
+  try{localStorage.removeItem('bhFilters');}catch(e){}
   renderList();
 }
 function saveFilters(){
@@ -1056,6 +1065,22 @@ async function uploadPhoto(spotId){
     '<button class="btn-ghost" style="width:100%;margin-top:8px" onclick="closeModal()">Cancel</button>');
 }
 
+function compressImage(file,maxMB=2,maxPx=2048){
+  return new Promise(resolve=>{
+    const img=new Image();
+    const url=URL.createObjectURL(file);
+    img.onload=()=>{
+      URL.revokeObjectURL(url);
+      let w=img.width,h=img.height;
+      if(w>maxPx||h>maxPx){const r=Math.min(maxPx/w,maxPx/h);w=Math.round(w*r);h=Math.round(h*r);}
+      const c=document.createElement('canvas');
+      c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      c.toBlob(blob=>resolve(new File([blob],file.name.replace(/\.[^.]+$/,'.jpg'),{type:'image/jpeg'})),'image/jpeg',0.82);
+    };
+    img.src=url;
+  });
+}
 async function proceedUpload(){
   const spotId=window._pendingUploadSpotId;
   if(!spotId||!cur)return;
@@ -1066,11 +1091,11 @@ async function proceedUpload(){
   input.type='file';input.accept='image/jpeg,image/png,image/webp,image/gif';
   input.onchange=async e=>{
     const file=e.target.files[0];if(!file)return;
-    if(file.size>5*1024*1024)return alert('Max 5 MB per photo.');
-    const ext=file.name.split('.').pop().toLowerCase()||'jpg';
+    const upload=file.size>5*1024*1024?await compressImage(file):file;
+    const ext=upload.name.split('.').pop().toLowerCase()||'jpg';
     const path=spotId+'/'+cur.id+'_'+Date.now()+'.'+ext;
     showToast('⏳ Uploading photo…',10000);
-    const{error:upErr}=await db.storage.from('spot-photos').upload(path,file,{contentType:file.type,upsert:false});
+    const{error:upErr}=await db.storage.from('spot-photos').upload(path,upload,{contentType:upload.type,upsert:false});
     if(upErr)return showToast('Upload failed: '+upErr.message);
     const{data:{publicUrl}}=db.storage.from('spot-photos').getPublicUrl(path);
     const{data:row,error:dbErr}=await db.from('photos').insert({spot_id:spotId,uploaded_by:cur.id,url:publicUrl,path,thumbs_up:thumbsUp,full_uncle:fullUncle}).select().single();
@@ -1569,6 +1594,8 @@ function setUserLabel(){
   html+='<div class="user-menu" id="userMenu" style="display:none">';
   html+='<button class="user-menu-item" onclick="closeUserMenu();showProfile(cur.id)">&#128100; My profile</button>';
   if(bkCount)html+='<button class="user-menu-item" onclick="closeUserMenu();showProfile(cur.id)">&#128278; Saved spots ('+bkCount+')</button>';
+  html+='<button class="user-menu-item" onclick="closeUserMenu();showLeaderboard()">&#127942; Leaderboard</button>';
+  html+='<button class="user-menu-item" onclick="closeUserMenu();showQuests()">&#127919; Badges &amp; Quests</button>';
   html+='<button class="user-menu-item" onclick="closeUserMenu();toggleDark()">&#127769; Dark mode</button>';
   if(cur.role==='admin')html+='<button class="user-menu-item" onclick="closeUserMenu();openAdmin()">&#9881; Admin panel</button>';
   html+='<button class="user-menu-item danger" onclick="closeUserMenu();logout()">Sign out</button>';
@@ -1839,6 +1866,7 @@ function renderAdmin(tab){
     body=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
       <b style="font-size:13px">${d.users.length} registered users</b>
       <button class="btn-line btn-sm" onclick="exportCSV('users')">📥 Export CSV</button>
+      <button class="btn-line btn-sm" onclick="adminRecalcAllBadges()" title="Recalculate badges for every user from live data">↺ Recalc all badges</button>
     </div>
     <table class="admin-table">
       <tr><th>Name</th><th>Role</th><th>Since</th><th>Spots</th><th>Reviews</th><th>Actions</th></tr>
@@ -1856,6 +1884,7 @@ function renderAdmin(tab){
             ${u.role!=='active'?`<button class="btn-line btn-sm" title="Set role to Active" onclick="adminSetRole('${u.id}','active')">⭐ Active</button> `:''}
             ${u.role!=='newcomer'?`<button class="btn-line btn-sm" title="Demote to Newcomer" onclick="adminSetRole('${u.id}','newcomer')">↓ Newcomer</button> `:''}
             <button class="btn-line btn-sm" title="Delete this user's profile (they can re-register)" style="color:var(--red)" onclick="adminRemoveUser('${u.id}','${esc(u.name)}')">🗑 Remove</button>
+            <button class="btn-line btn-sm" title="Recalculate badges from live data" onclick="adminRecalcBadges('${u.id}')">↺ Badges</button>
             `}
           </td>
         </tr>`;
@@ -2017,6 +2046,26 @@ async function adminSetRole(uid,role){
   renderAdmin('users');
 }
 
+async function adminRecalcBadges(uid){
+  const correct=badgesFor(uid);
+  await db.from('profiles').update({badges:correct}).eq('id',uid);
+  const u=adminData.users.find(x=>x.id===uid);
+  if(u)u.badges=correct;
+  if(profilesCache[uid])profilesCache[uid].badges=correct;
+  showToast('↺ Badges recalculated for '+(u?u.name:uid));
+  renderAdmin('users');
+}
+async function adminRecalcAllBadges(){
+  if(!confirm('Recalculate badges for all '+adminData.users.length+' users? This may take a moment.'))return;
+  for(const u of adminData.users){
+    const correct=badgesFor(u.id);
+    await db.from('profiles').update({badges:correct}).eq('id',u.id);
+    u.badges=correct;
+    if(profilesCache[u.id])profilesCache[u.id].badges=correct;
+  }
+  showToast('↺ Badges recalculated for '+adminData.users.length+' users');
+  renderAdmin('users');
+}
 async function adminRemoveUser(uid,name){
   if(!confirm(`Remove ${name}? Their spots and reviews will remain but their profile and login privileges will be deleted. They can re-register.`))return;
   const{error}=await db.from('profiles').delete().eq('id',uid);
