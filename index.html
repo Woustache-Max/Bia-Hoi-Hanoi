@@ -1454,7 +1454,7 @@ function renderAddForm(editId,lat,lng){
     <div class="form-section">
       <div><label>Name *</label><input id="f_name" value="${s?esc(s.name):esc(_fd.name||'')}" placeholder="e.g. Bia Hơi Minh"></div>
       <div class="row2">
-        <div><label>District</label><select id="f_district">${DISTRICTS.map(d=>`<option ${s&&s.district===d?'selected':''}>${d}</option>`).join('')}</select></div>
+        <div><label>District</label><select id="f_district"><option value="">Auto-detect…</option>${DISTRICTS.map(d=>`<option value="${d}" ${(s&&s.district===d)||(_fd.district&&_fd.district===d)?'selected':''}>${d}</option>`).join('')}</select></div>
         <div><label>Price per glass</label><select id="f_price" style="width:100%;padding:9px 11px;border:1.5px solid var(--line);border-radius:9px;font-size:14px;font-family:inherit;background:#fff;color:var(--ink)">${(()=>{const cur=s?s.pricePerGlass:(_fd.price||'');let opts='<option value="">Select…</option>';for(let v=5000;v<=30000;v+=1000){const lbl=v.toLocaleString('en-US')+'₫';opts+=`<option value="${lbl}" ${cur===lbl?'selected':''}>${lbl}</option>`;}opts+=`<option value="Ask" ${cur==='Ask'?'selected':''}>Ask</option>`;return opts;})()}</select></div>
       </div>
       <div><label>Address</label><input id="f_addr" value="${s?esc(s.address):''}" placeholder="Street or nearby landmark"></div>
