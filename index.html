@@ -365,6 +365,13 @@
 .user-menu-item.danger{color:#ff6b6b}
 /* add-spot pin-drop banner */
 #pinDropBanner{position:fixed;top:0;left:0;right:0;z-index:2000;background:var(--ink);color:#fff;padding:14px 16px;display:flex;flex-direction:column;gap:10px;box-shadow:0 2px 12px rgba(0,0,0,.4)}
+#pinConfirmBar{position:fixed;bottom:0;left:0;right:0;z-index:2001;background:var(--card);border-top:2px solid var(--gold);padding:14px 16px 28px;display:flex;flex-direction:column;gap:10px;box-shadow:0 -4px 20px rgba(0,0,0,.25)}
+#pinConfirmBar .pcb-label{font-size:15px;font-weight:800;color:var(--ink)}
+#pinConfirmBar .pcb-coords{font-size:12px;color:var(--muted);margin-top:-6px}
+#pinConfirmBar .pcb-btns{display:flex;gap:8px}
+#pinConfirmBar .pcb-btns button{flex:1;padding:11px;border-radius:9px;border:none;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+.pcb-confirm{background:var(--gold);color:var(--ink)}
+.pcb-move{background:var(--line);color:var(--ink)}
 #pinDropBanner .pdb-title{font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px}
 #pinDropBanner .pdb-sub{font-size:13px;opacity:.75;margin-top:-4px}
 #pinDropBanner .pdb-btns{display:flex;gap:8px}
@@ -720,6 +727,33 @@ function expandFromPeek(){
   const id=window._peekSpotId;if(!id)return;
   window._peekSpotId=null;
   showDetail(id);
+}
+function showPinConfirmBar(lat,lng){
+  window._pendingPin={lat,lng};
+  const ex=document.getElementById('pinConfirmBar');if(ex)ex.remove();
+  const sub=document.querySelector('#pinDropBanner .pdb-sub');
+  if(sub)sub.textContent=`Pin placed — confirm or move it`;
+  const bar=document.createElement('div');bar.id='pinConfirmBar';
+  bar.innerHTML=`<div class="pcb-label">📍 Confirm this location?</div>
+    <div class="pcb-coords">${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
+    <div class="pcb-btns">
+      <button class="pcb-confirm" onclick="acceptPin()">✓ Confirm location</button>
+      <button class="pcb-move" onclick="movePinAgain()">↺ Move pin</button>
+    </div>`;
+  document.body.appendChild(bar);
+}
+function acceptPin(){
+  const p=window._pendingPin;if(!p)return;
+  const bar=document.getElementById('pinConfirmBar');if(bar)bar.remove();
+  confirmPinDrop(p.lat,p.lng);
+  window._pendingPin=null;
+}
+function movePinAgain(){
+  const bar=document.getElementById('pinConfirmBar');if(bar)bar.remove();
+  if(tmpMarker){map.removeLayer(tmpMarker);tmpMarker=null;}
+  window._pendingPin=null;
+  const sub=document.querySelector('#pinDropBanner .pdb-sub');
+  if(sub)sub.textContent='Tap anywhere on the map to place your spot';
 }
 function showWelcome(){
   try{if(localStorage.getItem('bhWelcome'))return;}catch(e){}
@@ -1407,6 +1441,7 @@ async function delSpot(id){
    ============================================================ */
 function renderAddForm(editId,lat,lng){
   const s=editId?byId(editId):null;
+  const _fd=window._addFormData||{};
   const body=document.getElementById('sidebarBody');
   body.innerHTML=`<div class="panel" style="padding-bottom:28px"><form onsubmit="return false">
     <span class="back" onclick="cancelAdd()">← Cancel</span>
@@ -1416,7 +1451,7 @@ function renderAddForm(editId,lat,lng){
 
     <div class="form-sec-title">Basic info</div>
     <div class="form-section">
-      <div><label>Name *</label><input id="f_name" value="${s?esc(s.name):''}" placeholder="e.g. Bia Hơi Minh"></div>
+      <div><label>Name *</label><input id="f_name" value="${s?esc(s.name):esc(_fd.name||'')}" placeholder="e.g. Bia Hơi Minh"></div>
       <div class="row2">
         <div><label>District</label><select id="f_district">${DISTRICTS.map(d=>`<option ${s&&s.district===d?'selected':''}>${d}</option>`).join('')}</select></div>
         <div><label>Price per glass</label><input id="f_price" value="${s?esc(s.pricePerGlass):'15,000₫'}" placeholder="15,000₫"></div>
@@ -1440,7 +1475,8 @@ function renderAddForm(editId,lat,lng){
     <div class="form-sec-title">Description</div>
     <textarea id="f_desc" placeholder="Atmosphere, crowd, what makes it special…">${s?esc(s.desc):''}</textarea>
 
-    <div class="form-sec-title">📍 Pin location</div>
+    <div class="form-sec-title" style="display:flex;justify-content:space-between;align-items:center">📍 Pin location${!s?`<button type="button" style="font-size:12px;font-weight:700;color:var(--blue);background:none;border:none;cursor:pointer;padding:0" onclick="changeSpotLocation()">📍 Change location</button>`:''}
+    </div>
     <div class="form-section">
       <div class="row2">
         <div><label>Latitude *</label><input id="f_lat" value="${s?s.lat:(lat||'')}" placeholder="21.0345"></div>
@@ -1474,12 +1510,24 @@ function startPinDrop(){
 }
 function confirmPinDrop(lat,lng){
   const b=document.getElementById('pinDropBanner');if(b)b.remove();
+  adding=false;
   openSidebar();
   renderAddForm(null,lat,lng);
   setTimeout(()=>reverseGeocode(lat,lng),100);
 }
+function changeSpotLocation(){
+  window._addFormData={
+    name:val('f_name'),district:val('f_district'),price:val('f_price'),
+    open:val('f_open'),close:val('f_close'),seat:val('f_seat'),pay:val('f_pay'),desc:val('f_desc'),
+    vibes:[...document.querySelectorAll('#f_vibes input:checked')].map(i=>i.value)
+  };
+  if(tmpMarker){map.removeLayer(tmpMarker);tmpMarker=null;}
+  closeSidebar();
+  adding=true;
+  startPinDrop();
+}
 function cancelAdd(){
-  adding=false;
+  adding=false;window._addFormData=null;window._pendingPin=null;
   const b=document.getElementById('pinDropBanner');if(b)b.remove();
   if(tmpMarker){map.removeLayer(tmpMarker);tmpMarker=null;}
   const isl=document.getElementById('floatingIsland');if(isl)isl.style.display='';
@@ -1493,7 +1541,7 @@ function useMyLocationForPin(){
     if(tmpMarker)map.removeLayer(tmpMarker);
     tmpMarker=L.marker([lat,lng],{icon:pinIcon(false,true)}).addTo(map);
     map.setView([lat,lng],17);
-    confirmPinDrop(lat,lng);
+    showPinConfirmBar(lat,lng);
     return;
   }
   if(!navigator.geolocation){showToast('Location not available');return;}
@@ -1504,17 +1552,23 @@ function useMyLocationForPin(){
     if(tmpMarker)map.removeLayer(tmpMarker);
     tmpMarker=L.marker([lat,lng],{icon:pinIcon(false,true)}).addTo(map);
     map.setView([lat,lng],17);
-    confirmPinDrop(lat,lng);
+    showPinConfirmBar(lat,lng);
   },()=>{showToast('Could not get your location — please allow location access.');if(btn)btn.textContent='📡 Use my location';},{enableHighAccuracy:true,timeout:8000});
 }
 async function reverseGeocode(lat,lng){
-  const el=document.getElementById('f_addr');if(!el||el.value)return;
-  el.placeholder='Looking up address…';
+  const el=document.getElementById('f_addr');if(!el)return;
+  el.value='';el.placeholder='Looking up address…';
   try{
-    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=en`,{headers:{'Accept-Language':'en'}});
+    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=en`);
     const d=await r.json();const a=d.address||{};
-    const parts=[a.road,a.suburb||a.neighbourhood||a.quarter,a.city_district].filter(Boolean);
+    const parts=[a.road,a.suburb||a.neighbourhood||a.quarter].filter(Boolean);
     if(parts.length)el.value=parts.join(', ');
+    // Match district
+    const rawDist=(a.city_district||a.suburb||'').replace(/^(Quận|Huyện|Thị xã)\s+/i,'').trim();
+    if(rawDist){
+      const match=DISTRICTS.find(d=>d.toLowerCase()===rawDist.toLowerCase()||rawDist.toLowerCase().includes(d.toLowerCase()));
+      if(match){const sel=document.getElementById('f_district');if(sel)sel.value=match;}
+    }
   }catch(e){}
   el.placeholder='Street or nearby landmark';
 }
@@ -1524,7 +1578,7 @@ map.on('click',e=>{
   if(tmpMarker)map.removeLayer(tmpMarker);
   tmpMarker=L.marker(e.latlng,{icon:pinIcon(false,true)}).addTo(map);
   if(document.getElementById('pinDropBanner')){
-    confirmPinDrop(lat,lng);
+    showPinConfirmBar(lat,lng);
   } else {
     const fl=document.getElementById('f_lat'),fn=document.getElementById('f_lng');
     if(fl)fl.value=lat.toFixed(5);if(fn)fn.value=lng.toFixed(5);
