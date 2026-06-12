@@ -504,7 +504,8 @@ const QUEST_B_SPOTS   = 5;
 
 const HANOI=[21.0285,105.8500];
 const DISTRICTS=["Hoàn Kiếm","Ba Đình","Đống Đa","Hai Bà Trưng","Tây Hồ","Cầu Giấy","Thanh Xuân","Long Biên","Hoàng Mai","Other"];
-const VIBES=["Touristy","Local-only","Lively","Chill","Cheap","Riverside","Rooftop","Live music","Good for groups","Street-side"];
+const VIBES=["Touristy","Local-only","Lively","Chill","Cheap","Riverside","Lakeside","Rooftop","Good View","Balcony","Live music","Good for groups","Street-side","Friendly"];
+const SEATING_OPTS=["Indoor","Outdoor","Stools","Wooden chairs","Metal chairs","Plastic chairs","Metal tables","Plastic tables","Comfortable"];
 const RCATS=[["beer","Beer quality"],["food","Food & snacks"],["atmosphere","Atmosphere & location"],["clean","Cleanliness"],["value","Value for money"]];
 const BADGES=[
   /* Spots */
@@ -1454,7 +1455,7 @@ function renderAddForm(editId,lat,lng){
       <div><label>Name *</label><input id="f_name" value="${s?esc(s.name):esc(_fd.name||'')}" placeholder="e.g. Bia Hơi Minh"></div>
       <div class="row2">
         <div><label>District</label><select id="f_district">${DISTRICTS.map(d=>`<option ${s&&s.district===d?'selected':''}>${d}</option>`).join('')}</select></div>
-        <div><label>Price per glass</label><input id="f_price" value="${s?esc(s.pricePerGlass):'15,000₫'}" placeholder="15,000₫"></div>
+        <div><label>Price per glass</label><select id="f_price" style="width:100%;padding:9px 11px;border:1.5px solid var(--line);border-radius:9px;font-size:14px;font-family:inherit;background:#fff;color:var(--ink)">${(()=>{const cur=s?s.pricePerGlass:(_fd.price||'');let opts='<option value="">Select…</option>';for(let v=5000;v<=30000;v+=1000){const lbl=v.toLocaleString('en-US')+'₫';opts+=`<option value="${lbl}" ${cur===lbl?'selected':''}>${lbl}</option>`;}opts+=`<option value="Ask" ${cur==='Ask'?'selected':''}>Ask</option>`;return opts;})()}</select></div>
       </div>
       <div><label>Address</label><input id="f_addr" value="${s?esc(s.address):''}" placeholder="Street or nearby landmark"></div>
     </div>
@@ -1465,7 +1466,7 @@ function renderAddForm(editId,lat,lng){
         <div><label>Opens (24h)</label><input id="f_open" type="number" min="0" max="23" value="${s&&s.openH!=null?s.openH:16}"></div>
         <div><label>Closes (24h)</label><input id="f_close" type="number" min="0" max="30" value="${s&&s.closeH!=null?s.closeH:23}"></div>
       </div>
-      <div><label>Seating</label><input id="f_seat" value="${s?esc(s.seating):'Outdoor · plastic stools'}" placeholder="Outdoor · plastic stools"></div>
+      <div><label>Seating</label><div class="tagpick" id="f_seat_tags" style="margin-top:4px">${SEATING_OPTS.map(v=>{const chk=(s&&s.seating?s.seating:(_fd.seat||'')).split(', ').includes(v);return `<label class="${chk?'on':''}"><input type="checkbox" value="${v}" ${chk?'checked':''} onchange="this.parentElement.classList.toggle('on',this.checked)">${v}</label>`;}).join('')}</div></div>
       <div><label>Payment</label><input id="f_pay" value="${s?esc(s.payment):'Cash or QR code transfer'}"></div>
     </div>
 
@@ -1600,10 +1601,10 @@ async function saveSpot(editId){
   const formData={
     name,lat,lng,
     district:val('f_district'),address:val('f_addr'),
-    price_per_glass:val('f_price'),
+    price_per_glass:(document.getElementById('f_price')||{}).value||'',
     open_h:val('f_open')===''?null:+val('f_open'),
     close_h:val('f_close')===''?null:+val('f_close'),
-    seating:val('f_seat'),payment:val('f_pay'),
+    seating:[...document.querySelectorAll('#f_seat_tags input:checked')].map(i=>i.value).join(', '),payment:val('f_pay'),
     vibes,description:val('f_desc')
   };
   if(editId){
