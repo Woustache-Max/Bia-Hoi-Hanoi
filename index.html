@@ -222,6 +222,11 @@
   .leaflet-popup-content{font-family:inherit;margin:10px 12px}
   .popup-thumb{width:100%;height:80px;object-fit:cover;border-radius:6px;display:block;margin-bottom:6px;cursor:pointer}
   .leaflet-popup-content-wrapper{border-radius:10px!important;box-shadow:0 3px 14px rgba(0,0,0,.25)!important;min-width:160px}
+  @keyframes bhSelPulse{
+    0%,100%{box-shadow:0 2px 6px rgba(0,0,0,.35),0 0 0 3px #2e7d32,0 0 0 7px rgba(46,125,50,.25)}
+    50%{box-shadow:0 2px 6px rgba(0,0,0,.35),0 0 0 3px #2e7d32,0 0 0 12px rgba(46,125,50,0)}
+  }
+  .bia-pin.selected{box-shadow:0 2px 6px rgba(0,0,0,.35),0 0 0 3px #2e7d32,0 0 0 7px rgba(46,125,50,.25);animation:bhSelPulse 1.8s ease-in-out infinite}
   .bia-pin{font-size:30px;line-height:1;text-align:center;background:#fff;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.35),0 0 0 2px var(--gold)}
   .bia-pin.closed{filter:grayscale(1);opacity:.6;box-shadow:0 2px 6px rgba(0,0,0,.25),0 0 0 2px #aaa}
   .bia-pin.unverified{background:#ede9e0;box-shadow:0 2px 5px rgba(0,0,0,.18);outline:2.5px dashed #e65100;outline-offset:2px;filter:grayscale(40%);opacity:.8}
@@ -244,6 +249,9 @@
       transform:translateY(100%);transition:.28s cubic-bezier(.4,0,.2,1);z-index:1500;
       overflow-y:auto;overflow-x:hidden}
     #sidebar.open{transform:translateY(0)}
+    #sidebar.peek{transform:translateY(0);overflow:hidden;max-height:165px}
+    #sidebar.peek .toolbar,#sidebar.peek .result-bar{display:none}
+    #sidebar.open .sidebar-close,#sidebar.peek .sidebar-close{display:flex;align-items:center;justify-content:center}
     .mobile-toggle{display:inline-block}
     .sidebar-close{display:none}
     .sheet-handle{display:block;width:40px;height:4px;background:var(--line);
@@ -643,19 +651,76 @@ function pinIcon(closed,unverified){
   else if(unverified)cls+=' unverified';
   return L.divIcon({className:'',html:`<div class="${cls}">🍺</div>`,iconSize:[44,44],iconAnchor:[22,44]});
 }
+function highlightMarker(id){
+  clearMarkerHighlight();
+  const m=window._spotMarkers&&window._spotMarkers[id];
+  if(!m)return;
+  window._highlightedMarker={id,m};
+  const applyRing=()=>{const el=m.getElement();if(el){const pin=el.querySelector('.bia-pin');if(pin)pin.classList.add('selected');}};
+  applyRing();
+  cluster.zoomToShowLayer(m,()=>setTimeout(applyRing,60));
+}
+function clearMarkerHighlight(){
+  if(!window._highlightedMarker)return;
+  const el=window._highlightedMarker.m.getElement();
+  if(el){const pin=el.querySelector('.bia-pin');if(pin)pin.classList.remove('selected');}
+  window._highlightedMarker=null;
+}
+function peekDetail(id){
+  const s=byId(id);if(!s)return;
+  window._peekSpotId=id;
+  const avg=spotAvg(s);
+  const pill=avg?`<span style="background:var(--gold);color:#000;font-size:13px;font-weight:800;padding:2px 10px;border-radius:20px">${avg.toFixed(1)} 🍺</span>`:'';
+  const cnt=avg?`<small style="color:var(--muted);margin-left:6px">${s.reviews.length} review${s.reviews.length===1?'':'s'}</small>`:'';
+  document.getElementById('sidebarBody').innerHTML=`<div class="panel" onclick="expandFromPeek()" style="cursor:pointer;padding-bottom:14px">
+    <h2 style="margin:4px 0 8px;font-size:20px">${esc(s.name)}</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px">
+      ${s.verified?'<span class="chip verified">✓ Verified</span>':''}
+      ${isOpen(s)?'<span class="chip open">Open now</span>':''}
+    </div>
+    <div>${avg?pill+cnt:'<span style="color:var(--muted);font-size:13px">No ratings yet</span>'}</div>
+  </div>`;
+  const sb=document.getElementById('sidebar');
+  sb.classList.remove('open');sb.classList.add('peek');
+  document.getElementById('sheetOverlay').classList.remove('on');
+  const isl=document.getElementById('floatingIsland');if(isl)isl.style.display='none';
+  highlightMarker(id);
+}
+function expandFromPeek(){
+  const id=window._peekSpotId;if(!id)return;
+  window._peekSpotId=null;
+  showDetail(id);
+}
+function setupSwipe(){
+  const sb=document.getElementById('sidebar');
+  let _sy=0,_sx=0;
+  sb.addEventListener('touchstart',e=>{_sy=e.touches[0].clientY;_sx=e.touches[0].clientX;},{passive:true});
+  sb.addEventListener('touchend',e=>{
+    const dy=e.changedTouches[0].clientY-_sy;
+    const dx=Math.abs(e.changedTouches[0].clientX-_sx);
+    if(dy>70&&dx<50){
+      if(sb.classList.contains('peek'))closeSidebar();
+      else if(sb.classList.contains('open')){
+        const detId=window._highlightedMarker&&window._highlightedMarker.id;
+        if(detId)peekDetail(detId);
+        else closeSidebar();
+      }
+    }
+  },{passive:true});
+}
 function drawMarkers(){
-  cluster.clearLayers();
+  cluster.clearLayers();window._spotMarkers={};
   visibleSpots().forEach(s=>{
     const closed=s.status!=='active',unverified=!s.verified;
     const m=L.marker([s.lat,s.lng],{icon:pinIcon(closed,unverified)});
-    const popPhoto=s.photos&&s.photos.length?`<img class="popup-thumb" src="${s.photos[0].url}" onclick="map.closePopup();showDetail('${s.id}')" alt="">`:'';
+    const popPhoto=s.photos&&s.photos.length?`<img class="popup-thumb" src="${s.photos[0].url}" onclick="map.closePopup();peekDetail('${s.id}')" alt="">`:'';
     const popOpen=isOpen(s)?'<span style="color:#2e7d32;font-weight:700;font-size:11px"> · Open now</span>':'';
     const popAvg=spotAvg(s);
     m.bindPopup(
-      `${popPhoto}<div style="padding:6px 8px 6px"><b style="font-size:14px">${esc(s.name)}</b>${popOpen}<div style="margin:5px 0">${popAvg?`<span style="background:var(--gold);color:#000;font-size:11px;font-weight:700;padding:1px 7px;border-radius:12px">${popAvg.toFixed(1)} 🍺</span> <span style="color:#888;font-size:11px">(${s.reviews.length} review${s.reviews.length===1?'':'s'})</span>`:'<span style="color:#888;font-size:11px">No reviews yet</span>'}</div>${s.pricePerGlass?`<div style="color:#888;font-size:11px;margin-bottom:6px">${esc(s.pricePerGlass)}</div>`:''}<button onclick="map.closePopup();showDetail('${s.id}')" style="background:var(--gold);color:var(--ink);border:none;border-radius:7px;padding:6px 0;font-size:12px;font-weight:700;cursor:pointer;width:100%;font-family:inherit">View details →</button></div>`,
+      `${popPhoto}<div style="padding:6px 8px 6px"><b style="font-size:14px">${esc(s.name)}</b>${popOpen}<div style="margin:5px 0">${popAvg?`<span style="background:var(--gold);color:#000;font-size:11px;font-weight:700;padding:1px 7px;border-radius:12px">${popAvg.toFixed(1)} 🍺</span> <span style="color:#888;font-size:11px">(${s.reviews.length} review${s.reviews.length===1?'':'s'})</span>`:'<span style="color:#888;font-size:11px">No reviews yet</span>'}</div>${s.pricePerGlass?`<div style="color:#888;font-size:11px;margin-bottom:6px">${esc(s.pricePerGlass)}</div>`:''}<button onclick="map.closePopup();peekDetail('${s.id}')" style="background:var(--gold);color:var(--ink);border:none;border-radius:7px;padding:6px 0;font-size:12px;font-weight:700;cursor:pointer;width:100%;font-family:inherit">View details →</button></div>`,
       {maxWidth:220,autoPanPaddingBottomRight:L.point(0,80),className:'bh-popup'}
     );
-    cluster.addLayer(m);
+    window._spotMarkers[s.id]=m;cluster.addLayer(m);
   });
 }
 
@@ -807,8 +872,16 @@ function sortReviews(sid,mode,btn){
   document.getElementById('reviewList').innerHTML=sortedReviews(s,mode).map(r=>reviewHTML(s,r)).join('');
 }
 async function showDetail(id){
-  pushNav();openSidebar();const s=byId(id);if(!s)return;
-  map.setView([s.lat,s.lng],16);
+  pushNav();
+  const _sd_sb=document.getElementById('sidebar');_sd_sb.classList.remove('peek');
+  const s=byId(id);if(!s)return;
+  if(innerWidth<=680){
+    _sd_sb.classList.add('open');
+    const _sd_isl=document.getElementById('floatingIsland');if(_sd_isl)_sd_isl.style.display='none';
+    map.setView([s.lat,s.lng],16);
+    setTimeout(()=>{const _pt=map.latLngToContainerPoint([s.lat,s.lng]);const _ty=window.innerHeight*0.14;if(_pt.y>_ty+20)map.panBy([0,_pt.y-_ty],{animate:true,duration:0.3});},350);
+  }else{openSidebar();map.setView([s.lat,s.lng],16);}
+  highlightMarker(id);
   const admin=cur&&cur.role==='admin';
   const canEdit=(cur&&(s.createdBy===cur.id||admin));
   const canVerify=cur&&!s.verified;
@@ -1746,8 +1819,10 @@ function toggleSidebar(){
 }
 function openSidebar(){
   if(innerWidth<=680){
-    document.getElementById('sidebar').classList.add('open');
+    const _os=document.getElementById('sidebar');
+    _os.classList.remove('peek');_os.classList.add('open');
     document.getElementById('sheetOverlay').classList.add('on');
+    const _oi=document.getElementById('floatingIsland');if(_oi)_oi.style.display='none';
   }
 }
 function toggleFilters(){document.getElementById('filters').classList.toggle('open')}
@@ -1758,8 +1833,11 @@ document.addEventListener('keydown',e=>{
   if(innerWidth<=680&&document.getElementById('sidebar').classList.contains('open'))closeSidebar();
 });
 function closeSidebar(){
-  document.getElementById('sidebar').classList.remove('open');
+  const _cs=document.getElementById('sidebar');
+  _cs.classList.remove('open');_cs.classList.remove('peek');
   document.getElementById('sheetOverlay').classList.remove('on');
+  const _ci=document.getElementById('floatingIsland');if(_ci)_ci.style.display='';
+  clearMarkerHighlight();window._peekSpotId=null;
 }
 
 
@@ -2145,7 +2223,7 @@ async function init(){
   spots=(spotsData||[]).map(s=>({...dbToSpot(s),reviews:reviewsBySpot[s.id]||[],photos:photosBySpot[s.id]||[]}));
   const pids=[...new Set(spots.map(s=>s.createdBy).filter(id=>id&&id!=='anon'&&id!=='seed'))];
   if(pids.length){const{data:profiles}=await db.from('profiles').select('*').in('id',pids);(profiles||[]).forEach(p=>{profilesCache[p.id]=p;});}
-  loadFilters();
+  loadFilters();setupSwipe();
   renderList();
   // Deep-link: ?spot=ID opens that spot on load
   const params=new URLSearchParams(window.location.search);
