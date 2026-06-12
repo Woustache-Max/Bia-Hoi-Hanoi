@@ -363,6 +363,20 @@
 .user-menu-item:last-child{border-bottom:none}
 .user-menu-item:hover{background:rgba(255,255,255,.1)}
 .user-menu-item.danger{color:#ff6b6b}
+/* welcome modal */
+.welcome-modal{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;background:rgba(10,8,4,.72);backdrop-filter:blur(3px);padding:20px}
+.welcome-card{background:var(--card);border-radius:18px;padding:28px 24px;max-width:360px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.35);animation:wc-in .25s ease}
+@keyframes wc-in{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.welcome-card h2{margin:0 0 4px;font-size:22px}
+.welcome-card .wc-sub{color:var(--muted);font-size:14px;margin-bottom:18px;line-height:1.4}
+.welcome-card .wc-pts{list-style:none;padding:0;margin:0 0 22px;display:flex;flex-direction:column;gap:10px}
+.welcome-card .wc-pts li{display:flex;align-items:flex-start;gap:10px;font-size:14px;line-height:1.4}
+.welcome-card .wc-pts li span.ico{font-size:20px;flex-shrink:0;margin-top:-1px}
+.wc-btns{display:flex;flex-direction:column;gap:8px}
+/* island hint tooltips */
+.island-hint{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);z-index:1700;display:flex;gap:0;pointer-events:none}
+.ih-label{font-size:10px;font-weight:700;color:#fff;background:rgba(10,8,4,.78);border-radius:6px;padding:3px 7px;white-space:nowrap;position:absolute;bottom:0;transform:translateX(-50%);opacity:0;animation:ih-pop .3s ease forwards}
+@keyframes ih-pop{0%{opacity:0;transform:translateX(-50%) translateY(4px)}60%{opacity:1;transform:translateX(-50%) translateY(0)}100%{opacity:1;transform:translateX(-50%) translateY(0)}}
 /* floating island */
 .floating-island{display:none;position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--nav-bg);border-radius:40px;padding:8px 18px;z-index:1600;box-shadow:0 4px 20px rgba(0,0,0,.4);align-items:center;gap:6px}
 .fi-btn{background:transparent;border:none;color:rgba(255,255,255,.65);cursor:pointer;font-size:21px;padding:8px 14px;border-radius:30px;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:inherit;line-height:1;transition:.15s}
@@ -698,6 +712,59 @@ function expandFromPeek(){
   const id=window._peekSpotId;if(!id)return;
   window._peekSpotId=null;
   showDetail(id);
+}
+function showWelcome(){
+  try{if(localStorage.getItem('bhWelcome'))return;}catch(e){}
+  const el=document.createElement('div');
+  el.className='welcome-modal';
+  el.id='welcomeModal';
+  el.innerHTML=`<div class="welcome-card">
+    <h2>🍺 Bia Hơi Hanoi</h2>
+    <p class="wc-sub">The crowdsourced map of Hanoi's best bia hơi spots — built by drinkers, for drinkers.</p>
+    <ul class="wc-pts">
+      <li><span class="ico">🗺</span><div><b>Browse the map for free</b><br><span style="color:var(--muted)">Find spots by district, vibe, price, and more.</span></div></li>
+      <li><span class="ico">📍</span><div><b>Add spots — no account needed</b><br><span style="color:var(--muted)">Put your favourite local on the map in 60 seconds.</span></div></li>
+      <li><span class="ico">⭐</span><div><b>Sign up to unlock everything</b><br><span style="color:var(--muted)">Write reviews, earn badges, save favourites, and climb the leaderboard.</span></div></li>
+    </ul>
+    <div class="wc-btns">
+      <button class="btn-gold" style="padding:12px;font-size:15px;border-radius:10px;font-weight:800" onclick="closeWelcome(true)">Join free</button>
+      <button class="btn-line" style="padding:11px;font-size:14px;border-radius:10px" onclick="closeWelcome(false)">Explore the map</button>
+    </div>
+  </div>`;
+  document.body.appendChild(el);
+}
+function closeWelcome(signup){
+  const el=document.getElementById('welcomeModal');
+  if(el)el.remove();
+  try{localStorage.setItem('bhWelcome','1');}catch(e){}
+  if(signup){authModal(true);return;}
+  setTimeout(showIslandHints,400);
+}
+function showIslandHints(){
+  const isl=document.getElementById('floatingIsland');
+  if(!isl||isl.style.display==='none')return;
+  const btns=[
+    {id:'fi-near',label:'Near me'},
+    {id:'fi-list',label:'Spot list'},
+    {id:'fi-add',label:'Add a spot'},
+    {id:'fi-new',label:'New spots'},
+    {id:'fi-me',label:'Your profile'}
+  ];
+  const islRect=isl.getBoundingClientRect();
+  btns.forEach((b,i)=>{
+    const btn=document.getElementById(b.id);if(!btn)return;
+    const r=btn.getBoundingClientRect();
+    const tip=document.createElement('div');
+    tip.className='ih-label';
+    tip.textContent=b.label;
+    tip.style.left=(r.left+r.width/2)+'px';
+    tip.style.bottom=(window.innerHeight-r.top+8)+'px';
+    tip.style.animationDelay=(i*0.08)+'s';
+    tip.style.position='fixed';
+    tip.style.transform='translateX(-50%)';
+    document.body.appendChild(tip);
+    setTimeout(()=>tip.remove(),(i*80)+3500);
+  });
 }
 function setupSwipe(){
   const sb=document.getElementById('sidebar');
@@ -2275,7 +2342,7 @@ async function init(){
   spots=(spotsData||[]).map(s=>({...dbToSpot(s),reviews:reviewsBySpot[s.id]||[],photos:photosBySpot[s.id]||[]}));
   const pids=[...new Set(spots.map(s=>s.createdBy).filter(id=>id&&id!=='anon'&&id!=='seed'))];
   if(pids.length){const{data:profiles}=await db.from('profiles').select('*').in('id',pids);(profiles||[]).forEach(p=>{profilesCache[p.id]=p;});}
-  loadFilters();setupSwipe();
+  loadFilters();setupSwipe();showWelcome();
   renderList();
   // Deep-link: ?spot=ID opens that spot on load
   const params=new URLSearchParams(window.location.search);
