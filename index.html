@@ -1071,7 +1071,9 @@ function reviewFormHTML(id){
       <textarea id="revTxt" placeholder="What's the crowd like? Best snacks? What makes it special…" ${oninput} style="width:100%;padding:8px 10px;border:1.5px solid var(--line);border-radius:7px;font-size:14px;font-family:inherit;resize:vertical;min-height:72px;background:#fff;color:var(--ink);display:block"></textarea>
       ${charCounter}
     </div>
-    <button class="btn-gold" style="width:100%;margin-top:10px;padding:11px;font-size:15px;border-radius:10px" onclick="submitReview('${id}')">Post review</button>
+    <div id="revError" style="display:none;color:#c62828;font-size:13px;font-weight:600;margin-top:8px;padding:8px 10px;background:#fdecea;border-radius:7px"></div>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center">Rate all 5 categories &amp; write at least 10 characters to post</div>
+    <button class="btn-gold" style="width:100%;margin-top:8px;padding:11px;font-size:15px;border-radius:10px" onclick="submitReview('${id}')">Post review</button>
   </div>`;
 }
 
@@ -1095,9 +1097,16 @@ async function submitReview(id){
   if(cur&&cur.role==='newcomer'&&txt.length>NEWCOMER_CHAR_LIMIT){
     alert(`Reviews are limited to ${NEWCOMER_CHAR_LIMIT} characters until you reach Active status.`);return;
   }
-  if(!Object.values(ratings).some(x=>x>0)&&!txt){
-    alert('Add at least one rating.');return;
+  const errEl=document.getElementById('revError');
+  const missing=[];
+  const unrated=RCATS.filter(c=>!ratings[c[0]]||ratings[c[0]]<1);
+  if(unrated.length>0)missing.push('Rate all 5 categories (missing: '+unrated.map(c=>c[1]).join(', ')+')');
+  if(txt.length<10)missing.push('Write at least 10 characters'+(txt.length>0?' ('+txt.length+' so far)':''));
+  if(missing.length){
+    if(errEl){errEl.textContent=missing.join(' · ');errEl.style.display='block';}
+    return;
   }
+  if(errEl)errEl.style.display='none';
   const who=cur?cur.name:'Anonymous';
   const userId=cur?cur.id:null;
   const reviewData={
