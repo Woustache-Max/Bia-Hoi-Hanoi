@@ -1449,7 +1449,7 @@ function renderAddForm(editId,lat,lng){
 
     <div class="form-sec-title">Basic info</div>
     <div class="form-section">
-      <div><label>Name *</label><input id="f_name" value="${s?esc(s.name):esc(_fd.name||'')}" placeholder="e.g. Bia Hơi Minh"></div>
+      <div><label>Name *</label><input id="f_name" value="${s?esc(s.name):esc(_fd.name||'')}" placeholder="e.g. Bia Hơi Minh"><div id="f_name_err" style="display:none;color:#c62828;font-size:12px;margin-top:4px;font-weight:600">⚠ Spot name is required</div></div>
       <div class="row2">
         <div><label>District</label><select id="f_district"><option value="">Auto-detect…</option>${DISTRICTS.map(d=>`<option value="${d}" ${(s&&s.district===d)||(_fd.district&&_fd.district===d)?'selected':''}>${d}</option>`).join('')}</select></div>
         <div><label>Price per glass</label><select id="f_price" style="width:100%;padding:9px 11px;border:1.5px solid var(--line);border-radius:9px;font-size:14px;font-family:inherit;background:#fff;color:var(--ink)">${(()=>{const cur=s?s.pricePerGlass:(_fd.price||'');let opts='<option value="">Select…</option>';for(let v=5000;v<=30000;v+=1000){const lbl=v.toLocaleString('en-US')+'₫';opts+=`<option value="${lbl}" ${cur===lbl?'selected':''}>${lbl}</option>`;}opts+=`<option value="Ask" ${cur==='Ask'?'selected':''}>Ask</option>`;return opts;})()}</select></div>
@@ -1479,6 +1479,7 @@ function renderAddForm(editId,lat,lng){
       <div class="row2">
         <div><label>Latitude *</label><input id="f_lat" value="${s?s.lat:(lat||'')}" placeholder="21.0345"></div>
         <div><label>Longitude *</label><input id="f_lng" value="${s?s.lng:(lng||'')}" placeholder="105.8525"></div>
+      <div id="f_pin_err" style="display:none;color:#c62828;font-size:12px;margin-top:6px;font-weight:600">⚠ Pin required — use the 📍 Change location button above</div>
       </div>
     </div>
 
@@ -1590,9 +1591,10 @@ async function saveSpot(editId){
   const _errs=[];
   const _ni=document.getElementById('f_name');
   const _li=document.getElementById('f_lat');const _lni=document.getElementById('f_lng');
-  if(!name){_errs.push('Spot name is required');if(_ni){_ni.style.borderColor='#c62828';}}else{if(_ni)_ni.style.borderColor='';}
-  if(isNaN(lat)||isNaN(lng)){_errs.push('Drop a pin on the map or enter coordinates');if(_li)_li.style.borderColor='#c62828';if(_lni)_lni.style.borderColor='#c62828';}else{if(_li)_li.style.borderColor='';if(_lni)_lni.style.borderColor='';}
-  if(_errs.length){if(_ae){_ae.textContent=_errs.join(' · ');_ae.style.display='block';}return;}
+  const _nei=document.getElementById('f_name_err');const _pei=document.getElementById('f_pin_err');
+  if(!name){_errs.push('spot name');if(_ni){_ni.style.borderColor='#c62828';_ni.style.background='#fff5f5';}if(_nei)_nei.style.display='block';}else{if(_ni){_ni.style.borderColor='';_ni.style.background='';}if(_nei)_nei.style.display='none';}
+  if(isNaN(lat)||isNaN(lng)){_errs.push('pin location');if(_li){_li.style.borderColor='#c62828';_li.style.background='#fff5f5';}if(_lni){_lni.style.borderColor='#c62828';_lni.style.background='#fff5f5';}if(_pei)_pei.style.display='block';}else{if(_li){_li.style.borderColor='';_li.style.background='';}if(_lni){_lni.style.borderColor='';_lni.style.background='';}if(_pei)_pei.style.display='none';}
+  if(_errs.length){if(_ae){_ae.textContent='⚠ Required: '+_errs.join(' and ');_ae.style.display='block';}const _fe=!name?_ni:(isNaN(lat)?_li:null);if(_fe)_fe.scrollIntoView({behavior:'smooth',block:'center'});return;}
   if(_ae)_ae.style.display='none';
   const vibes=[...document.querySelectorAll('#f_vibes input:checked')].map(i=>i.value);
   const formData={
