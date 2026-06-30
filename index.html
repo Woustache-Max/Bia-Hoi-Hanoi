@@ -1217,6 +1217,7 @@ function updateCharCount(el){
 function pick(cat,v){chosen[cat]=v;const sp=document.querySelectorAll('#gp_'+cat+' span');sp.forEach((el,i)=>{if(i<5)el.classList.toggle('on',i<v)})}
 
 async function submitReview(id){
+  if(!cur){authModal(true);return;}
   const s=byId(id);
   const ratings={};RCATS.forEach(c=>ratings[c[0]]=chosen[c[0]]||0);
   let txt='';
@@ -1493,6 +1494,7 @@ function renderAddForm(editId,lat,lng){
 }
 
 function startAdd(editId){
+  if(!editId&&!cur){authModal(true);return;}
   adding=!editId;
   if(!editId&&innerWidth<=680){startPinDrop();return;}
   openSidebar();
