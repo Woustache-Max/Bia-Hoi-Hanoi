@@ -2921,4 +2921,117 @@ function showWelcomeIfNew(){
   }
 }
 init();
-window.addEventListener('DOMContentLoaded
+window.addEventListener('DOMContentLoaded',function(){showWelcomeIfNew();});
+
+/* ============================================================
+   BACK-BUTTON NAVIGATION (mobile history intercept)
+   ============================================================ */
+var _histPushed=false;
+function pushNav(){
+  if(!_histPushed){history.pushState({bhNav:true},'');_histPushed=true;}
+}
+window.addEventListener('popstate',function(){
+  _histPushed=false;
+  // 1. Close admin modal if open
+  const modal=document.getElementById('modal');
+  if(modal){modal.remove();return;}
+  // 2. Close detail/profile panel — return to list
+  const body=document.getElementById('sidebarBody');
+  if(body&&body.querySelector('.panel')){renderList();return;}
+  // 3. Close sidebar on mobile
+  const sb=document.getElementById('sidebar');
+  if(sb&&sb.classList.contains('open')&&window.innerWidth<=680){closeSidebar();return;}
+});
+
+
+
+/* ── Service Worker registration ── */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js',{scope:'/Bia-Hoi-Hanoi/'})
+      .then(r=>console.log('SW registered:',r.scope))
+      .catch(e=>console.warn('SW registration failed:',e));
+  });
+}
+
+/* ── PWA install prompt ── */
+(function(){
+  var _deferredPrompt=null;
+  var _prompted=localStorage.getItem('pwaPrompted');
+  var _installed=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone;
+  if(_installed||_prompted)return;
+
+  window.addEventListener('beforeinstallprompt',function(e){
+    e.preventDefault();
+    _deferredPrompt=e;
+    setTimeout(function(){
+      var el=document.getElementById('pwaPrompt');
+      if(el)el.classList.add('show');
+    },30000); // show after 30 s
+  });
+
+  window.addEventListener('appinstalled',function(){
+    var el=document.getElementById('pwaPrompt');
+    if(el)el.classList.remove('show');
+    localStorage.setItem('pwaPrompted','1');
+  });
+
+  document.addEventListener('DOMContentLoaded',function(){
+    var installBtn=document.getElementById('pwaInstallBtn');
+    var dismissBtn=document.getElementById('pwaDismissBtn');
+    if(installBtn){
+      installBtn.addEventListener('click',function(){
+        if(!_deferredPrompt)return;
+        _deferredPrompt.prompt();
+        _deferredPrompt.userChoice.then(function(c){
+          localStorage.setItem('pwaPrompted','1');
+          var el=document.getElementById('pwaPrompt');
+          if(el)el.classList.remove('show');
+          _deferredPrompt=null;
+        });
+      });
+    }
+    if(dismissBtn){
+      dismissBtn.addEventListener('click',function(){
+        localStorage.setItem('pwaPrompted','1');
+        var el=document.getElementById('pwaPrompt');
+        if(el)el.classList.remove('show');
+      });
+    }
+  });
+})();
+</script>
+<div class="badge-toast" id="badgeToast"></div>
+<div id="photoLightbox" onclick="lbBgClick(event)">
+  <button class="lb-close" onclick="closeLightbox()">✕</button>
+  <button class="lb-nav lb-prev" id="lbPrev" onclick="lbStep(-1)">‹</button>
+  <img id="lbImg" src="" alt="">
+  <button class="lb-nav lb-next" id="lbNext" onclick="lbStep(1)">›</button>
+  <div class="lb-dots" id="lbDots"></div>
+  <div class="lb-counter" id="lbCounter"></div>
+  <div class="lb-caption" id="lbCaption"></div>
+</div>
+<div id="welcomeOverlay" class="hidden">
+  <div class="welcome-card">
+    <div class="welcome-logo">🍺</div>
+    <h1>Bác Hơi</h1>
+    <p class="sub">Hanoi's crowdsourced map of the best bia hơi spots</p>
+    <div class="welcome-features">
+      <div class="wf"><span class="wf-icon">🗺️</span><div class="wf-text"><strong>Explore the map</strong><span>Find bia hơi spots near you across Hanoi</span></div></div>
+      <div class="wf"><span class="wf-icon">📍</span><div class="wf-text"><strong>Add a spot</strong><span>Know one we don't? Pin it on the map</span></div></div>
+      <div class="wf"><span class="wf-icon">⭐</span><div class="wf-text"><strong>Rate &amp; review</strong><span>Share your honest take on the beer &amp; vibe</span></div></div>
+      <div class="wf"><span class="wf-icon">🎯</span><div class="wf-text"><strong>Quests &amp; Legends</strong><span>29 badges, earn titles &amp; join the Bia Hơi Legends</span></div></div>
+    </div>
+    <button class="btn-welcome" onclick="dismissWelcome()">Vào bản đồ! 🍺</button>
+    <span class="skip-link" onclick="dismissWelcome()">I've been here before</span>
+  </div>
+</div>
+
+<div id="pwaPrompt">
+  <span style="font-size:22px">📲</span>
+  <span class="pwa-text">Add <b>Bác Hơi</b> to your home screen</span>
+  <button class="pwa-install" id="pwaInstallBtn">Install</button>
+  <button class="pwa-dismiss" id="pwaDismissBtn">✕</button>
+</div>
+</body>
+</html>
