@@ -379,7 +379,7 @@
 .pdb-use-loc{background:var(--gold);color:var(--ink)}
 .pdb-cancel{background:rgba(255,255,255,.15);color:#fff}
 /* welcome modal */
-.welcome-modal{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;background:rgba(10,8,4,.72);backdrop-filter:blur(3px);padding:20px}
+.welcome-modal{position:fixed;inset:0;z-index:9000;display:flex;align-items:flex-start;justify-content:center;background:rgba(10,8,4,.72);backdrop-filter:blur(3px);padding:20px;overflow-y:auto}
 .welcome-card{background:var(--card);border-radius:18px;padding:28px 24px;max-width:360px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.35);animation:wc-in .25s ease}
 @keyframes wc-in{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 .welcome-card h2{margin:0 0 4px;font-size:22px}
@@ -761,7 +761,9 @@ function showWelcome(){
   const el=document.createElement('div');
   el.className='welcome-modal';
   el.id='welcomeModal';
-  el.innerHTML=`<div class="welcome-card">
+  el.addEventListener('click',function(e){if(e.target===el)closeWelcome(false);});
+  el.innerHTML=`<div class="welcome-card" style="position:relative;max-height:88vh;overflow-y:auto">
+    <button onclick="closeWelcome(false)" aria-label="Close" style="position:absolute;top:8px;right:10px;background:none;border:none;font-size:24px;line-height:1;color:var(--muted);cursor:pointer;padding:4px;z-index:2">×</button>
     <h2>🍺 Bác Hơi</h2>
     <p class="wc-sub">The crowdsourced map of Hanoi's best bia hơi spots — built by drinkers, for drinkers.</p>
     <ul class="wc-pts">
@@ -2163,11 +2165,45 @@ function exportCSV(type){
   const a=document.createElement('a');a.href=url;a.download=filename;a.click();
   setTimeout(()=>URL.revokeObjectURL(url),5000);
 }
+/* ===== Announcements — admin broadcast banner ===== */
+async function checkAnnouncement(){
+  try{
+    const{data}=await db.from('announcements').select('*').eq('active',true).order('created_at',{ascending:false}).limit(1);
+    const a=data&&data[0];
+    if(!a)return;
+    if(localStorage.getItem('bhAnnounceSeen')===String(a.id))return;
+    if(document.getElementById('modal'))return; // don't cover the welcome/other modal
+    modal(`<div style="text-align:center">
+      <img src="icon-192.png" alt="" style="width:54px;height:54px;border-radius:12px;margin-bottom:10px">
+      <h2 style="margin:0 0 8px">${esc(a.title||'Announcement')}</h2>
+      <p style="font-size:14px;line-height:1.5;margin:0 0 16px;white-space:pre-wrap;text-align:left">${esc(a.body||'')}</p>
+      <button class="btn-gold" style="width:100%" onclick="dismissAnnouncement('${a.id}')">Got it 🍺</button>
+    </div>`);
+  }catch(e){/* table may not exist yet — ignore */}
+}
+function dismissAnnouncement(id){localStorage.setItem('bhAnnounceSeen',String(id));closeModal();}
+async function postAnnouncement(){
+  const t=document.getElementById('annTitle'),b=document.getElementById('annBody');
+  const title=t?t.value.trim():'',body=b?b.value.trim():'';
+  if(!body)return showToast('Write a message first.');
+  await db.from('announcements').update({active:false}).eq('active',true);
+  const{error}=await db.from('announcements').insert({title,body,active:true});
+  if(error)return showToast('Could not post: '+error.message);
+  showToast('📣 Posted — users will see it next time they open the app.');
+  closeModal();
+}
+async function clearAnnouncements(){
+  if(!confirm('Clear the current announcement so users no longer see it?'))return;
+  const{error}=await db.from('announcements').update({active:false}).eq('active',true);
+  if(error)return showToast('Error: '+error.message);
+  showToast('Announcement cleared.');closeModal();
+}
+
 function renderAdmin(tab){
   const d=adminData;
   const reported=d.spots.filter(s=>(s.reports||[]).length>0);
   const unverified=d.spots.filter(s=>!s.verified);
-  const tabDefs={overview:'📊 Overview',spots:'📍 Spots',users:'👥 Users',reports:'⚑ Reports',photos:'📷 Photos',activity:'🔔 Activity'};
+  const tabDefs={overview:'📊 Overview',spots:'📍 Spots',users:'👥 Users',reports:'⚑ Reports',photos:'📷 Photos',activity:'🔔 Activity',announce:'📣 Announce'};
   const tabs=Object.keys(tabDefs).map(t=>{
     const badge=(t==='reports'&&reported.length)?` <span style="background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px">${reported.length}</span>`:'';
     return `<button class="admin-tab${t===tab?' on':''}" onclick="renderAdmin('${t}')">${tabDefs[t]}${badge}</button>`;
@@ -2194,6 +2230,17 @@ function renderAdmin(tab){
             <button class="btn-line btn-sm" title="Permanently delete this spot" style="margin-left:4px;color:var(--red)" onclick="adminDeleteSpot('${s.id}')">🗑 Delete</button></td>
       </tr>`).join('')}
     </table>`:'<div style="color:var(--muted);font-size:13px">All spots are verified ✓</div>'}`;
+  }
+  else if(tab==='announce'){
+    body=`<div style="max-width:540px">
+      <p style="font-size:13px;color:var(--muted);margin:0 0 12px">Post a message that every user sees as a banner the next time they open the app. Posting a new one replaces the previous.</p>
+      <label style="font-weight:700;font-size:13px">Title</label>
+      <input id="annTitle" placeholder="e.g. New look + you can now change your name!" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin:4px 0 10px;font-family:inherit">
+      <label style="font-weight:700;font-size:13px">Message</label>
+      <textarea id="annBody" placeholder="Write your announcement…" style="width:100%;min-height:96px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin:4px 0 12px;font-family:inherit"></textarea>
+      <button class="btn-gold" onclick="postAnnouncement()">📣 Post announcement</button>
+      <button class="btn-line" style="margin-left:8px" onclick="clearAnnouncements()">Clear current</button>
+    </div>`;
   }
   else if(tab==='spots'){
     body=`<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
@@ -2504,6 +2551,7 @@ async function init(){
   if(pids.length){const{data:profiles}=await db.from('profiles').select('*').in('id',pids);(profiles||[]).forEach(p=>{profilesCache[p.id]=p;});}
   loadFilters();setupSwipe();showWelcome();
   renderList();
+  checkAnnouncement();
   // Deep-link: ?spot=ID opens that spot on load
   const params=new URLSearchParams(window.location.search);
   const deepSpot=params.get('spot');
@@ -2873,98 +2921,4 @@ function showWelcomeIfNew(){
   }
 }
 init();
-window.addEventListener('DOMContentLoaded',function(){showWelcomeIfNew();});
-
-/* ============================================================
-   BACK-BUTTON NAVIGATION (mobile history intercept)
-   ============================================================ */
-var _histPushed=false;
-function pushNav(){
-  if(!_histPushed){history.pushState({bhNav:true},'');_histPushed=true;}
-}
-window.addEventListener('popstate',function(){
-  _histPushed=false;
-  // 1. Close admin modal if open
-  const modal=document.getElementById('modal');
-  if(modal){modal.remove();return;}
-  // 2. Close detail/profile panel — return to list
-  const body=document.getElementById('sidebarBody');
-  if(body&&body.querySelector('.panel')){renderList();return;}
-  // 3. Close sidebar on mobile
-  const sb=document.getElementById('sidebar');
-  if(sb&&sb.classList.contains('open')&&window.innerWidth<=680){closeSidebar();return;}
-});
-
-
-
-/* ── Service Worker registration ── */
-if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('sw.js',{scope:'/Bia-Hoi-Hanoi/'})
-      .then(r=>console.log('SW registered:',r.scope))
-      .catch(e=>console.warn('SW registration failed:',e));
-  });
-}
-
-/* ── PWA install prompt ── */
-(function(){
-  var _deferredPrompt=null;
-  var _prompted=localStorage.getItem('pwaPrompted');
-  var _installed=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone;
-  if(_installed||_prompted)return;
-
-  window.addEventListener('beforeinstallprompt',function(e){
-    e.preventDefault();
-    _deferredPrompt=e;
-    setTimeout(function(){
-      var el=document.getElementById('pwaPrompt');
-      if(el)el.classList.add('show');
-    },30000); // show after 30 s
-  });
-
-  window.addEventListener('appinstalled',function(){
-    var el=document.getElementById('pwaPrompt');
-    if(el)el.classList.remove('show');
-    localStorage.setItem('pwaPrompted','1');
-  });
-
-  document.addEventListener('DOMContentLoaded',function(){
-    var installBtn=document.getElementById('pwaInstallBtn');
-    var dismissBtn=document.getElementById('pwaDismissBtn');
-    if(installBtn){
-      installBtn.addEventListener('click',function(){
-        if(!_deferredPrompt)return;
-        _deferredPrompt.prompt();
-        _deferredPrompt.userChoice.then(function(c){
-          localStorage.setItem('pwaPrompted','1');
-          var el=document.getElementById('pwaPrompt');
-          if(el)el.classList.remove('show');
-          _deferredPrompt=null;
-        });
-      });
-    }
-    if(dismissBtn){
-      dismissBtn.addEventListener('click',function(){
-        localStorage.setItem('pwaPrompted','1');
-        var el=document.getElementById('pwaPrompt');
-        if(el)el.classList.remove('show');
-      });
-    }
-  });
-})();
-</script>
-<div class="badge-toast" id="badgeToast"></div>
-<div id="photoLightbox" onclick="lbBgClick(event)">
-  <button class="lb-close" onclick="closeLightbox()">✕</button>
-  <button class="lb-nav lb-prev" id="lbPrev" onclick="lbStep(-1)">‹</button>
-  <img id="lbImg" src="" alt="">
-  <button class="lb-nav lb-next" id="lbNext" onclick="lbStep(1)">›</button>
-  <div class="lb-dots" id="lbDots"></div>
-  <div class="lb-counter" id="lbCounter"></div>
-  <div class="lb-caption" id="lbCaption"></div>
-</div>
-<div id="welcomeOverlay" class="hidden">
-  <div class="welcome-card">
-    <div class="welcome-logo">🍺</div>
-    <h1>Bác Hơi</h1>
-    <p clas
+window.addEventListener('DOMContentLoaded
