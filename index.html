@@ -545,7 +545,7 @@ const BADGES=[
   {id:'uncle_approved',   icon:'👍', name:'Uncle Approved',       desc:'Uploaded a photo tagged with a thumbs-up'},
   {id:'full_uncle',       icon:'🤙', name:'Full Uncle',           desc:'Uploaded a photo with 5+ people doing thumbs-up'},
   /* Legend */
-  {id:'legend',           icon:'🏆', name:'Bia Hơi Legend',       desc:'Earned 15 other badges — a true Hanoi local'},
+  {id:'legend',           icon:'🏆', name:'Bác Hơi Legend',       desc:'Earned 15 other badges — a true Hanoi local'},
 ];
 
 /* ============================================================
@@ -1139,7 +1139,7 @@ function reviewHTML(s,r){
   const replyFormHtml=canReply?`<div id="rf_${r.id}" style="display:none;margin-top:6px"><textarea class="reply-textarea" id="rt_${r.id}" placeholder="Write a reply…"></textarea><div style="display:flex;gap:6px;margin-top:4px"><button class="btn-gold btn-sm" style="font-size:12px" onclick="submitReply('${r.id}','${s.id}')">Post</button><button class="btn-line btn-sm" style="font-size:12px" onclick="toggleReplyForm('${r.id}')">Cancel</button></div></div>`:'';
   return `<div class="review">
     <div class="who"><span>${whoLink}${avgBadge}</span>
-      ${admin?`<button class="vote" style="color:var(--red)" onclick="delReview('${s.id}','${r.id}')">delete</button>`:''}</div>
+      <span>${(cur&&r.userId===cur.id)?`<button class="vote" onclick="editReview('${s.id}','${r.id}')">edit</button> · `:''}${(admin||(cur&&r.userId===cur.id))?`<button class="vote" style="color:var(--red)" onclick="delReview('${s.id}','${r.id}')">delete</button>`:''}</span></div>
     <div class="rgrid">${RCATS.filter(c=>r.ratings[c[0]]>0).map(c=>`<span><b style="font-size:13px">${r.ratings[c[0]]}🍺</b> <span style="color:var(--muted)">${c[1]}</span></span>`).join('')}</div>
     ${r.txt?(r.txt.length>200?`<div class="txt">${esc(r.txt.slice(0,200))}<span id="txm_${r.id}" style="display:none">${esc(r.txt.slice(200))}</span>… <button class="vote" id="txb_${r.id}" onclick="toggleMore('${r.id}')">Read more</button></div>`:`<div class="txt">${esc(r.txt)}</div>`):''}
     <div class="when">${r.when} · <button class="vote" onclick="voteHelpful('${s.id}','${r.id}')">${didI?'✓ Helpful':'👍 Helpful'}${helped?' ('+helped+')':''}</button>${replyBtn}</div>
@@ -1215,6 +1215,36 @@ function updateCharCount(el){
 }
 
 function pick(cat,v){chosen[cat]=v;const sp=document.querySelectorAll('#gp_'+cat+' span');sp.forEach((el,i)=>{if(i<5)el.classList.toggle('on',i<v)})}
+let eChosen={};
+function editReview(sid,rid){
+  if(!cur)return;
+  const s=byId(sid);if(!s)return;
+  const r=s.reviews.find(x=>x.id===rid);if(!r)return;
+  if(r.userId!==cur.id&&cur.role!=='admin')return;
+  eChosen={};RCATS.forEach(c=>eChosen[c[0]]=r.ratings[c[0]]||0);
+  window._editReviewSid=sid;window._editReviewRid=rid;
+  modal(`<h2 style="margin:0 0 10px;font-size:18px">Edit your review</h2>
+    ${RCATS.map(c=>`<div class="rate-row"><span class="lbl">${c[1]}</span>
+      <span class="gpick" id="egp_${c[0]}">${[1,2,3,4,5].map(i=>`<span onclick="epick('${c[0]}',${i})">🍺</span>`).join('')}<span class="clr" onclick="epick('${c[0]}',0)">clear</span></span></div>`).join('')}
+    <textarea id="eRevTxt" style="width:100%;padding:8px 10px;border:1.5px solid var(--line);border-radius:7px;font-size:14px;font-family:inherit;resize:vertical;min-height:72px;margin-top:8px">${esc(r.txt||'')}</textarea>
+    <button class="btn-gold" style="width:100%;margin-top:10px" onclick="saveReviewEdit()">Save changes</button>
+    <button class="btn-line" style="width:100%;margin-top:6px" onclick="closeModal()">Cancel</button>`);
+  RCATS.forEach(c=>epick(c[0],eChosen[c[0]]));
+}
+function epick(cat,v){eChosen[cat]=v;const sp=document.querySelectorAll('#egp_'+cat+' span');sp.forEach((el,i)=>{if(i<5)el.classList.toggle('on',i<v)})}
+async function saveReviewEdit(){
+  const sid=window._editReviewSid,rid=window._editReviewRid;
+  const s=byId(sid);if(!s)return;
+  const r=s.reviews.find(x=>x.id===rid);if(!r)return;
+  const ratings={};RCATS.forEach(c=>ratings[c[0]]=eChosen[c[0]]||0);
+  if(RCATS.filter(c=>ratings[c[0]]>0).length<2)return showToast('Rate at least 2 categories.');
+  const txtEl=document.getElementById('eRevTxt');let txt=txtEl?txtEl.value.trim():'';
+  if(cur&&cur.role==='newcomer'&&txt.length>NEWCOMER_CHAR_LIMIT)return showToast('Review too long for your level ('+NEWCOMER_CHAR_LIMIT+' max).');
+  const{error}=await db.from('reviews').update({ratings,txt}).eq('id',rid);
+  if(error)return showToast('Could not save: '+error.message);
+  r.ratings=ratings;r.txt=txt;
+  closeModal();showDetail(sid);showToast('✅ Review updated.');
+}
 
 async function submitReview(id){
   if(!cur){authModal(true);return;}
@@ -2168,13 +2198,16 @@ function exportCSV(type){
   setTimeout(()=>URL.revokeObjectURL(url),5000);
 }
 /* ===== Announcements — admin broadcast banner ===== */
+let _annCache=[];
 async function checkAnnouncement(){
   try{
-    const{data}=await db.from('announcements').select('*').eq('active',true).order('created_at',{ascending:false}).limit(1);
-    const a=data&&data[0];
+    const{data}=await db.from('announcements').select('*').eq('active',true).order('created_at',{ascending:false});
+    if(!data||!data.length)return;
+    if(document.getElementById('modal'))return; // don't cover another modal
+    let seen=[];try{seen=JSON.parse(localStorage.getItem('bhAnnounceSeen'))||[];}catch(e){}
+    if(!Array.isArray(seen))seen=[];
+    const a=data.find(x=>!seen.includes(String(x.id)));
     if(!a)return;
-    if(localStorage.getItem('bhAnnounceSeen')===String(a.id))return;
-    if(document.getElementById('modal'))return; // don't cover the welcome/other modal
     modal(`<div style="text-align:center">
       <img src="icon-192.png" alt="" style="width:54px;height:54px;border-radius:12px;margin-bottom:10px">
       <h2 style="margin:0 0 8px">${esc(a.title||'Announcement')}</h2>
@@ -2183,22 +2216,67 @@ async function checkAnnouncement(){
     </div>`);
   }catch(e){/* table may not exist yet — ignore */}
 }
-function dismissAnnouncement(id){localStorage.setItem('bhAnnounceSeen',String(id));closeModal();}
+function dismissAnnouncement(id){
+  let seen=[];try{seen=JSON.parse(localStorage.getItem('bhAnnounceSeen'))||[];}catch(e){}
+  if(!Array.isArray(seen))seen=[];
+  if(!seen.includes(String(id)))seen.push(String(id));
+  localStorage.setItem('bhAnnounceSeen',JSON.stringify(seen));
+  closeModal();
+  checkAnnouncement(); // show the next unseen announcement, if any
+}
 async function postAnnouncement(){
   const t=document.getElementById('annTitle'),b=document.getElementById('annBody');
   const title=t?t.value.trim():'',body=b?b.value.trim():'';
   if(!body)return showToast('Write a message first.');
-  await db.from('announcements').update({active:false}).eq('active',true);
   const{error}=await db.from('announcements').insert({title,body,active:true});
   if(error)return showToast('Could not post: '+error.message);
   showToast('📣 Posted — users will see it next time they open the app.');
-  closeModal();
+  if(t)t.value='';if(b)b.value='';
 }
-async function clearAnnouncements(){
-  if(!confirm('Clear the current announcement so users no longer see it?'))return;
-  const{error}=await db.from('announcements').update({active:false}).eq('active',true);
+async function manageAnnouncements(){
+  const{data,error}=await db.from('announcements').select('*').order('created_at',{ascending:false});
   if(error)return showToast('Error: '+error.message);
-  showToast('Announcement cleared.');closeModal();
+  _annCache=data||[];
+  const rows=_annCache.length?_annCache.map(a=>`
+    <div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <b style="font-size:14px">${esc(a.title||'(no title)')}</b>
+        <span class="chip ${a.active?'open':''}" style="font-size:11px">${a.active?'Active':'Off'}</span>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin:4px 0;white-space:pre-wrap">${esc((a.body||'').slice(0,140))}${(a.body||'').length>140?'…':''}</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">${(a.created_at||'').slice(0,10)}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn-line btn-sm" onclick="editAnnouncement('${a.id}')">✎ Edit</button>
+        <button class="btn-line btn-sm" onclick="toggleAnnouncement('${a.id}',${a.active?'false':'true'})">${a.active?'Turn off':'Turn on'}</button>
+        <button class="btn-line btn-sm" style="color:var(--red)" onclick="deleteAnnouncement('${a.id}')">🗑 Delete</button>
+      </div>
+    </div>`).join(''):'<div style="color:var(--muted);font-size:13px">No announcements yet.</div>';
+  modal(`<h2 style="margin:0 0 10px">📣 Manage announcements</h2><div style="max-height:60vh;overflow-y:auto">${rows}</div><button class="btn-line" style="width:100%;margin-top:10px" onclick="closeModal()">Close</button>`);
+}
+function editAnnouncement(id){
+  const a=_annCache.find(x=>String(x.id)===String(id));if(!a)return;
+  modal(`<h2 style="margin:0 0 8px">Edit announcement</h2>
+    <input id="edAnnTitle" value="${esc(a.title||'')}" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;font-family:inherit">
+    <textarea id="edAnnBody" style="width:100%;min-height:90px;padding:9px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px;font-family:inherit">${esc(a.body||'')}</textarea>
+    <button class="btn-gold" style="width:100%" onclick="saveAnnouncementEdit('${a.id}')">Save changes</button>
+    <button class="btn-line" style="width:100%;margin-top:6px" onclick="manageAnnouncements()">Cancel</button>`);
+}
+async function saveAnnouncementEdit(id){
+  const t=document.getElementById('edAnnTitle'),b=document.getElementById('edAnnBody');
+  const{error}=await db.from('announcements').update({title:t?t.value.trim():'',body:b?b.value.trim():''}).eq('id',id);
+  if(error)return showToast('Error: '+error.message);
+  showToast('✅ Updated.');manageAnnouncements();
+}
+async function toggleAnnouncement(id,makeActive){
+  const{error}=await db.from('announcements').update({active:makeActive}).eq('id',id);
+  if(error)return showToast('Error: '+error.message);
+  manageAnnouncements();
+}
+async function deleteAnnouncement(id){
+  if(!confirm('Delete this announcement permanently?'))return;
+  const{error}=await db.from('announcements').delete().eq('id',id);
+  if(error)return showToast('Delete failed: '+error.message);
+  showToast('Deleted.');manageAnnouncements();
 }
 
 function renderAdmin(tab){
@@ -2235,13 +2313,13 @@ function renderAdmin(tab){
   }
   else if(tab==='announce'){
     body=`<div style="max-width:540px">
-      <p style="font-size:13px;color:var(--muted);margin:0 0 12px">Post a message that every user sees as a banner the next time they open the app. Posting a new one replaces the previous.</p>
+      <p style="font-size:13px;color:var(--muted);margin:0 0 12px">Post a message users see as a banner the next time they open the app. New posts no longer replace old ones — view, edit, turn off, or delete past ones with Manage.</p>
       <label style="font-weight:700;font-size:13px">Title</label>
       <input id="annTitle" placeholder="e.g. New look + you can now change your name!" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin:4px 0 10px;font-family:inherit">
       <label style="font-weight:700;font-size:13px">Message</label>
       <textarea id="annBody" placeholder="Write your announcement…" style="width:100%;min-height:96px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin:4px 0 12px;font-family:inherit"></textarea>
       <button class="btn-gold" onclick="postAnnouncement()">📣 Post announcement</button>
-      <button class="btn-line" style="margin-left:8px" onclick="clearAnnouncements()">Clear current</button>
+      <button class="btn-line" style="margin-left:8px" onclick="manageAnnouncements()">📋 Manage past announcements</button>
     </div>`;
   }
   else if(tab==='spots'){
@@ -2551,7 +2629,7 @@ async function init(){
   spots=(spotsData||[]).map(s=>({...dbToSpot(s),reviews:reviewsBySpot[s.id]||[],photos:photosBySpot[s.id]||[]}));
   const pids=[...new Set(spots.map(s=>s.createdBy).filter(id=>id&&id!=='anon'&&id!=='seed'))];
   if(pids.length){const{data:profiles}=await db.from('profiles').select('*').in('id',pids);(profiles||[]).forEach(p=>{profilesCache[p.id]=p;});}
-  loadFilters();setupSwipe();showWelcome();
+  loadFilters();setupSwipe();
   renderList();
   checkAnnouncement();
   // Deep-link: ?spot=ID opens that spot on load
@@ -2656,7 +2734,7 @@ function showTitlePicker(){
   modal('<div style="text-align:center">'+
     '<div style="font-size:44px;margin-bottom:10px">🏆</div>'+
     '<h2 style="margin:0 0 8px">You\'ve earned every badge!</h2>'+
-    '<p style="color:var(--muted);font-size:13px;margin:0 0 18px">You are a <strong>Bia Hơi Legend</strong>. Choose your title — it will appear before your name and place you in the hall of fame forever.</p>'+
+    '<p style="color:var(--muted);font-size:13px;margin:0 0 18px">You are a <strong>Bác Hơi Legend</strong>. Choose your title — it will appear before your name and place you in the hall of fame forever.</p>'+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">'+btns+'</div>'+
     '<p style="font-size:11px;color:var(--muted)">This choice is permanent 🍺</p>'+
     '</div>');
@@ -2670,7 +2748,7 @@ async function setTitle(t){
   cur.title=t;
   if(profilesCache[cur.id])profilesCache[cur.id].title=t;
   closeModal();
-  showToast('🏆 '+t+' — You are now in the Bia Hơi Legends!',4000);
+  showToast('🏆 '+t+' — You are now in the Bác Hơi Legends!',4000);
 }
 
 async function showQuests(){
@@ -2691,7 +2769,7 @@ async function showQuests(){
     :'<div class="legends-empty">'+
       '<div style="font-size:36px;margin-bottom:8px">🍺</div>'+
       '<p style="font-weight:700;margin:0 0 5px;font-size:15px">No Legends yet</p>'+
-      '<p style="color:var(--muted);font-size:13px;margin:0">Earn all '+BADGES.length+' badges, choose your title, and become the first Bia Hơi Legend. Glory awaits.</p>'+
+      '<p style="color:var(--muted);font-size:13px;margin:0">Earn all '+BADGES.length+' badges, choose your title, and become the first Bác Hơi Legend. Glory awaits.</p>'+
       '</div>';
 
   // King of Thumbs — current month
@@ -2810,7 +2888,7 @@ async function showQuests(){
     '<span class="back" onclick="renderList()">← All spots</span>'+
     '<h2 style="margin:0 0 4px">🎯 Quests & Badges</h2>'+
     '<p style="font-size:13px;color:var(--muted);margin:0 0 14px">Explore Hanoi\'s bia hơi scene and earn badges</p>'+
-    '<div class="sec">🏆 Bia Hơi Legends</div>'+
+    '<div class="sec">🏆 Bác Hơi Legends</div>'+
     legendsHTML+
     '<div class="sec" style="margin-top:14px">👑 King of Thumbs — '+mName+' '+cy+'</div>'+
     '<p style="font-size:12px;color:var(--muted);margin:0 0 8px">Most thumbs-up photos this month</p>'+
@@ -2963,6 +3041,17 @@ if('serviceWorker' in navigator){
   var _installed=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone;
   if(_installed||_prompted)return;
 
+  // iOS can't use the auto-install prompt — show Add-to-Home-Screen instructions instead
+  if(/iphone|ipad|ipod/i.test(navigator.userAgent)){
+    document.addEventListener('DOMContentLoaded',function(){
+      var el=document.getElementById('pwaPrompt');if(!el)return;
+      var t=el.querySelector('.pwa-text');
+      if(t)t.innerHTML='Install <b>Bác Hơi</b>: in Safari, tap the Share icon, then "Add to Home Screen".';
+      var ib=document.getElementById('pwaInstallBtn');if(ib)ib.style.display='none';
+      setTimeout(function(){el.classList.add('show');},5000);
+    });
+  }
+
   window.addEventListener('beforeinstallprompt',function(e){
     e.preventDefault();
     _deferredPrompt=e;
@@ -3022,9 +3111,9 @@ if('serviceWorker' in navigator){
       <div class="wf"><span class="wf-icon">🗺️</span><div class="wf-text"><strong>Explore the map</strong><span>Find bia hơi spots near you across Hanoi</span></div></div>
       <div class="wf"><span class="wf-icon">📍</span><div class="wf-text"><strong>Add a spot</strong><span>Know one we don't? Pin it on the map</span></div></div>
       <div class="wf"><span class="wf-icon">⭐</span><div class="wf-text"><strong>Rate &amp; review</strong><span>Share your honest take on the beer &amp; vibe</span></div></div>
-      <div class="wf"><span class="wf-icon">🎯</span><div class="wf-text"><strong>Quests &amp; Legends</strong><span>29 badges, earn titles &amp; join the Bia Hơi Legends</span></div></div>
+      <div class="wf"><span class="wf-icon">🎯</span><div class="wf-text"><strong>Quests &amp; Legends</strong><span>29 badges, earn titles &amp; join the Bác Hơi Legends</span></div></div>
     </div>
-    <button class="btn-welcome" onclick="dismissWelcome()">Vào bản đồ! 🍺</button>
+    <button class="btn-welcome" onclick="dismissWelcome()">Explore the map 🍺</button>
     <span class="skip-link" onclick="dismissWelcome()">I've been here before</span>
   </div>
 </div>
