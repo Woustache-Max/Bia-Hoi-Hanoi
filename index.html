@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bia Hơi Hanoi</title>
+<title>Bác Hơi</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#f5b301">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Bia Hơi">
+<meta name="apple-mobile-web-app-title" content="Bác Hơi">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
@@ -48,7 +48,7 @@
   #app{display:flex;flex-direction:column;height:100vh}
   header{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--nav-bg);color:var(--gold);z-index:1200;box-shadow:0 2px 8px rgba(0,0,0,.25)}
   header h1{font-size:18px;margin:0;letter-spacing:.2px;font-weight:800}
-  header .logo{font-size:22px}
+  header .logo{height:30px;width:30px;border-radius:7px;display:block;object-fit:cover}
   header .spacer{flex:1}
   header .user{font-size:13px;color:#fff;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
   button{cursor:pointer;font-family:inherit;border:none;border-radius:8px;padding:8px 13px;font-size:14px;font-weight:600;transition:.15s}
@@ -426,7 +426,7 @@ details[open] .quest-box{border-radius:0 0 8px 8px;margin-top:0;border-top:none}
 <body>
 <div id="app">
   <header>
-    <span class="logo">🍺</span><h1>Bia Hơi Hanoi</h1>
+    <img class="logo" src="icon-192.png" alt="Bác Hơi"><h1>Bác Hơi</h1>
     <span class="spacer"></span>
     <button class="btn-ghost btn-sm mobile-toggle" onclick="toggleSidebar()">☰</button>
     <button id="headerAddBtn" class="btn-gold btn-sm" onclick="startAdd()">+ Add spot</button>
@@ -506,7 +506,7 @@ const HANOI=[21.0285,105.8500];
 const DISTRICTS=["Hoàn Kiếm","Ba Đình","Đống Đa","Hai Bà Trưng","Tây Hồ","Cầu Giấy","Thanh Xuân","Long Biên","Hoàng Mai","Other"];
 const VIBES=["Touristy","Local-only","Lively","Chill","Cheap","Riverside","Lakeside","Rooftop","Good View","Balcony","Live music","Good for groups","Street-side","Friendly"];
 const SEATING_OPTS=["Indoor","Outdoor","Stools","Wooden chairs","Metal chairs","Plastic chairs","Metal tables","Plastic tables","Comfortable"];
-const RCATS=[["beer","Beer quality"],["food","Food & snacks"],["atmosphere","Atmosphere & location"],["clean","Cleanliness"],["value","Value for money"]];
+const RCATS=[["beer","Beer quality"],["food","Food & snacks"],["atmosphere","Atmosphere"],["clean","Cleanliness"],["value","Staff / Service"]];
 const BADGES=[
   /* Spots */
   {id:'first_spot',       icon:'📍', name:'First Pour',           desc:'Added your first bia hơi spot'},
@@ -719,7 +719,7 @@ function peekDetail(id){
     ${_pCoverCol}
   </div>`;
   const sb=document.getElementById('sidebar');
-  sb.classList.remove('open');sb.classList.add('peek');
+  sb.classList.remove('open');sb.classList.add('peek');sb.scrollTop=0;
   document.getElementById('sheetOverlay').classList.remove('on');
   const isl=document.getElementById('floatingIsland');if(isl)isl.style.display='none';
   highlightMarker(id);
@@ -762,7 +762,7 @@ function showWelcome(){
   el.className='welcome-modal';
   el.id='welcomeModal';
   el.innerHTML=`<div class="welcome-card">
-    <h2>🍺 Bia Hơi Hanoi</h2>
+    <h2>🍺 Bác Hơi</h2>
     <p class="wc-sub">The crowdsourced map of Hanoi's best bia hơi spots — built by drinkers, for drinkers.</p>
     <ul class="wc-pts">
       <li><span class="ico">🗺</span><div><b>Browse the map for free</b><br><span style="color:var(--muted)">Find spots by district, vibe, price, and more.</span></div></li>
@@ -1312,7 +1312,7 @@ async function proceedUpload(){
   input.type='file';input.accept='image/jpeg,image/png,image/webp,image/gif';
   input.onchange=async e=>{
     const file=e.target.files[0];if(!file)return;
-    const upload=file.size>5*1024*1024?await compressImage(file):file;
+    const upload=await compressImage(file,2,1600);
     const ext=upload.name.split('.').pop().toLowerCase()||'jpg';
     const path=spotId+'/'+cur.id+'_'+Date.now()+'.'+ext;
     showToast('⏳ Uploading photo…',10000);
@@ -1399,7 +1399,7 @@ async function shareSpot(id){
   const url=`https://woustache-max.github.io/Bia-Hoi-Hanoi/?spot=${encodeURIComponent(id)}`;
   if(navigator.share){
     try{
-      await navigator.share({title:s.name||'Bia Hơi Hanoi',text:`Check out ${s.name||'this bia hơi spot'} on Bia Hơi Hanoi 🍺`,url});
+      await navigator.share({title:s.name||'Bác Hơi',text:`Check out ${s.name||'this bia hơi spot'} on Bác Hơi 🍺`,url});
       return;
     }catch(e){if(e.name==='AbortError')return;}
   }
@@ -1470,8 +1470,9 @@ function renderAddForm(editId,lat,lng){
     <div class="form-sec-title">Vibe</div>
     <div class="tagpick" id="f_vibes" style="margin:0 0 4px">${VIBES.map(v=>`<label class="${s&&(s.vibes||[]).includes(v)?'on':''}"><input type="checkbox" value="${v}" ${s&&(s.vibes||[]).includes(v)?'checked':''} onchange="this.parentElement.classList.toggle('on',this.checked)">${v}</label>`).join('')}</div>
 
-    <div class="form-sec-title">Description</div>
-    <textarea id="f_desc" placeholder="Atmosphere, crowd, what makes it special…">${s?esc(s.desc):''}</textarea>
+    <div class="form-sec-title">${s?'Description':'Describe this place — neutral facts, not a review'}</div>
+    <textarea id="f_desc" placeholder="${s?'Atmosphere, crowd, what makes it special…':'What is this place? e.g. street-side bia hơi on a busy corner, serves grilled snacks, popular with locals after work…'}">${s?esc(s.desc):''}</textarea>
+    ${s?'':'<p style="font-size:12px;color:var(--muted);margin:6px 0 0">This is a neutral description so people know what the place is. After you submit, open the spot to add your personal ⭐ review separately.</p>'}
 
     <div class="form-sec-title" style="display:flex;justify-content:space-between;align-items:center">📍 Pin location${!s?`<button type="button" style="font-size:12px;font-weight:700;color:var(--blue);background:none;border:none;cursor:pointer;padding:0" onclick="changeSpotLocation()">📍 Change location</button>`:''}
     </div>
@@ -1653,6 +1654,7 @@ async function saveSpot(editId){
   if(tmpMarker){map.removeLayer(tmpMarker);tmpMarker=null}
   if(cur){await checkAndUpgrade();await checkBadges();}
   renderList();showDetail(id);
+  showToast('✅ Spot added! Now add your personal ⭐ review below.',6000);
 }
 
 function badgeProgressList(uid){
@@ -1771,6 +1773,7 @@ async function showProfile(uid){
       <div>
         <h2 style="margin:0 0 2px">${u.title?'<span style="color:var(--gold-dark)">'+u.title.split(' ')[0]+'</span> ':''}${esc(u.name)} ${rolePill(u.role)}</h2>
         ${u.title?'<div style="font-size:12px;color:var(--gold-dark);font-weight:700;margin-bottom:2px">'+esc(u.title)+'</div>':''}<div style="font-size:12px;color:var(--muted)">Member since ${u.since||'—'}</div>
+        ${isOwn?'<button class="vote" style="font-size:11px;margin-top:4px" onclick="editUsername()">✎ Edit name</button>':''}
       </div>
     </div>
     <div class="factbox">
@@ -1821,6 +1824,19 @@ async function showProfile(uid){
   document.getElementById('sidebar').scrollTop=0;
 }
 
+async function editUsername(){
+  if(!cur)return;
+  const name=(prompt('New display name:',cur.name)||'').trim();
+  if(!name||name===cur.name)return;
+  if(name.length>40)return showToast('Name too long (max 40 characters).');
+  const{error}=await db.from('profiles').update({name}).eq('id',cur.id);
+  if(error)return showToast('Could not update name: '+error.message);
+  await db.from('reviews').update({who:name}).eq('user_id',cur.id);
+  cur.name=name;if(profilesCache[cur.id])profilesCache[cur.id].name=name;
+  spots.forEach(s=>s.reviews.forEach(r=>{if(r.userId===cur.id)r.who=name;}));
+  setUserLabel();showProfile(cur.id);
+  showToast('✅ Name updated.');
+}
 async function changeAvatar(){
   if(!cur)return;
   const input=document.createElement('input');
@@ -2835,7 +2851,7 @@ function showLeaderboard(tab='spots'){
   document.getElementById('sidebarBody').innerHTML=`<div class="panel">
     <span class="back" onclick="renderList()">← All spots</span>
     <h2 style="margin:0 0 4px">🏆 Leaderboard</h2>
-    <p style="font-size:13px;color:var(--muted);margin:0 0 14px">Top contributors to Bia Hơi Hanoi</p>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 14px">Top contributors to Bác Hơi</p>
     <div class="lb-tabs">${tabBtns}</div>
     ${rows.length?`<table class="lb-table">
       <tr><th></th><th>Contributor</th><th style="text-align:right">${scoreLabel}</th></tr>
@@ -2950,24 +2966,5 @@ if('serviceWorker' in navigator){
 <div id="welcomeOverlay" class="hidden">
   <div class="welcome-card">
     <div class="welcome-logo">🍺</div>
-    <h1>Bia Hơi Hanoi</h1>
-    <p class="sub">Hanoi's crowdsourced map of the best bia hơi spots</p>
-    <div class="welcome-features">
-      <div class="wf"><span class="wf-icon">🗺️</span><div class="wf-text"><strong>Explore the map</strong><span>Find bia hơi spots near you across Hanoi</span></div></div>
-      <div class="wf"><span class="wf-icon">📍</span><div class="wf-text"><strong>Add a spot</strong><span>Know one we don't? Pin it on the map</span></div></div>
-      <div class="wf"><span class="wf-icon">⭐</span><div class="wf-text"><strong>Rate & review</strong><span>Share your honest take on the beer &amp; vibe</span></div></div>
-      <div class="wf"><span class="wf-icon">🎯</span><div class="wf-text"><strong>Quests &amp; Legends</strong><span>29 badges, earn titles &amp; join the Bia Hơi Legends</span></div></div>
-    </div>
-    <button class="btn-welcome" onclick="dismissWelcome()">Vào bản đồ! 🍺</button>
-    <span class="skip-link" onclick="dismissWelcome()">I've been here before</span>
-  </div>
-</div>
-
-<div id="pwaPrompt">
-  <span style="font-size:22px">📲</span>
-  <span class="pwa-text">Add <b>Bia Hơi Hanoi</b> to your home screen</span>
-  <button class="pwa-install" id="pwaInstallBtn">Install</button>
-  <button class="pwa-dismiss" id="pwaDismissBtn">✕</button>
-</div>
-</body>
-</html>
+    <h1>Bác Hơi</h1>
+    <p clas
