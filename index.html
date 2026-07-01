@@ -2245,6 +2245,26 @@ async function openAdmin(){
   renderAdmin('overview');
 }
 
+async function downloadFullBackup(){
+  if(!cur||cur.role!=='admin')return;
+  showToast('⏳ Preparing backup…');
+  try{
+    const[sp,rv,ph,pr,an]=await Promise.all([
+      db.from('spots').select('*'),
+      db.from('reviews').select('*'),
+      db.from('photos').select('*'),
+      db.from('profiles').select('*'),
+      db.from('announcements').select('*')
+    ]);
+    const data={app:'Bac Hoi',exported_at:new Date().toISOString(),
+      counts:{spots:(sp.data||[]).length,reviews:(rv.data||[]).length,photos:(ph.data||[]).length,profiles:(pr.data||[]).length},
+      spots:sp.data||[],reviews:rv.data||[],photos:ph.data||[],profiles:pr.data||[],announcements:an.data||[]};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bac-hoi-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    showToast('✅ Backup downloaded — save it somewhere safe.');
+  }catch(e){showToast('Backup failed: '+(e&&e.message||e));}
+}
 function exportCSV(type){
   const d=adminData;
   let rows=[],filename='';
@@ -2371,7 +2391,7 @@ function renderAdmin(tab){
 
   let body='';
   if(tab==='overview'){
-    body=`<div class="stat-grid">
+    body=`<div style="margin-bottom:12px;padding:10px 12px;background:#fbf6ea;border:1px solid var(--line);border-radius:8px"><button class="btn-gold btn-sm" onclick="downloadFullBackup()">⬇ Download full backup</button> <span style="font-size:12px;color:var(--muted)">Run this weekly &amp; save the file (computer/Drive) — your data safety net.</span></div><div class="stat-grid">
       <div class="stat-card"><div class="num">${d.spots.length}</div><div class="lbl">Total spots</div></div>
       <div class="stat-card"><div class="num">${unverified.length}</div><div class="lbl">Unverified</div></div>
       <div class="stat-card"><div class="num">${d.users.length}</div><div class="lbl">Registered users</div></div>
