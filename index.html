@@ -504,7 +504,8 @@ const QUEST_A_REVIEWS = 3;
 const QUEST_B_SPOTS   = 5;
 
 const HANOI=[21.0285,105.8500];
-const DISTRICTS=["Hoàn Kiếm","Ba Đình","Đống Đa","Hai Bà Trưng","Tây Hồ","Cầu Giấy","Thanh Xuân","Long Biên","Hoàng Mai","Other"];
+const URBAN_DISTRICTS=["Hoàn Kiếm","Ba Đình","Đống Đa","Hai Bà Trưng","Tây Hồ","Cầu Giấy","Thanh Xuân","Long Biên","Hoàng Mai","Nam Từ Liêm","Bắc Từ Liêm","Hà Đông"];
+const DISTRICTS=[...URBAN_DISTRICTS,"Other"];
 const VIBES=["Touristy","Local-only","Lively","Chill","Cheap","Riverside","Lakeside","Rooftop","Good View","Balcony","Live music","Good for groups","Street-side","Friendly"];
 const SEATING_OPTS=["Indoor","Outdoor","Stools","Wooden chairs","Metal chairs","Plastic chairs","Metal tables","Plastic tables","Comfortable"];
 const RCATS=[["beer","Beer quality"],["food","Food & snacks"],["atmosphere","Atmosphere"],["clean","Cleanliness"],["value","Staff / Service"]];
@@ -534,6 +535,7 @@ const BADGES=[
   /* Explorer */
   {id:'district_explorer',icon:'🗺️', name:'District Explorer',    desc:'Reviewed spots in 4 different districts'},
   {id:'city_wide',        icon:'🌆', name:'City-Wide',            desc:'Reviewed spots in 7 different districts'},
+  {id:'all_districts',    icon:'👑', name:'District Champion',     desc:'Reviewed a spot in all 12 Hanoi urban districts'},
   {id:'old_quarter',      icon:'🏘️', name:'Old Quarter Crawler',  desc:'Reviewed 5 spots in Hoàn Kiếm district'},
   {id:'tay_ho',           icon:'🌊', name:'Tây Hồ Regular',       desc:'Reviewed 3 spots in Tây Hồ district'},
   {id:'safety_inspector', icon:'🦺', name:'Safety Inspector',     desc:'Reported 3 spots for correction'},
@@ -960,7 +962,7 @@ function renderList(sortByDist){
   }
   const _wk=new Date(Date.now()-7*24*60*60*1000).toISOString();
   const _new=spots.filter(s=>s.createdAt&&s.createdAt>_wk);
-  const _newSec=_new.length?`<div class="new-strip"><div class="new-strip-lbl">🆕 New this week</div><div class="new-strip-row">${_new.map(s=>`<button class="new-chip" onclick="showDetail('${s.id}')">${esc(s.name)}</button>`).join('')}</div></div>`:'';
+  const _newSec='';
   body.innerHTML=_newSec+list.map(s=>{
     const open=isOpen(s),closed=s.status!=='active';
     const d=window._me?dist(window._me[0],window._me[1],s.lat,s.lng):null;
@@ -1732,7 +1734,7 @@ function badgeProgressList(uid){
     gallery_owner:pr(myPhotos.length,10),lensman:pr(photoSpots.size,10),
     helpful:pr(helpfulVotes,10),community_pillar:pr(helpfulVotes,25),
     verified_spot:pr(myVerified.length,1),trusted:pr(myVerified.length,3),
-    district_explorer:pr(reviewedDistricts.size,4),city_wide:pr(reviewedDistricts.size,7),
+    district_explorer:pr(reviewedDistricts.size,4),city_wide:pr(reviewedDistricts.size,7),all_districts:pr(URBAN_DISTRICTS.filter(d=>reviewedDistricts.has(d)).length,12),
     old_quarter:pr(hoankiemSpots,5),tay_ho:pr(tayhoSpots,3),safety_inspector:pr(reportCount,3),
     early_bird:bn(isEarlyBird),golden_hour:bn(isGoldenHour),night_owl:pr(nightOwlSpots,3),
     plastic_stool:pr(streetSideSpots,5),uncle_approved:bn(isUncleApproved),full_uncle:bn(isFullUncle),
@@ -2801,6 +2803,7 @@ function badgesFor(uid){
   if(myVerified.length>=3) earned.push('trusted');
   if(reviewedDistricts.size>=4) earned.push('district_explorer');
   if(reviewedDistricts.size>=7) earned.push('city_wide');
+  if(URBAN_DISTRICTS.every(d=>reviewedDistricts.has(d))) earned.push('all_districts');
   if(spots.filter(s=>s.district==='Hoàn Kiếm'&&s.reviews.some(r=>r.userId===uid)).length>=5) earned.push('old_quarter');
   if(spots.filter(s=>s.district==='Tây Hồ'&&s.reviews.some(r=>r.userId===uid)).length>=3) earned.push('tay_ho');
   if(reportCount>=3) earned.push('safety_inspector');
@@ -2984,6 +2987,7 @@ async function showQuests(){
       '<div class="qsec">🗺️ Explorer</div>'+
         qi('district_explorer',reviewedDistricts.size,4)+
         qi('city_wide',reviewedDistricts.size,7)+
+        qi('all_districts',URBAN_DISTRICTS.filter(d=>reviewedDistricts.has(d)).length,12)+
         qi('old_quarter',hkSpots.length,5)+
         qi('tay_ho',thSpots.length,3)+
         qi('safety_inspector',reportCount,3)+
