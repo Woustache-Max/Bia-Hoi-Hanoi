@@ -813,14 +813,16 @@ function showIslandHints(){
 }
 function setupSwipe(){
   const sb=document.getElementById('sidebar');
-  let _sy=0,_sx=0;
-  sb.addEventListener('touchstart',e=>{_sy=e.touches[0].clientY;_sx=e.touches[0].clientX;},{passive:true});
+  let _sy=0,_sx=0,_st=0;
+  sb.addEventListener('touchstart',e=>{_sy=e.touches[0].clientY;_sx=e.touches[0].clientX;_st=sb.scrollTop;},{passive:true});
   sb.addEventListener('touchend',e=>{
     const dy=e.changedTouches[0].clientY-_sy;
     const dx=Math.abs(e.changedTouches[0].clientX-_sx);
     if(dy>70&&dx<50){
-      if(sb.classList.contains('peek'))closeSidebar();
-      else if(sb.classList.contains('open')){
+      if(sb.classList.contains('peek')){closeSidebar();return;}
+      // Only dismiss a full sheet if content was already at the top —
+      // otherwise a downward swipe is just the user scrolling up to read.
+      if(sb.classList.contains('open')&&_st<=0){
         const detId=window._highlightedMarker&&window._highlightedMarker.id;
         if(detId)peekDetail(detId);
         else closeSidebar();
@@ -1959,7 +1961,7 @@ async function logout(){
 function setUserLabel(){
   const el=document.getElementById('userLabel');
   if(!cur){
-    el.innerHTML='<button class="btn-ghost btn-sm" onclick="authModal(true)">Join</button> <button class="btn-ghost btn-sm" onclick="authModal(false)">Sign in</button>';
+    el.innerHTML='<button class="btn-ghost btn-sm" title="Games & Share" onclick="openGames()">🎲</button> <button class="btn-ghost btn-sm" onclick="authModal(true)">Join</button> <button class="btn-ghost btn-sm" onclick="authModal(false)">Sign in</button>';
     return;
   }
   const av=cur.avatar_url?'<img class="av-sm" src="'+cur.avatar_url+'" alt="">':'👤';
@@ -1971,6 +1973,7 @@ function setUserLabel(){
   if(bkCount)html+='<button class="user-menu-item" onclick="closeUserMenu();showProfile(cur.id)">&#128278; Saved spots ('+bkCount+')</button>';
   html+='<button class="user-menu-item" onclick="closeUserMenu();showLeaderboard()">&#127942; Leaderboard</button>';
   html+='<button class="user-menu-item" onclick="closeUserMenu();showQuests()">&#127919; Badges &amp; Quests</button>';
+  html+='<button class="user-menu-item" onclick="closeUserMenu();openGames()">&#127922; Games &amp; Share</button>';
   html+='<button class="user-menu-item" onclick="closeUserMenu();toggleDark()">&#127769; Dark mode</button>';
   if(cur.role==='admin')html+='<button class="user-menu-item" onclick="closeUserMenu();openAdmin()">&#9881; Admin panel</button>';
   html+='<button class="user-menu-item danger" onclick="closeUserMenu();logout()">Sign out</button>';
@@ -1997,6 +2000,52 @@ function toggleUserMenu(){
 function closeUserMenu(){
   const m=document.getElementById('userMenu');
   if(m)m.style.display='none';
+}
+function openGames(){
+  modal(`<div style="max-height:80vh;overflow-y:auto;text-align:left">
+    <h2 style="margin:0 0 2px">🎲 Games & Share</h2>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 14px">Silly games to play with your table — no scoring, just fun. Meet people without the app? Show them the QR.</p>
+    <div style="border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:14px">
+      <div style="background:var(--ink);color:var(--gold);padding:10px 14px;font-weight:800">🍺 Một, Hai, Ba, Dô!</div>
+      <div style="padding:12px 14px;font-size:13px;line-height:1.5">
+        <div style="background:#e6f5e6;color:#1b5e20;font-weight:700;padding:5px 10px;border-radius:6px;margin-bottom:6px">Drink HALF your beer if you see:</div>
+        <ul style="margin:0 0 12px;padding-left:18px"><li>4 on a bike</li><li>Tây driving without a helmet</li><li>An uncle cycling against the flow of traffic</li><li>Couple wearing matching helmets</li><li>Shipper on a big bike</li></ul>
+        <div style="background:#fbe6e6;color:#8b1a1a;font-weight:700;padding:5px 10px;border-radius:6px;margin-bottom:6px">Drink the REST of your beer if you see:</div>
+        <ul style="margin:0 0 12px;padding-left:18px"><li>5 or more on a bike</li><li>Couple wearing matching outfits</li><li>Northern ethnic-minority builder with a colourful headscarf</li><li>Any 4-wheel+ vehicle going against the flow of traffic</li></ul>
+        <div style="background:#e3eefc;color:#0d3b8b;font-weight:700;padding:5px 10px;border-radius:6px;margin-bottom:6px">Drink a FULL beer if you see:</div>
+        <ul style="margin:0 0 12px;padding-left:18px"><li>Animal carcass on a bike</li><li>Lost-looking foreigners</li><li>Ninja lead (fully-covered motorbike rider)</li></ul>
+        <div style="background:var(--gold);color:var(--ink);font-weight:800;padding:6px 10px;border-radius:6px">★ BONUS</div>
+        <p style="margin:6px 0 0">Nominate someone to wave at a passer-by. If they wave back, the nominee drinks. If they don't, you drink.</p>
+      </div>
+    </div>
+    <div style="border:1px solid var(--line);border-radius:12px;overflow:hidden">
+      <div style="background:var(--ink);color:var(--gold);padding:10px 14px;font-weight:800">📲 Share Bác Hơi</div>
+      <div style="padding:12px 14px;text-align:center">
+        <p style="font-size:13px;color:var(--muted);margin:0 0 10px">Scan to open the app — great for sharing at the hơi.</p>
+        <div id="qrBox" style="display:flex;justify-content:center;min-height:170px;align-items:center"></div>
+        <button class="btn-line btn-sm" style="margin-top:10px" onclick="copyShareLink()">Copy link</button>
+      </div>
+    </div>
+  </div>
+  <button class="btn-line" style="width:100%;margin-top:12px" onclick="closeModal()">Close</button>`);
+  renderShareQR();
+}
+function renderShareQR(){
+  const box=document.getElementById('qrBox');if(!box)return;
+  const url=location.origin+location.pathname;
+  const go=()=>{box.innerHTML='';try{new QRCode(box,{text:url,width:170,height:170,colorDark:'#1f1a12',colorLight:'#ffffff'});}catch(e){box.innerHTML='<a href="'+url+'" style="word-break:break-all">'+esc(url)+'</a>';}};
+  if(window.QRCode){go();return;}
+  box.innerHTML='<span style="color:var(--muted);font-size:12px">Loading QR…</span>';
+  const sc=document.createElement('script');
+  sc.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+  sc.onload=go;
+  sc.onerror=()=>{box.innerHTML='<a href="'+url+'" style="word-break:break-all">'+esc(url)+'</a>';};
+  document.head.appendChild(sc);
+}
+function copyShareLink(){
+  const url=location.origin+location.pathname;
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(url).then(function(){showToast('Link copied! 🍺');},function(){showToast(url);});
+  else showToast(url);
 }
 function fiNav(tab){
   if(tab==='near'){
