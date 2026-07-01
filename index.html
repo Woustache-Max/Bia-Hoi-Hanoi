@@ -1960,6 +1960,7 @@ async function logout(){
 }
 
 function setUserLabel(){
+  checkBackupReminder();
   const el=document.getElementById('userLabel');
   if(!cur){
     el.innerHTML='<button class="btn-ghost btn-sm" title="Games" onclick="openGames()">🎲</button> <button class="btn-ghost btn-sm" onclick="authModal(true)">Join</button> <button class="btn-ghost btn-sm" onclick="authModal(false)">Sign in</button>';
@@ -2262,8 +2263,23 @@ async function downloadFullBackup(){
     const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bac-hoi-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    localStorage.setItem('bhLastBackup',new Date().toISOString());checkBackupReminder();
     showToast('✅ Backup downloaded — save it somewhere safe.');
   }catch(e){showToast('Backup failed: '+(e&&e.message||e));}
+}
+function checkBackupReminder(){
+  const existing=document.getElementById('backupNag');
+  if(!cur||cur.role!=='admin'){if(existing)existing.remove();return;}
+  const last=localStorage.getItem('bhLastBackup');
+  const overdue=!last||(Date.now()-new Date(last).getTime())>7*86400000;
+  if(!overdue){if(existing)existing.remove();return;}
+  if(existing)return;
+  const days=last?Math.floor((Date.now()-new Date(last).getTime())/86400000):null;
+  const bar=document.createElement('div');
+  bar.id='backupNag';
+  bar.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:2500;background:#7a1f1f;color:#fff;padding:9px 14px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:13px;box-shadow:0 -2px 10px rgba(0,0,0,.3);flex-wrap:wrap';
+  bar.innerHTML='⏰ <b>Weekly backup due</b>'+(days!=null?' — last one '+days+' day'+(days===1?'':'s')+' ago.':' — none yet.')+' <button class="btn-gold btn-sm" onclick="downloadFullBackup()">⬇ Back up now</button>';
+  document.body.appendChild(bar);
 }
 function exportCSV(type){
   const d=adminData;
