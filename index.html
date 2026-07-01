@@ -1082,7 +1082,7 @@ async function showDetail(id){
       <span>Photos</span>
       ${(cur&&(cur.role==='active'||cur.role==='admin'))?`<button class="btn-line btn-sm" style="font-size:12px" onclick="uploadPhoto('${s.id}')" title="Add a photo of this spot">📷 Add photo</button>`:''}
     </div>
-    <div class="photos">${s.photos&&s.photos.length?s.photos.map((p,i)=>`<div style="position:relative"><img src="${p.url}" onclick="viewPhoto('${s.id}',${i})" style="width:100%;height:90px;object-fit:cover;border-radius:6px;cursor:pointer">${(cur&&(p.uploaded_by===cur.id||cur.role==='admin'))?`<button onclick="deletePhoto('${p.id}','${p.path}','${s.id}')" title="Delete photo" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;padding:0;cursor:pointer;line-height:20px;text-align:center">✕</button>`:''}${admin?`<button onclick="adminSetCover('${s.id}','${p.url}')" style="position:absolute;bottom:3px;left:3px;background:${s.cover_photo_url===p.url?'var(--gold)':'rgba(0,0,0,.55)'};color:${s.cover_photo_url===p.url?'#000':'#fff'};border:none;border-radius:8px;font-size:10px;font-weight:700;padding:2px 5px;cursor:pointer;line-height:1.4">${s.cover_photo_url===p.url?'★ Cover':'☆ Cover'}</button>`:''}  </div>`).join(''):'<div style="grid-column:1/4;color:var(--muted);font-size:13px;padding:6px 0">No photos yet — be the first to add one!</div>'}</div>
+    <div class="photos">${s.photos&&s.photos.length?s.photos.map((p,i)=>`<div style="position:relative"><img src="${p.url}" onclick="viewPhoto('${s.id}',${i})" style="width:100%;height:90px;object-fit:cover;border-radius:6px;cursor:pointer">${(cur&&(p.uploaded_by===cur.id||cur.role==='admin'))?`<button onclick="deletePhoto('${p.id}','${p.path}','${s.id}')" title="Delete photo" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;padding:0;cursor:pointer;line-height:20px;text-align:center">✕</button>`:''}${admin?`<button onclick="adminSetCover('${s.id}','${p.url}')" style="position:absolute;bottom:3px;left:3px;background:${s.cover_photo_url===p.url?'var(--gold)':'rgba(0,0,0,.55)'};color:${s.cover_photo_url===p.url?'#000':'#fff'};border:none;border-radius:8px;font-size:10px;font-weight:700;padding:2px 5px;cursor:pointer;line-height:1.4">${s.cover_photo_url===p.url?'★ Cover':'☆ Cover'}</button>`:''}<button onclick="event.stopPropagation();likePhoto('${p.id}','${s.id}')" title="Like photo" style="position:absolute;bottom:3px;right:3px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:12px;font-size:11px;font-weight:700;padding:2px 7px;cursor:pointer;line-height:1.4">${(cur&&p.likes&&p.likes.includes(cur.id))?'❤️':'🤍'}${(p.likes&&p.likes.length)?' '+p.likes.length:''}</button>  </div>`).join(''):'<div style="grid-column:1/4;color:var(--muted);font-size:13px;padding:6px 0">No photos yet — be the first to add one!</div>'}</div>
     <div class="sec" style="display:flex;justify-content:space-between;align-items:center">
       <span>Reviews</span>
       ${s.reviews.length>1?`<div style="display:flex;gap:4px" id="sortBtns">
@@ -1377,6 +1377,16 @@ async function deletePhoto(photoId,path,spotId){
 }
 
 let _lbPhotos=[],_lbIdx=0;
+async function likePhoto(photoId,spotId){
+  if(!cur){authModal(false);return;}
+  const spot=byId(spotId);if(!spot)return;
+  const p=(spot.photos||[]).find(x=>x.id===photoId);if(!p)return;
+  p.likes=p.likes||[];
+  const i=p.likes.indexOf(cur.id);
+  if(i>=0){p.likes.splice(i,1);await db.from('photo_likes').delete().eq('photo_id',photoId).eq('user_id',cur.id);}
+  else{p.likes.push(cur.id);await db.from('photo_likes').insert({photo_id:photoId,user_id:cur.id});}
+  showDetail(spotId);
+}
 function viewPhoto(spotId,i){
   const s=byId(spotId);
   if(!s||!s.photos||!s.photos.length)return;
@@ -2731,10 +2741,13 @@ async function init(){
   // Load spots and reviews as separate queries to avoid PostgREST embedding 401s
   const{data:spotsData,error}=await db.from('spots').select('*');
   if(error){console.error('Load error:',error);document.getElementById('sidebarBody').innerHTML='<div class="empty-note">⚠ '+error.message+' ('+error.code+')</div>';return;}
-  const[{data:reviewsData},{data:photosData}]=await Promise.all([
+  const[{data:reviewsData},{data:photosData},{data:likesData}]=await Promise.all([
     db.from('reviews').select('*'),
-    db.from('photos').select('*').eq('flagged',false)
+    db.from('photos').select('*').eq('flagged',false),
+    db.from('photo_likes').select('*')
   ]);
+  const likesByPhoto={};
+  (likesData||[]).forEach(l=>{(likesByPhoto[l.photo_id]=likesByPhoto[l.photo_id]||[]).push(l.user_id);});
   const reviewsBySpot={};
   (reviewsData||[]).forEach(r=>{
     if(!reviewsBySpot[r.spot_id])reviewsBySpot[r.spot_id]=[];
@@ -2742,6 +2755,7 @@ async function init(){
   });
   const photosBySpot={};
   (photosData||[]).forEach(p=>{
+    p.likes=likesByPhoto[p.id]||[];
     if(!photosBySpot[p.spot_id])photosBySpot[p.spot_id]=[];
     photosBySpot[p.spot_id].push(p);
   });
