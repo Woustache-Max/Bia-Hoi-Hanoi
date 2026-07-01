@@ -437,7 +437,7 @@ details[open] .quest-box{border-radius:0 0 8px 8px;margin-top:0;border-top:none}
     <button class="fi-btn" id="fi-near" onclick="fiNav('near')">&#128205;<span class="fi-lbl">Near me</span></button>
     <button class="fi-btn fi-active" id="fi-list" onclick="fiNav('list')">&#128203;<span class="fi-lbl">List</span></button>
     <button class="fi-btn" id="fi-add" onclick="startAdd()">✏️<span class="fi-lbl">Add</span></button>
-    <button class="fi-btn" id="fi-new" onclick="fiNav('new')">&#10024;<span class="fi-lbl">New</span></button>
+    <button class="fi-btn" id="fi-games" onclick="openGames()">&#127922;<span class="fi-lbl">Games</span></button>
     <button class="fi-btn" id="fi-me" onclick="fiNav('me')">&#128100;<span class="fi-lbl">Me</span></button>
   </div>
   <div class="sheet-overlay" id="sheetOverlay" onclick="closeSidebar()"></div>
@@ -795,7 +795,7 @@ function showIslandHints(){
     {id:'fi-near',label:'Near me'},
     {id:'fi-list',label:'Spot list'},
     {id:'fi-add',label:'Add a spot'},
-    {id:'fi-new',label:'New spots'},
+    {id:'fi-games',label:'Games'},
     {id:'fi-me',label:'Your profile'}
   ];
   const islRect=isl.getBoundingClientRect();
@@ -2094,7 +2094,6 @@ function fiNav(tab){
   const btn=document.getElementById('fi-'+tab);
   if(btn)btn.classList.add('fi-active');
   if(tab==='list'){openSidebar();renderList();}
-  else if(tab==='new'){renderNewPanel();}
   else if(tab==='me'){
     if(!cur){authModal(false);return;}
     showProfile(cur.id);
@@ -2265,6 +2264,7 @@ async function downloadFullBackup(){
     const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bac-hoi-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    try{await db.from('app_settings').upsert({k:'last_backup_at',v:new Date().toISOString()});}catch(e){}
     localStorage.setItem('bhLastBackup',new Date().toISOString());checkBackupReminder();
     showToast('✅ Backup downloaded — save it somewhere safe.');
   }catch(e){showToast('Backup failed: '+(e&&e.message||e));}
@@ -2718,6 +2718,7 @@ async function init(){
     const{data:profile}=await db.from('profiles').select('*').eq('id',session.user.id).single();
     if(profile){cur={...profile,email:session.user.email};profilesCache[profile.id]=cur;}
   }
+  try{const{data:_bk}=await db.from('app_settings').select('v').eq('k','last_backup_at').maybeSingle();if(_bk&&_bk.v)localStorage.setItem('bhLastBackup',_bk.v);}catch(e){}
   db.auth.onAuthStateChange(async(event,session)=>{
     if(session){
       if(event==='SIGNED_IN')await new Promise(r=>setTimeout(r,400));
