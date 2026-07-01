@@ -429,6 +429,7 @@ details[open] .quest-box{border-radius:0 0 8px 8px;margin-top:0;border-top:none}
     <img class="logo" src="icon-192.png" alt="Bác Hơi"><h1>Bác Hơi</h1>
     <span class="spacer"></span>
     <button class="btn-ghost btn-sm mobile-toggle" onclick="toggleSidebar()">☰</button>
+    <button class="btn-ghost btn-sm" title="Share Bác Hơi" onclick="openShare()" style="margin-right:2px">📲</button>
     <button id="headerAddBtn" class="btn-gold btn-sm" onclick="startAdd()">+ Add spot</button>
     <div class="user" id="userLabel"></div>
   </header>
@@ -1961,7 +1962,7 @@ async function logout(){
 function setUserLabel(){
   const el=document.getElementById('userLabel');
   if(!cur){
-    el.innerHTML='<button class="btn-ghost btn-sm" title="Games & Share" onclick="openGames()">🎲</button> <button class="btn-ghost btn-sm" onclick="authModal(true)">Join</button> <button class="btn-ghost btn-sm" onclick="authModal(false)">Sign in</button>';
+    el.innerHTML='<button class="btn-ghost btn-sm" title="Games" onclick="openGames()">🎲</button> <button class="btn-ghost btn-sm" onclick="authModal(true)">Join</button> <button class="btn-ghost btn-sm" onclick="authModal(false)">Sign in</button>';
     return;
   }
   const av=cur.avatar_url?'<img class="av-sm" src="'+cur.avatar_url+'" alt="">':'👤';
@@ -1973,7 +1974,7 @@ function setUserLabel(){
   if(bkCount)html+='<button class="user-menu-item" onclick="closeUserMenu();showProfile(cur.id)">&#128278; Saved spots ('+bkCount+')</button>';
   html+='<button class="user-menu-item" onclick="closeUserMenu();showLeaderboard()">&#127942; Leaderboard</button>';
   html+='<button class="user-menu-item" onclick="closeUserMenu();showQuests()">&#127919; Badges &amp; Quests</button>';
-  html+='<button class="user-menu-item" onclick="closeUserMenu();openGames()">&#127922; Games &amp; Share</button>';
+  html+='<button class="user-menu-item" onclick="closeUserMenu();openGames()">&#127922; Games</button>';
   html+='<button class="user-menu-item" onclick="closeUserMenu();toggleDark()">&#127769; Dark mode</button>';
   if(cur.role==='admin')html+='<button class="user-menu-item" onclick="closeUserMenu();openAdmin()">&#9881; Admin panel</button>';
   html+='<button class="user-menu-item danger" onclick="closeUserMenu();logout()">Sign out</button>';
@@ -2001,35 +2002,65 @@ function closeUserMenu(){
   const m=document.getElementById('userMenu');
   if(m)m.style.display='none';
 }
-function openGames(){
-  modal(`<div style="max-height:80vh;overflow-y:auto;text-align:left">
-    <h2 style="margin:0 0 2px">🎲 Games & Share</h2>
-    <p style="font-size:12px;color:var(--muted);margin:0 0 14px">Silly games to play with your table — no scoring, just fun. Meet people without the app? Show them the QR.</p>
-    <div style="border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:14px">
-      <div style="background:var(--ink);color:var(--gold);padding:10px 14px;font-weight:800">🍺 Một, Hai, Ba, Dô!</div>
-      <div style="padding:12px 14px;font-size:13px;line-height:1.5">
-        <div style="background:#e6f5e6;color:#1b5e20;font-weight:700;padding:5px 10px;border-radius:6px;margin-bottom:6px">Drink HALF your beer if you see:</div>
-        <ul style="margin:0 0 12px;padding-left:18px"><li>4 on a bike</li><li>Tây driving without a helmet</li><li>An uncle cycling against the flow of traffic</li><li>Couple wearing matching helmets</li><li>Shipper on a big bike</li></ul>
-        <div style="background:#fbe6e6;color:#8b1a1a;font-weight:700;padding:5px 10px;border-radius:6px;margin-bottom:6px">Drink the REST of your beer if you see:</div>
-        <ul style="margin:0 0 12px;padding-left:18px"><li>5 or more on a bike</li><li>Couple wearing matching outfits</li><li>Northern ethnic-minority builder with a colourful headscarf</li><li>Any 4-wheel+ vehicle going against the flow of traffic</li></ul>
-        <div style="background:#e3eefc;color:#0d3b8b;font-weight:700;padding:5px 10px;border-radius:6px;margin-bottom:6px">Drink a FULL beer if you see:</div>
-        <ul style="margin:0 0 12px;padding-left:18px"><li>Animal carcass on a bike</li><li>Lost-looking foreigners</li><li>Ninja lead (fully-covered motorbike rider)</li></ul>
-        <div style="background:var(--gold);color:var(--ink);font-weight:800;padding:6px 10px;border-radius:6px">★ BONUS</div>
-        <p style="margin:6px 0 0">Nominate someone to wave at a passer-by. If they wave back, the nominee drinks. If they don't, you drink.</p>
-      </div>
-    </div>
-    <div style="border:1px solid var(--line);border-radius:12px;overflow:hidden">
-      <div style="background:var(--ink);color:var(--gold);padding:10px 14px;font-weight:800">📲 Share Bác Hơi</div>
-      <div style="padding:12px 14px;text-align:center">
-        <p style="font-size:13px;color:var(--muted);margin:0 0 10px">Scan to open the app — great for sharing at the hơi.</p>
-        <div id="qrBox" style="display:flex;justify-content:center;min-height:170px;align-items:center"></div>
-        <button class="btn-line btn-sm" style="margin-top:10px" onclick="copyShareLink()">Copy link</button>
-      </div>
-    </div>
+const GAMES=[
+  {t:'🍺 Một Hai Ba Dô',html:`
+    <div style="background:#e6f5e6;color:#1b5e20;font-weight:700;padding:5px 10px;border-radius:6px;margin-bottom:6px">Drink HALF your beer if you see:</div>
+    <ul style="margin:0 0 12px;padding-left:18px;font-size:13px;line-height:1.5"><li>4 on a bike</li><li>Tây driving without a helmet</li><li>An uncle cycling against the flow of traffic</li><li>Couple wearing matching helmets</li><li>Shipper on a big bike</li></ul>
+    <div style="background:#fbe6e6;color:#8b1a1a;font-weight:700;padding:5px 10px;border-radius:6px;margin-bottom:6px">Drink the REST of your beer if you see:</div>
+    <ul style="margin:0 0 12px;padding-left:18px;font-size:13px;line-height:1.5"><li>5 or more on a bike</li><li>Couple wearing matching outfits</li><li>Northern ethnic-minority builder with a colourful headscarf</li><li>Any 4-wheel+ vehicle going against the flow of traffic</li></ul>
+    <div style="background:#e3eefc;color:#0d3b8b;font-weight:700;padding:5px 10px;border-radius:6px;margin-bottom:6px">Drink a FULL beer if you see:</div>
+    <ul style="margin:0 0 12px;padding-left:18px;font-size:13px;line-height:1.5"><li>Animal carcass on a bike</li><li>Lost-looking foreigners</li><li>Ninja lead (fully-covered motorbike rider)</li></ul>
+    <div style="background:var(--gold);color:var(--ink);font-weight:800;padding:6px 10px;border-radius:6px">★ BONUS</div>
+    <p style="margin:6px 0 0;font-size:13px;line-height:1.5">Nominate someone to wave at a passer-by. If they wave back, the nominee drinks. If they don't, you drink.</p>`},
+  {t:'🐴 Horse Racing',html:`
+    <p style="color:var(--muted);margin:0 0 10px;font-size:12px">🃏 Needs a deck of cards — most hơis have one, or a shop nearby sells them cheap.</p>
+    <ol style="margin:0;padding-left:18px;font-size:13px;line-height:1.55">
+      <li><b>Set up:</b> take the 4 Aces out and lay them in a row — the horses (♠ ♥ ♦ ♣).</li>
+      <li><b>The track:</b> deal 6 cards face-down going away from the start — these are the "fences."</li>
+      <li><b>Bet:</b> everyone bets drinks on a suit to win.</li>
+      <li><b>Race:</b> flip the deck one card at a time — that suit's horse steps forward.</li>
+      <li><b>Fences:</b> once all 4 horses have passed a fence, flip it — that suit steps back one.</li>
+      <li><b>Finish:</b> first Ace past the last fence wins. Winner's backers hand out drinks; losers' backers drink. 🍺</li>
+    </ol>`},
+  {t:'👀 Look Up',html:`
+    <p style="color:var(--muted);margin:0 0 10px;font-size:12px">🙌 No props. Pure chaos — best with 4+ people.</p>
+    <ol style="margin:0;padding-left:18px;font-size:13px;line-height:1.55">
+      <li>Everyone puts their head <b>down</b>.</li>
+      <li>Someone counts: <b>"Một… Hai… Ba!"</b></li>
+      <li>On "Ba!", everyone <b>snaps their head up</b> and stares at <b>one</b> other person.</li>
+      <li>Two people looking <b>right at each other</b> — both drink! 🍺</li>
+      <li>Heads down, go again. Gets faster and funnier.</li>
+    </ol>`},
+  {t:'🔢 Sevens',html:`
+    <p style="color:var(--muted);margin:0 0 10px;font-size:12px">🔢 No props. A counting game that scrambles your brain.</p>
+    <ol style="margin:0;padding-left:18px;font-size:13px;line-height:1.55">
+      <li>Go around the circle counting up: 1, 2, 3…</li>
+      <li>Any <b>multiple of 7</b> (7, 14, 21…) <b>or number with a 7 in it</b> (7, 17, 27…) → say <b>"Dô!"</b> instead of the number.</li>
+      <li>Say the number by mistake, hesitate, or "Dô!" at the wrong time → <b>you drink</b>, restart from 1.</li>
+      <li>Speed up each round. Total chaos by 70. 🍺</li>
+    </ol>`}
+];
+function openGames(){gameTab(0);}
+function gameTab(i){
+  const tabs=GAMES.map((g,idx)=>`<button onclick="gameTab(${idx})" style="padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;border:1px solid var(--line);cursor:pointer;background:${idx===i?'var(--gold)':'#fff'};color:var(--ink)">${g.t}</button>`).join('');
+  modal(`<div style="text-align:left">
+    <h2 style="margin:0 0 10px;font-size:18px">🎲 Games at the Hơi</h2>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${tabs}</div>
+    <div style="max-height:62vh;overflow-y:auto">${GAMES[i].html}</div>
   </div>
   <button class="btn-line" style="width:100%;margin-top:12px" onclick="closeModal()">Close</button>`);
+}
+function openShare(){
+  const nativeBtn=navigator.share?`<button class="btn-gold" style="width:100%;margin-top:12px" onclick="nativeShare()">Share via…</button>`:'';
+  modal(`<h2 style="margin:0 0 6px">📲 Share Bác Hơi</h2>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 12px">Show this QR for someone to scan, or copy the link.</p>
+    <div id="qrBox" style="display:flex;justify-content:center;min-height:170px;align-items:center"></div>
+    ${nativeBtn}
+    <button class="btn-line" style="width:100%;margin-top:6px" onclick="copyShareLink()">Copy link</button>
+    <button class="btn-line" style="width:100%;margin-top:6px" onclick="closeModal()">Close</button>`);
   renderShareQR();
 }
+function nativeShare(){const url=location.origin+location.pathname;if(navigator.share)navigator.share({title:'Bác Hơi',text:'Find the best bia hơi in Hanoi 🍺',url}).catch(function(){});}
 function renderShareQR(){
   const box=document.getElementById('qrBox');if(!box)return;
   const url=location.origin+location.pathname;
