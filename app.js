@@ -407,7 +407,10 @@ async function checkIn(spotId) {
         .from('check_ins')
         .insert({ spot_id: spotId, user_id: cur.id });
       if (error) {
-        showToast('Could not check in.');
+        showToast(
+          'Could not check in: ' + (error.message || error.code || 'unknown error'),
+          5000,
+        );
         return;
       }
       s.lastCheckinAt = new Date().toISOString();
@@ -1020,7 +1023,8 @@ function clearFilters() {
     if (el) el.checked = val;
   };
   setV('fDistrict', '');
-  setV('fVibe', '');
+  window._vibeFilter = [];
+  updateVibeBtn();
   setV('fRating', '0');
   setV('fPrice', '0');
   setC('fOpen', false);
@@ -1034,7 +1038,7 @@ function saveFilters() {
   try {
     const f = {
       d: (document.getElementById('fDistrict') || {}).value || '',
-      v: (document.getElementById('fVibe') || {}).value || '',
+      v: window._vibeFilter || [],
       r: (document.getElementById('fRating') || {}).value || '0',
       p: (document.getElementById('fPrice') || {}).value || '0',
       o: !!(document.getElementById('fOpen') || {}).checked,
@@ -1058,7 +1062,8 @@ function loadFilters() {
       if (el) el.checked = !!val;
     };
     setV('fDistrict', f.d);
-    setV('fVibe', f.v);
+    window._vibeFilter = Array.isArray(f.v) ? f.v : f.v ? [f.v] : [];
+    updateVibeBtn();
     setV('fRating', f.r);
     setV('fPrice', f.p);
     setC('fOpen', f.o);
@@ -1068,8 +1073,8 @@ function loadFilters() {
 }
 function visibleSpots() {
   const q = (document.getElementById('searchBox').value || '').toLowerCase();
-  const d = document.getElementById('fDistrict').value,
-    v = document.getElementById('fVibe').value;
+  const d = document.getElementById('fDistrict').value;
+  const vibeSel = window._vibeFilter || [];
   const minR = +document.getElementById('fRating').value,
     maxP = +document.getElementById('fPrice').value;
   const openOnly = document.getElementById('fOpen').checked;
@@ -1094,7 +1099,8 @@ function visibleSpots() {
     )
       return false;
     if (d && s.district !== d) return false;
-    if (v && !(s.vibes || []).includes(v)) return false;
+    if (vibeSel.length && !vibeSel.some((vv) => (s.vibes || []).includes(vv)))
+      return false;
     if (minR && spotAvg(s) < minR) return false;
     if (maxP) {
       const p = parseInt((s.pricePerGlass || '').replace(/\D/g, '')) || 0;
@@ -1104,6 +1110,87 @@ function visibleSpots() {
     if (verifiedOnly && !s.verified) return false;
     return true;
   });
+}
+
+/* ============================================================
+   VIBE FILTER (multi-select) + SURPRISE PICKER
+   ============================================================ */
+function updateVibeBtn() {
+  const btn = document.getElementById('fVibeBtn');
+  if (!btn) return;
+  const sel = window._vibeFilter || [];
+  btn.textContent = sel.length
+    ? sel.length === 1
+      ? sel[0]
+      : sel.length + ' vibes'
+    : 'Any vibe';
+  btn.style.borderColor = sel.length ? 'var(--gold)' : 'var(--line)';
+  btn.style.fontWeight = sel.length ? '700' : '400';
+}
+function openVibeFilter() {
+  const sel = window._vibeFilter || [];
+  const chips = VIBES.map((v) => {
+    const on = sel.includes(v);
+    return (
+      '<button type="button" data-v="' +
+      esc(v) +
+      '" data-on="' +
+      (on ? '1' : '0') +
+      '" onclick="toggleVibePick(this)" style="padding:7px 12px;border-radius:20px;border:1.5px solid ' +
+      (on ? 'var(--gold)' : 'var(--line)') +
+      ';background:' +
+      (on ? 'rgba(245,179,1,.13)' : 'var(--card)') +
+      ';color:var(--ink);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">' +
+      esc(v) +
+      '</button>'
+    );
+  }).join('');
+  modal(
+    '<h2 style="margin:0 0 4px;font-size:18px">Filter by vibe</h2>' +
+      '<p style="font-size:12px;color:var(--muted);margin:2px 0 12px">Pick any that appeal — shows spots matching at least one.</p>' +
+      '<div id="vibePicks" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">' +
+      chips +
+      '</div>' +
+      '<button class="btn-gold" style="width:100%" onclick="applyVibeFilter()">Show spots</button>' +
+      '<button class="btn-line" style="width:100%;margin-top:8px" onclick="clearVibeFilter()">Clear vibes</button>',
+  );
+}
+function toggleVibePick(btn) {
+  const on = btn.getAttribute('data-on') === '1';
+  btn.setAttribute('data-on', on ? '0' : '1');
+  btn.style.borderColor = on ? 'var(--line)' : 'var(--gold)';
+  btn.style.background = on ? 'var(--card)' : 'rgba(245,179,1,.13)';
+}
+function applyVibeFilter() {
+  window._vibeFilter = [
+    ...document.querySelectorAll('#vibePicks button[data-on="1"]'),
+  ].map((b) => b.getAttribute('data-v'));
+  updateVibeBtn();
+  closeModal();
+  renderList();
+  saveFilters();
+}
+function clearVibeFilter() {
+  window._vibeFilter = [];
+  updateVibeBtn();
+  closeModal();
+  renderList();
+  saveFilters();
+}
+function surpriseSpot() {
+  let pool = visibleSpots();
+  const bounds =
+    typeof map !== 'undefined' && map && map.getBounds ? map.getBounds() : null;
+  if (bounds) pool = pool.filter((s) => bounds.contains([s.lat, s.lng]));
+  if (!pool.length) {
+    showToast('No spots in view — zoom out a little, then try Random again.');
+    return;
+  }
+  const s = pool[Math.floor(Math.random() * pool.length)];
+  if (typeof map !== 'undefined' && map && map.setView)
+    map.setView([s.lat, s.lng], 16);
+  if (innerWidth <= 680) peekDetail(s.id);
+  else showDetail(s.id);
 }
 
 /* ============================================================
@@ -1154,8 +1241,7 @@ function renderList(sortByDist) {
     if (q.trim()) activeFilters.push(`"${q.trim()}"`);
     if ((document.getElementById('fDistrict') || {}).value)
       activeFilters.push('district');
-    if ((document.getElementById('fVibe') || {}).value)
-      activeFilters.push('vibe');
+    if ((window._vibeFilter || []).length) activeFilters.push('vibe');
     if (parseFloat((document.getElementById('fRating') || {}).value) > 0)
       activeFilters.push('rating');
     if (parseFloat((document.getElementById('fPrice') || {}).value) > 0)
@@ -5180,7 +5266,6 @@ async function adminDismissReports(id) {
    INIT — app bootstrap, data loading, deep-link handling
    ============================================================ */
 DISTRICTS.forEach((d) => fDistrict.add(new Option(d, d)));
-VIBES.forEach((v) => fVibe.add(new Option(v, v)));
 
 async function init() {
   const {
