@@ -1,10 +1,12 @@
 /* Bác Hơi — Service Worker */
-const SHELL_CACHE = 'biahoi-shell-v56';
+const SHELL_CACHE = 'biahoi-shell-v57';
 const CDN_CACHE   = 'biahoi-cdn-v1';
 
 const SHELL_URLS = [
   '/Bia-Hoi-Hanoi/',
   '/Bia-Hoi-Hanoi/index.html',
+  '/Bia-Hoi-Hanoi/styles.css',
+  '/Bia-Hoi-Hanoi/app.js',
   '/Bia-Hoi-Hanoi/manifest.json',
   '/Bia-Hoi-Hanoi/icon-192.png',
   '/Bia-Hoi-Hanoi/icon-512.png',
