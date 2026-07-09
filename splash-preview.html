@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bác Hơi — splash animation preview (Rise &amp; fizz v2)</title>
+<style>
+  :root{--amber:#F5B301;--petrol-lt:#5FD0CF;--dark:#16302e;--foam:#FDF3D6}
+  *{box-sizing:border-box}
+  body{margin:0;background:#0d1a17;color:#e8e6df;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:28px 16px;display:flex;flex-direction:column;align-items:center}
+  h1{font-weight:600;font-size:20px;text-align:center;margin:0 0 4px}
+  .note{text-align:center;color:#8a938c;font-size:13px;margin:0 0 24px;max-width:420px}
+  .phone{position:relative;width:264px;height:524px;background:var(--dark);border-radius:34px;border:1px solid #294540;overflow:hidden}
+  .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:2}
+  .logo{width:150px;height:150px;border-radius:24px;display:block;animation:reveal 3.6s ease-in-out infinite}
+  .tag{font-size:15px;font-weight:600;color:var(--petrol-lt);letter-spacing:.2px;opacity:0;animation:tagIn 3.6s ease infinite}
+  .bubbles{position:absolute;inset:0;z-index:1;pointer-events:none}
+  .bub{position:absolute;bottom:-14px;border-radius:50%;opacity:0;animation-name:rise;animation-iteration-count:infinite;animation-timing-function:ease-in}
+  @keyframes reveal{0%{clip-path:inset(100% 0 0 0);opacity:0}12%{opacity:.15}55%{clip-path:inset(0 0 0 0);opacity:1}86%{opacity:1}100%{clip-path:inset(0 0 0 0);opacity:0}}
+  @keyframes tagIn{0%,55%{opacity:0;transform:translateY(8px)}75%,90%{opacity:1;transform:none}100%{opacity:0}}
+  @keyframes rise{0%{transform:translateY(0) scale(.8);opacity:0}12%{opacity:.9}85%{opacity:.6}100%{transform:translateY(-580px) scale(1);opacity:0}}
+</style>
+</head>
+<body>
+  <h1>Rise &amp; fizz — v2</h1>
+  <p class="note">Your real logo. Bubbles rise across the whole screen while the logo fizzes in from the bottom up. Loops here; in the app it plays once, then fades to the map.</p>
+  <div class="phone">
+    <div class="bubbles" id="bubbles"></div>
+    <div class="center">
+      <img class="logo" src="icon-192.png" alt="Bác Hơi logo">
+      <div class="tag">Your Bia Hơi Map</div>
+    </div>
+  </div>
+  <script>
+    var wrap=document.getElementById('bubbles');
+    for(var i=0;i<28;i++){
+      var b=document.createElement('span');
+      b.className='bub';
+      var size=4+Math.random()*7;
+      b.style.width=b.style.height=size+'px';
+      b.style.left=(Math.random()*100)+'%';
+      b.style.background=Math.random()<0.25?'rgba(245,179,1,.65)':'rgba(253,243,214,.55)';
+      var dur=2.8+Math.random()*2.8;
+      b.style.animationDuration=dur+'s';
+      b.style.animationDelay=(-Math.random()*dur)+'s';
+      wrap.appendChild(b);
+    }
+  </script>
+</body>
+</html>
