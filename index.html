@@ -52,7 +52,7 @@ setTimeout(function(){if(window.hideSplash)window.hideSplash();},4500);})();
     <button class="fi-btn" id="fi-saved" onclick="fiNav('saved')" aria-label="Saved spots">&#128278;<span class="fi-lbl">Saved</span></button>
     <button class="fi-btn fi-add-btn" id="fi-add" onclick="startAdd()" aria-label="Add a spot">&#10133;<span class="fi-lbl">Add</span></button>
     <button class="fi-btn" id="fi-near" onclick="fiNav('near')" aria-label="Near me">&#128205;<span class="fi-lbl">Near me</span></button>
-    <button class="fi-btn" id="fi-rewards" onclick="showQuests()" aria-label="Rewards and badges">&#127942;<span class="fi-lbl">Rewards</span></button>
+    <button class="fi-btn" id="fi-random" onclick="surpriseSpot()" aria-label="Random spot">&#128256;<span class="fi-lbl">Random</span></button>
   </div>
   <div class="sheet-overlay" id="sheetOverlay" onclick="closeSidebar()"></div>
   <div class="main">
@@ -68,6 +68,7 @@ setTimeout(function(){if(window.hideSplash)window.hideSplash();},4500);})();
         <button class="btn-line btn-sm" onclick="toggleFilters()">⚲ Filters</button>
         <button class="btn-line btn-sm" onclick="showLeaderboard()" aria-label="Leaderboard" title="Leaderboard">🏆</button>
         <button class="btn-line btn-sm" onclick="showQuests()" aria-label="Quests & Badges" title="Quests & Badges">🎯</button>
+        <button class="btn-line btn-sm" onclick="surpriseSpot()" aria-label="Random spot" title="Random spot — picks one on your screen">🔀<span class="near-lbl"> Random</span></button>
         <button class="btn-line btn-sm" id="nearMeBtn" onclick="nearMe()">📍<span class="near-lbl"> Near me</span></button>
         <select id="fRadius" onchange="renderList(true);saveFilters()" style="padding:5px 8px;border:1px solid var(--line);border-radius:7px;font-size:13px;display:none">
           <option value="0.5">Within 500m</option>
@@ -80,7 +81,7 @@ setTimeout(function(){if(window.hideSplash)window.hideSplash();},4500);})();
       </div>
       <div class="filters" id="filters">
         <select id="fDistrict" onchange="renderList();saveFilters()"><option value="">All districts</option></select>
-        <select id="fVibe" onchange="renderList();saveFilters()"><option value="">Any vibe</option></select>
+        <button type="button" id="fVibeBtn" onclick="openVibeFilter()" style="padding:6px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px;font-family:inherit;background:var(--card);color:var(--ink);cursor:pointer">Any vibe</button>
         <select id="fRating" onchange="renderList();saveFilters()">
           <option value="0">Any rating</option><option value="3">3+ 🍺</option>
           <option value="4">4+ 🍺</option><option value="4.5">4.5+ 🍺</option></select>
@@ -126,15 +127,4 @@ setTimeout(function(){if(window.hideSplash)window.hideSplash();},4500);})();
       <div class="wf"><span class="wf-icon">🎯</span><div class="wf-text"><strong>Quests &amp; Legends</strong><span>37 badges, earn titles &amp; join the Bác Hơi Legends</span></div></div>
     </div>
     <button class="btn-welcome" onclick="dismissWelcome()">Explore the map 🍺</button>
-    <span class="skip-link" onclick="dismissWelcome()">I've been here before</span>
-  </div>
-</div>
-
-<div id="pwaPrompt">
-  <span style="font-size:22px">📲</span>
-  <span class="pwa-text">Add <b>Bác Hơi</b> to your home screen</span>
-  <button class="pwa-install" id="pwaInstallBtn">Install</button>
-  <button class="pwa-dismiss" id="pwaDismissBtn">✕</button>
-</div>
-</body>
-</html>
+    <span class="skip-link" onclick="dismissWelcome()">I've been here bef

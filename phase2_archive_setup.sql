@@ -12,6 +12,8 @@ create table if not exists public.check_ins (
 alter table public.check_ins enable row level security;
 grant select, insert on public.check_ins to authenticated;
 grant select on public.check_ins to anon;
+-- bigserial id needs sequence usage, or inserts fail with "permission denied for sequence".
+grant usage, select on sequence public.check_ins_id_seq to authenticated;
 
 drop policy if exists check_ins_select on public.check_ins;
 create policy check_ins_select on public.check_ins for select using (true);
@@ -38,6 +40,4 @@ begin
 end;
 $$;
 
-drop trigger if exists trg_bump_checkin on public.check_ins;
-create trigger trg_bump_checkin after insert on public.check_ins
-  for each row execute function public.bump_spot_checkin();
+drop trigger if exi
