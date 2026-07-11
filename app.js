@@ -293,7 +293,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.9.7';
+const APP_VERSION = '0.9.8';
 const MONTHLY_AWARDS = [
   {
     type: 'photo',
@@ -4689,7 +4689,6 @@ function closeSidebar() {
   if (_ci) _ci.style.display = '';
   clearMarkerHighlight();
   window._peekSpotId = null;
-  _navSig = bhSig();
 }
 
 /* ============================================================
@@ -7026,54 +7025,56 @@ window.addEventListener('DOMContentLoaded', function () {
 /* ============================================================
    BACK-BUTTON NAVIGATION (mobile history intercept)
    ============================================================ */
+// _navStack mirrors the real number of history entries WE pushed (one per
+// navPush call). It's the source of truth for "how many in-app levels deep
+// are we" — NOT DOM inspection, which reflects the view being left, not the
+// view being returned to, and caused the old code to fake a "list" level
+// that had no real history entry backing it (root cause of the Saved →
+// Back → Back → app-exits bug: the fake level ate the one real pop, so the
+// next physical Back fell straight through to the pre-app history entry).
 var _navSig = '';
-function bhSig() {
-  if (document.getElementById('modal')) return 'modal';
-  var b = document.getElementById('sidebarBody');
-  if (b && b.querySelector('.panel')) return 'panel';
-  var sb = document.getElementById('sidebar');
-  if (sb && (sb.classList.contains('open') || sb.classList.contains('peek')))
-    return 'list';
-  return '';
-}
+var _navStack = [];
 // Push ONE real history entry per navigation level, on a normal user tap (reliable —
 // no push happens during the back event). Re-render-safe: same view won't stack entries.
 function navPush(sig) {
   if (sig === _navSig) return;
   history.pushState({ bhNav: 1 }, '');
+  _navStack.push(sig);
   _navSig = sig;
 }
 // In-app back (← links) route through history so the browser stack stays in sync.
 function bhBack() {
-  if (_navSig) {
+  if (_navStack.length) {
     history.back();
   } else {
-    renderList();
+    _navHome();
   }
 }
+// Reset to the map/home view — the ONE stable base a further Back is allowed to exit from.
+function _navHome() {
+  if (document.getElementById('modal')) closeModal();
+  if (innerWidth <= 680) closeSidebar();
+  renderList();
+  _navSig = '';
+  _navStack = [];
+}
 window.addEventListener('popstate', function () {
-  var modal = document.getElementById('modal');
-  if (modal) {
+  _navStack.pop();
+  var modalEl = document.getElementById('modal');
+  if (modalEl) {
+    // Only the modal goes away — whatever view was open underneath is untouched.
     closeModal();
-    _navSig = bhSig();
+    _navSig = _navStack.length ? _navStack[_navStack.length - 1] : '';
     return;
   }
-  var body = document.getElementById('sidebarBody');
-  if (body && body.querySelector('.panel')) {
+  if (!_navStack.length) {
+    if (innerWidth <= 680) closeSidebar();
     renderList();
-    _navSig = bhSig();
+    _navSig = '';
     return;
   }
-  var sb = document.getElementById('sidebar');
-  if (
-    sb &&
-    (sb.classList.contains('open') || sb.classList.contains('peek')) &&
-    window.innerWidth <= 680
-  ) {
-    closeSidebar();
-    _navSig = bhSig();
-    return;
-  }
+  renderList();
+  _navSig = _navStack[_navStack.length - 1];
 });
 
 /* ── Service Worker registration ── */
