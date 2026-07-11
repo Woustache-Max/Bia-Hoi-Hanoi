@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "PowerShell(Invoke-WebRequest -Uri \"http://localhost:8080/index.html\" -UseBasicParsing)",
-      "PowerShell(Invoke-WebRequest -Uri \"http://localhost:8080/styles.css\" -UseBasicParsing)",
-      "PowerShell(Invoke-WebRequest -Uri \"http://localhost:8080/app.js\" -UseBasicParsing)"
-    ]
-  }
-}

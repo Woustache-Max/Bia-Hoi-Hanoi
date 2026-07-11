@@ -957,6 +957,7 @@ form textarea {
   padding: 16px;
   background: rgba(10, 8, 4, 0.78);
   backdrop-filter: blur(4px);
+  overflow-y: auto;
 }
 #welcomeOverlay.hidden {
   display: none;
@@ -970,6 +971,8 @@ form textarea {
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
   text-align: center;
   position: relative;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
 }
 [data-theme='dark'] .welcome-card {
   background: var(--card);
@@ -2341,7 +2344,7 @@ form textarea {
     display: none;
   }
   .mobile-toggle {
-    display: none;
+    display: inline-block;
   }
   .user-meta {
     display: none;
@@ -2445,4 +2448,39 @@ details[open] .quest-box {
   #pwaPrompt {
     bottom: 24px;
   }
+}
+
+/* toolbar buttons that live only on desktop (mobile uses island/menu) */
+@media (max-width: 600px) {
+  .tool-desktop { display: none !important; }
+}
+
+/* spot-list sort chips (Top rated / This week / Newest) */
+.list-sort {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px 4px 10px;
+  position: sticky;
+  top: 0;
+  background: var(--card);
+  z-index: 5;
+}
+.lsort {
+  border: 1.5px solid var(--line);
+  background: var(--card);
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 5px 11px;
+  border-radius: 20px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.12s;
+}
+.lsort.on {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #000;
 }

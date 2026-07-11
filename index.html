@@ -3,7 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bác Hơi</title>
+<title>Bác Hơi — Vietnam's bia hơi map | Find &amp; rate spots</title>
+<meta name="description" content="Bác Hơi is Vietnam's crowdsourced map of the best bia hơi spots. Discover, rate, check in and share great cheap-beer spots across Hanoi and beyond.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Bác Hơi">
+<meta property="og:title" content="Bác Hơi — Vietnam's bia hơi map">
+<meta property="og:description" content="Find, rate and share the best bia hơi spots across Vietnam. Crowdsourced, free, and made for beer lovers.">
+<meta property="og:url" content="https://woustache-max.github.io/Bia-Hoi-Hanoi/">
+<meta property="og:image" content="https://woustache-max.github.io/Bia-Hoi-Hanoi/og-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Bác Hơi — Vietnam's bia hơi map">
+<meta name="twitter:description" content="Find, rate and share the best bia hơi spots across Vietnam.">
+<meta name="twitter:image" content="https://woustache-max.github.io/Bia-Hoi-Hanoi/og-card.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#f5b301">
 <meta name="mobile-web-app-capable" content="yes">
@@ -11,6 +24,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Bác Hơi">
 <link rel="apple-touch-icon" href="icon-192.png">
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
 <!-- MarkerCluster.Default.css omitted — using custom cluster icons -->
@@ -37,13 +51,14 @@ setTimeout(function(){if(window.hideSplash)window.hideSplash();},4500);})();
       <div class="user-menu" id="logoMenu" style="display:none;left:0;right:auto;top:calc(100% + 6px)">
         <button class="user-menu-item" onclick="closeLogoMenu();goHome()">&#127968; Home</button>
         <button class="user-menu-item" onclick="closeLogoMenu();showAbout()">&#8505;&#65039; About Bác Hơi</button>
+        <button class="user-menu-item" onclick="closeLogoMenu();showHelp()">&#10067; Help &amp; FAQ</button>
         <button class="user-menu-item" onclick="closeLogoMenu();showLostSpots()">&#128367;&#65039; Lost spots</button>
         <button class="user-menu-item" onclick="toggleGhosts()" style="display:flex;align-items:center;justify-content:space-between">&#128123; Ghost pins on map<span class="dm-switch" id="ghostSwitch" aria-hidden="true"></span></button>
         <div id="archiveStat" style="padding:6px 12px 8px;font-size:10px;color:rgba(255,255,255,.55);text-align:center"></div>
       </div>
     </div>
     <span class="spacer"></span>
-    <button class="btn-ghost btn-sm mobile-toggle" onclick="toggleSidebar()" aria-label="Show spot list" title="Show spot list">☰</button>
+    <button class="btn-ghost btn-sm mobile-toggle" onclick="openExplore()" aria-label="Search spots" title="Search spots">🔍</button>
     <button id="headerAddBtn" class="btn-gold btn-sm" onclick="startAdd()">+ Add spot</button>
     <div class="user" id="userLabel"></div>
   </header>
@@ -66,10 +81,9 @@ setTimeout(function(){if(window.hideSplash)window.hideSplash();},4500);})();
           <button class="search-clear" id="searchClear" onclick="clearSearch()" title="Clear search">✕</button>
         </div>
         <button class="btn-line btn-sm" onclick="toggleFilters()">⚲ Filters</button>
-        <button class="btn-line btn-sm" onclick="showLeaderboard()" aria-label="Leaderboard" title="Leaderboard">🏆</button>
-        <button class="btn-line btn-sm" onclick="showQuests()" aria-label="Quests & Badges" title="Quests & Badges">🎯</button>
-        <button class="btn-line btn-sm" onclick="surpriseSpot()" aria-label="Random spot" title="Random spot — picks one on your screen">🔀<span class="near-lbl"> Random</span></button>
-        <button class="btn-line btn-sm" id="nearMeBtn" onclick="nearMe()">📍<span class="near-lbl"> Near me</span></button>
+        <button class="btn-line btn-sm tool-desktop" onclick="fiNav('new')" aria-label="What's New" title="What's New">✨<span class="near-lbl"> Latest</span></button>
+        <button class="btn-line btn-sm tool-desktop" onclick="surpriseSpot()" aria-label="Random spot" title="Random spot — picks one on your screen">🔀<span class="near-lbl"> Random</span></button>
+        <button class="btn-line btn-sm tool-desktop" id="nearMeBtn" onclick="nearMe()">📍<span class="near-lbl"> Near me</span></button>
         <select id="fRadius" onchange="renderList(true);saveFilters()" style="padding:5px 8px;border:1px solid var(--line);border-radius:7px;font-size:13px;display:none">
           <option value="0.5">Within 500m</option>
           <option value="1">Within 1km</option>
@@ -114,8 +128,9 @@ setTimeout(function(){if(window.hideSplash)window.hideSplash();},4500);})();
   <div class="lb-counter" id="lbCounter"></div>
   <div class="lb-caption" id="lbCaption"></div>
   <button id="lbLike" onclick="event.stopPropagation();lbLike()" style="margin-top:12px;border:none;border-radius:20px;padding:9px 20px;font-size:14px;font-weight:700;cursor:pointer;background:var(--gold);color:#000">🤍 Like</button>
+  <button id="lbReport" onclick="event.stopPropagation();lbReport()" style="margin-top:12px;margin-left:8px;border:none;border-radius:20px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;background:rgba(255,255,255,.16);color:#fff">⚑ Report</button>
 </div>
-<div id="welcomeOverlay" class="hidden">
+<div id="welcomeOverlay" class="hidden" onclick="if(event.target===this)dismissWelcome()">
   <div class="welcome-card">
     <div class="welcome-logo">🍺</div>
     <h1>Bác Hơi</h1>
@@ -127,4 +142,16 @@ setTimeout(function(){if(window.hideSplash)window.hideSplash();},4500);})();
       <div class="wf"><span class="wf-icon">🎯</span><div class="wf-text"><strong>Quests &amp; Legends</strong><span>37 badges, earn titles &amp; join the Bác Hơi Legends</span></div></div>
     </div>
     <button class="btn-welcome" onclick="dismissWelcome()">Explore the map 🍺</button>
-    <span class="skip-link" onclick="dismissWelcome()">I've been here bef
+    <span class="skip-link" onclick="dismissWelcome()">I've been here before</span>
+    <div style="margin-top:12px;font-size:13px;color:var(--muted)">Already a member? <a onclick="dismissWelcome();authModal(false)" style="color:var(--gold-dark);cursor:pointer;text-decoration:underline;font-weight:700">Sign in</a></div>
+  </div>
+</div>
+
+<div id="pwaPrompt">
+  <span style="font-size:22px">📲</span>
+  <span class="pwa-text">Add <b>Bác Hơi</b> to your home screen</span>
+  <button class="pwa-install" id="pwaInstallBtn">Install</button>
+  <button class="pwa-dismiss" id="pwaDismissBtn">✕</button>
+</div>
+</body>
+</html>
