@@ -293,7 +293,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.9.6';
+const APP_VERSION = '0.9.7';
 const MONTHLY_AWARDS = [
   {
     type: 'photo',
@@ -3446,6 +3446,7 @@ async function showProfile(uid) {
       <div class="factrow"><b>Reviews written</b><span>${userReviews.length}</span></div>
       <div class="factrow"><b>Spots verified</b><span>${verified}</span></div>
     </div>
+    ${isOwn ? districtsWidgetHTML(reviewedDistrictsSet(uid).size, URBAN_DISTRICTS.length, 'districtsWidgetProfile') : ''}
     ${(() => {
       const ts = (u.top_spots || [])
         .map((id) => byId(id))
@@ -3648,6 +3649,12 @@ async function showProfile(uid) {
     })()}
   </div>`;
   document.getElementById('sidebar').scrollTop = 0;
+  if (isOwn) {
+    districtsExploredCount(uid).then((n) => {
+      const el = document.getElementById('districtsWidgetProfile');
+      if (el) el.innerHTML = districtsBarInnerHTML(n, URBAN_DISTRICTS.length);
+    });
+  }
 }
 
 async function editUsername() {
@@ -3958,6 +3965,8 @@ function setUserLabel() {
     '<button class="user-menu-item" onclick="closeUserMenu();openInbox()" style="display:flex;align-items:center;justify-content:space-between">🔔 Notifications<span id="menuNotifCount" style="display:none;background:var(--red);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;padding:0 4px;align-items:center;justify-content:center;line-height:1"></span></button>';
   html +=
     '<button class="user-menu-item" onclick="closeUserMenu();showProfile(cur.id)">&#128100; My profile</button>';
+  html +=
+    '<button class="user-menu-item" onclick="closeUserMenu();showWrapped()">&#127873; Bia Hơi Wrapped</button>';
   html +=
     '<button class="user-menu-item" onclick="closeUserMenu();showLeaderboard()">&#127942; Leaderboard</button>';
   html +=
@@ -5967,6 +5976,221 @@ async function setTitle(t) {
   if (profilesCache[cur.id]) profilesCache[cur.id].title = t;
   closeModal();
   showToast('🏆 ' + t + ' — You are now in the Bác Hơi Legends!', 4000);
+}
+
+/* ============================================================
+   WRAPPED — personal recap + districts-explored tracker
+   ============================================================ */
+function reviewedDistrictsSet(uid) {
+  const set = new Set();
+  spots.forEach((s) => {
+    if (s.district && s.reviews.some((r) => r.userId === uid)) set.add(s.district);
+  });
+  return set;
+}
+async function myCheckedInSpotIds(uid) {
+  try {
+    const { data } = await db
+      .from('check_ins')
+      .select('spot_id')
+      .eq('user_id', uid);
+    return (data || []).map((r) => r.spot_id).filter(Boolean);
+  } catch (e) {
+    return [];
+  }
+}
+function districtsBarInnerHTML(count, total) {
+  const pct = total ? Math.round((count / total) * 100) : 0;
+  return (
+    '<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:6px"><span>' +
+    count +
+    ' / ' +
+    total +
+    '</span><span style="color:var(--muted);font-weight:400">' +
+    pct +
+    '%</span></div><div style="background:var(--line);border-radius:6px;height:8px;overflow:hidden"><div style="background:var(--gold);height:100%;width:' +
+    pct +
+    '%"></div></div>'
+  );
+}
+function districtsWidgetHTML(count, total, id) {
+  return (
+    '<div class="sec">🗺️ Districts explored</div><div id="' +
+    id +
+    '" style="background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px">' +
+    districtsBarInnerHTML(count, total) +
+    '</div>'
+  );
+}
+async function districtsExploredCount(uid) {
+  const set = reviewedDistrictsSet(uid);
+  const spotIds = await myCheckedInSpotIds(uid);
+  spotIds.forEach((id) => {
+    const s = byId(id);
+    if (s && s.district) set.add(s.district);
+  });
+  return set.size;
+}
+async function wrappedStats(uid) {
+  const spotIds = await myCheckedInSpotIds(uid);
+  const checkinCounts = {};
+  spotIds.forEach((id) => (checkinCounts[id] = (checkinCounts[id] || 0) + 1));
+  const checkedSpots = [...new Set(spotIds)].map(byId).filter(Boolean);
+
+  const myReviews = [];
+  spots.forEach((s) =>
+    s.reviews.forEach((r) => {
+      if (r.userId === uid)
+        myReviews.push({ ...r, spotId: s.id, spotName: s.name, district: s.district });
+    }),
+  );
+  const myPhotos = spots.flatMap((s) =>
+    (s.photos || []).filter((p) => p.uploaded_by === uid),
+  );
+
+  const districts = new Set();
+  checkedSpots.forEach((s) => s.district && districts.add(s.district));
+  myReviews.forEach((r) => r.district && districts.add(r.district));
+
+  const visitedSpotIds = new Set([
+    ...checkedSpots.map((s) => s.id),
+    ...myReviews.map((r) => r.spotId),
+  ]);
+
+  let topSpot = null;
+  if (checkedSpots.length) {
+    let bestCount = -1,
+      bestRating = -1;
+    checkedSpots.forEach((s) => {
+      const c = checkinCounts[s.id] || 0;
+      const r = spotAvg(s);
+      if (c > bestCount || (c === bestCount && r > bestRating)) {
+        topSpot = s;
+        bestCount = c;
+        bestRating = r;
+      }
+    });
+  }
+  if (!topSpot && myReviews.length) {
+    const bySpot = {};
+    myReviews.forEach((r) => {
+      const s = byId(r.spotId);
+      if (!s) return;
+      const rating = revAvg(r);
+      if (!bySpot[r.spotId] || rating > bySpot[r.spotId].rating)
+        bySpot[r.spotId] = { spot: s, rating };
+    });
+    const arr = Object.values(bySpot).sort((a, b) => b.rating - a.rating);
+    topSpot = arr.length ? arr[0].spot : null;
+  }
+
+  const u = userById(uid) || {};
+  const earned = badgesFor(uid);
+  const allEarned = [...new Set([...(earned || []), ...(u.badges || [])])];
+
+  return {
+    spotsVisited: visitedSpotIds.size,
+    districtsCount: districts.size,
+    districtsTotal: URBAN_DISTRICTS.length,
+    reviewsWritten: myReviews.length,
+    photosAdded: myPhotos.length,
+    badgesEarned: allEarned.length,
+    badgesTotal: BADGES.length,
+    topSpot,
+    memberSince: u.since || '',
+  };
+}
+function wrappedTile(icon, value, label) {
+  return (
+    '<div style="background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:14px 10px;text-align:center">' +
+    '<div style="font-size:24px">' +
+    icon +
+    '</div><div style="font-size:22px;font-weight:800;margin:4px 0 2px">' +
+    value +
+    '</div><div style="font-size:11px;color:var(--muted)">' +
+    label +
+    '</div></div>'
+  );
+}
+async function showWrapped() {
+  if (!cur) return authModal(false);
+  navPush('wrapped');
+  openSidebar();
+  {
+    var _tb = document.querySelector('.toolbar');
+    if (_tb) _tb.style.display = 'none';
+  }
+  document.getElementById('sidebarBody').innerHTML =
+    '<div class="panel"><span class="back" onclick="bhBack()">← All spots</span><div style="text-align:center;padding:30px;color:var(--muted)">Loading your Wrapped…</div></div>';
+
+  const st = await wrappedStats(cur.id);
+  window._lastWrapped = st;
+
+  const topSpotHTML = st.topSpot
+    ? '<div class="list-item" onclick="showDetail(\'' +
+      st.topSpot.id +
+      '\')">' +
+      (st.topSpot.photos && st.topSpot.photos.length
+        ? '<img class="list-thumb" src="' + st.topSpot.photos[0].url + '" alt="" loading="lazy">'
+        : '<div class="list-thumb-ph">🍺</div>') +
+      '<div class="list-text"><h3>' +
+      esc(st.topSpot.name) +
+      '</h3><div class="meta"><span>' +
+      esc(st.topSpot.district || '') +
+      '</span></div></div></div>'
+    : '<div class="txt-muted" style="padding:6px 0">Check in or review a spot to find your top spot.</div>';
+
+  document.getElementById('sidebarBody').innerHTML =
+    '<div class="panel">' +
+    '<span class="back" onclick="bhBack()">← All spots</span>' +
+    '<h2 style="margin:4px 0 2px">🎁 Your Bác Hơi Wrapped</h2>' +
+    '<div style="font-size:12px;color:var(--muted);margin-bottom:14px">Member since ' +
+    (st.memberSince || '—') +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">' +
+    wrappedTile('🍺', st.spotsVisited, 'Spots visited') +
+    wrappedTile('🗺️', st.districtsCount + '/' + st.districtsTotal, 'Districts explored') +
+    wrappedTile('✍️', st.reviewsWritten, 'Reviews written') +
+    wrappedTile('📷', st.photosAdded, 'Photos added') +
+    wrappedTile('🎯', st.badgesEarned + '/' + st.badgesTotal, 'Badges earned') +
+    '</div>' +
+    districtsWidgetHTML(st.districtsCount, st.districtsTotal, 'districtsWidgetWrapped') +
+    '<div class="sec">★ Your top spot</div>' +
+    topSpotHTML +
+    '<button class="btn-gold" style="width:100%;margin-top:16px" onclick="shareWrapped()">📲 Share my Wrapped</button>' +
+    '</div>';
+  document.getElementById('sidebar').scrollTop = 0;
+}
+async function shareWrapped() {
+  const st = window._lastWrapped || (cur ? await wrappedStats(cur.id) : null);
+  if (!st) return;
+  const text =
+    'My Bác Hơi Wrapped 🍺 ' +
+    st.spotsVisited +
+    ' spots visited, ' +
+    st.districtsCount +
+    '/' +
+    st.districtsTotal +
+    ' districts explored, ' +
+    st.reviewsWritten +
+    ' reviews written' +
+    (st.topSpot ? ', top spot: ' + st.topSpot.name : '') +
+    '.';
+  const url = 'https://woustache-max.github.io/Bia-Hoi-Hanoi/';
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'My Bác Hơi Wrapped', text, url });
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(text + ' ' + url);
+    showToast('🔗 Wrapped summary copied to clipboard!');
+  } catch (e) {
+    prompt('Copy this:', text + ' ' + url);
+  }
 }
 
 async function showQuests() {
