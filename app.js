@@ -275,6 +275,25 @@ const BADGES = [
     name: 'Full Uncle',
     desc: 'Uploaded a photo with 5+ people doing thumbs-up',
   },
+  /* Referrals */
+  {
+    id: 'first_invite',
+    icon: '🤝',
+    name: 'Bring a Friend',
+    desc: 'Invited 1 friend who joined Bác Hơi',
+  },
+  {
+    id: 'crew',
+    icon: '🍻',
+    name: 'The Crew',
+    desc: 'Invited 3 friends who joined Bác Hơi',
+  },
+  {
+    id: 'hype_uncle',
+    icon: '📣',
+    name: 'Hype Uncle',
+    desc: 'Invited 5 friends who joined Bác Hơi',
+  },
   /* Legend */
   {
     id: 'legend',
@@ -293,7 +312,16 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.9.9';
+const APP_VERSION = '0.10.0';
+// Capture a ?ref=CODE invite link into localStorage so it survives until signup,
+// without clobbering an already-stored code on a later ref-less visit.
+(function () {
+  try {
+    const ref = new URLSearchParams(window.location.search).get('ref');
+    if (ref && !localStorage.getItem('bhRefCode'))
+      localStorage.setItem('bhRefCode', ref.trim());
+  } catch (e) {}
+})();
 const MONTHLY_AWARDS = [
   {
     type: 'photo',
@@ -3926,6 +3954,7 @@ async function showProfile(uid) {
       ? `<img src="${added[0].photos[0].url}" style="width:54px;height:54px;border-radius:50%;object-fit:cover;${avBorder}flex-shrink:0"${avClass} alt="">`
       : `<div style="width:54px;height:54px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0"${avClass}>👤</div>`;
   const profileLists = await fetchListsFor(uid, isOwn);
+  const profileInvites = isOwn ? await referralCount(uid) : 0;
   document.getElementById('sidebarBody').innerHTML = `<div class="panel">
     <span class="back" onclick="bhBack()">← All spots</span>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
@@ -3945,6 +3974,7 @@ async function showProfile(uid) {
       <div class="factrow"><b>Spots added</b><span>${added.length}</span></div>
       <div class="factrow"><b>Reviews written</b><span>${userReviews.length}</span></div>
       <div class="factrow"><b>Spots verified</b><span>${verified}</span></div>
+      ${isOwn ? `<div class="factrow"><b>Friends invited</b><span>${profileInvites}</span></div>` : ''}
     </div>
     ${isOwn ? districtsWidgetHTML(reviewedDistrictsSet(uid).size, URBAN_DISTRICTS.length, 'districtsWidgetProfile') : ''}
     ${(() => {
@@ -4355,10 +4385,11 @@ async function doSignup() {
   if (c === ACTIVE_CODE) role = 'active';
   else if (c && c !== '')
     return alert('Invalid invite code. Leave blank to join as Newcomer.');
+  const ref = localStorage.getItem('bhRefCode') || '';
   const { error } = await db.auth.signUp({
     email,
     password: pw,
-    options: { data: { name, role }, captchaToken: getCaptchaToken() },
+    options: { data: { name, role, ref }, captchaToken: getCaptchaToken() },
   });
   if (error) return alert(error.message);
   closeModal();
@@ -4490,6 +4521,8 @@ function setUserLabel() {
     '<button class="user-menu-item" onclick="closeUserMenu();showQuests()">&#127919; Badges &amp; Quests</button>';
   html +=
     '<button class="user-menu-item" onclick="closeUserMenu();openGames()">&#127922; Games</button>';
+  html +=
+    '<button class="user-menu-item" onclick="closeUserMenu();showInvite()">&#128101; Invite a friend</button>';
   html +=
     '<button class="user-menu-item" onclick="closeUserMenu();openShare()">&#128242; Share Bác Hơi</button>';
   html +=
@@ -6137,6 +6170,7 @@ async function init() {
     if (profile) {
       cur = { ...profile, email: session.user.email };
       profilesCache[profile.id] = cur;
+      checkBadges();
     }
   }
   try {
@@ -6167,6 +6201,7 @@ async function init() {
     setUserLabel();
     renderList();
     loadNotifs();
+    if (event === 'SIGNED_IN' && cur) checkBadges();
   });
   setUserLabel();
   loadNotifs();
@@ -6252,6 +6287,119 @@ async function init() {
   // Deep-link: ?list=ID opens that list on load
   const deepList = params.get('list');
   if (deepList) setTimeout(() => showListDetail(deepList), 600);
+}
+
+/* ============================================================
+   REFERRALS — invite links, credited on confirmed signup
+   ============================================================ */
+const REFERRAL_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+function randomReferralCode() {
+  let s = '';
+  for (let i = 0; i < 6; i++)
+    s +=
+      REFERRAL_CODE_ALPHABET[
+        Math.floor(Math.random() * REFERRAL_CODE_ALPHABET.length)
+      ];
+  return s;
+}
+async function referralCount(uid) {
+  try {
+    const { data, error } = await db.rpc('referral_count', { p_uid: uid });
+    if (error) return 0;
+    return data || 0;
+  } catch (e) {
+    return 0;
+  }
+}
+async function ensureReferralCode() {
+  if (!cur) return null;
+  if (cur.referral_code) return cur.referral_code;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = randomReferralCode();
+    const { error } = await db
+      .from('profiles')
+      .update({ referral_code: code })
+      .eq('id', cur.id);
+    if (!error) {
+      cur.referral_code = code;
+      if (profilesCache[cur.id]) profilesCache[cur.id].referral_code = code;
+      return code;
+    }
+  }
+  return null;
+}
+async function referralBadgesFor(uid) {
+  const n = await referralCount(uid);
+  const earned = [];
+  if (n >= 1) earned.push('first_invite');
+  if (n >= 3) earned.push('crew');
+  if (n >= 5) earned.push('hype_uncle');
+  return earned;
+}
+async function showInvite() {
+  if (!cur) return authModal(false);
+  navPush('invite');
+  openSidebar();
+  {
+    var _tb = document.querySelector('.toolbar');
+    if (_tb) _tb.style.display = 'none';
+  }
+  document.getElementById('sidebarBody').innerHTML =
+    '<div class="panel"><span class="back" onclick="bhBack()">← All spots</span><div style="text-align:center;padding:30px;color:var(--muted)">Loading…</div></div>';
+  const code = await ensureReferralCode();
+  const count = await referralCount(cur.id);
+  await checkBadges();
+  const url = code
+    ? 'https://woustache-max.github.io/Bia-Hoi-Hanoi/?ref=' +
+      encodeURIComponent(code)
+    : '';
+  const nextGoal = count < 1 ? 1 : count < 3 ? 3 : count < 5 ? 5 : null;
+  document.getElementById('sidebarBody').innerHTML =
+    '<div class="panel">' +
+    '<span class="back" onclick="bhBack()">← All spots</span>' +
+    '<h2 style="margin:4px 0 2px">👥 Invite a friend</h2>' +
+    '<p style="font-size:13px;color:var(--muted);margin:0 0 14px">Share your link — when a friend joins Bác Hơi, you get credit.</p>' +
+    (url
+      ? '<div style="background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;word-break:break-all;margin-bottom:10px">' +
+        esc(url) +
+        '</div><button class="btn-gold" style="width:100%;margin-bottom:16px" onclick="shareInvite()">📲 Share invite link</button>'
+      : '<div class="txt-muted" style="padding:12px 2px;margin-bottom:16px">Could not generate your invite link — please try again.</div>') +
+    '<div class="factbox"><div class="factrow"><b>Friends invited</b><span>' +
+    count +
+    '</span></div></div>' +
+    (nextGoal
+      ? '<div style="font-size:12px;color:var(--muted);margin-top:8px">' +
+        count +
+        ' / ' +
+        nextGoal +
+        ' toward your next invite badge</div>'
+      : '<div style="font-size:12px;color:var(--muted);margin-top:8px">🏆 You’ve earned every invite badge!</div>') +
+    '</div>';
+  document.getElementById('sidebar').scrollTop = 0;
+}
+async function shareInvite() {
+  if (!cur || !cur.referral_code) return;
+  const url =
+    'https://woustache-max.github.io/Bia-Hoi-Hanoi/?ref=' +
+    encodeURIComponent(cur.referral_code);
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: 'Bác Hơi',
+        text: 'Join me on Bác Hơi — Hanoi’s bia hơi map 🍺',
+        url,
+      });
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast('🔗 Invite link copied to clipboard!');
+  } catch (e) {
+    prompt('Copy this link:', url);
+  }
 }
 
 /* ============================================================
@@ -6425,7 +6573,7 @@ function badgesFor(uid) {
 
 async function checkBadges() {
   if (!cur) return;
-  const earned = badgesFor(cur.id);
+  const earned = [...badgesFor(cur.id), ...(await referralBadgesFor(cur.id))];
   const existing = cur.badges || [];
   const newOnes = earned.filter((b) => !existing.includes(b));
   if (!newOnes.length) return;
