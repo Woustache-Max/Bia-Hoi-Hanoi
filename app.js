@@ -9,6 +9,7 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 const ACTIVE_CODE = 'BIAHOI-TEAM-2026';
 const NEWCOMER_CHAR_LIMIT = 250;
 const QUEST_A_REVIEWS = 2;
+const NEWCOMER_PHOTO_LIMIT = 3;
 
 const HANOI = [21.0285, 105.85];
 const URBAN_DISTRICTS = [
@@ -312,7 +313,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.10.0';
+const APP_VERSION = '0.10.1';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -484,6 +485,12 @@ function revAvg(r) {
 function spotAvg(s) {
   const a = s.reviews.map(revAvg).filter((x) => x > 0);
   return a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
+}
+function myPhotoCount(uid) {
+  return spots.reduce(
+    (a, s) => a + (s.photos || []).filter((p) => p.uploaded_by === uid).length,
+    0,
+  );
 }
 function dist(a, b, c, d) {
   const R = 6371,
@@ -1579,7 +1586,14 @@ async function showDetail(id) {
       </div>
     <div class="sec" style="display:flex;justify-content:space-between;align-items:center">
       <span>Photos</span>
-      ${cur && (cur.role === 'active' || cur.role === 'admin') ? `<button class="btn-line btn-sm" style="font-size:12px" onclick="uploadPhoto('${s.id}')" title="Add a photo of this spot">📷 Add photo</button>` : ''}
+      ${(() => {
+        if (!cur) return '';
+        if (cur.role === 'active' || cur.role === 'admin')
+          return `<button class="btn-line btn-sm" style="font-size:12px" onclick="uploadPhoto('${s.id}')" title="Add a photo of this spot">📷 Add photo</button>`;
+        const left = NEWCOMER_PHOTO_LIMIT - myPhotoCount(cur.id);
+        if (left <= 0) return '';
+        return `<button class="btn-line btn-sm" style="font-size:12px" onclick="uploadPhoto('${s.id}')" title="Add a photo — ${left} left as a newcomer">📷 Add photo</button>`;
+      })()}
     </div>
     <div class="photos">${s.photos && s.photos.length ? s.photos.map((p, i) => `<div style="position:relative"><img src="${p.url}" onclick="viewPhoto('${s.id}',${i})" style="width:100%;height:90px;object-fit:cover;border-radius:6px;cursor:pointer">${cur && (p.uploaded_by === cur.id || cur.role === 'admin') ? `<button onclick="deletePhoto('${p.id}','${p.path}','${s.id}')" title="Delete photo" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;padding:0;cursor:pointer;line-height:20px;text-align:center">✕</button>` : ''}${admin ? `<button onclick="adminSetCover('${s.id}','${p.url}')" style="position:absolute;bottom:3px;left:3px;background:${s.cover_photo_url === p.url ? 'var(--gold)' : 'rgba(0,0,0,.55)'};color:${s.cover_photo_url === p.url ? '#000' : '#fff'};border:none;border-radius:8px;font-size:10px;font-weight:700;padding:2px 5px;cursor:pointer;line-height:1.4">${s.cover_photo_url === p.url ? '★ Cover' : '☆ Cover'}</button>` : ''}<button onclick="event.stopPropagation();likePhoto('${p.id}','${s.id}')" title="Like photo" style="position:absolute;bottom:3px;right:3px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:12px;font-size:11px;font-weight:700;padding:2px 7px;cursor:pointer;line-height:1.4">${cur && p.likes && p.likes.includes(cur.id) ? '❤️' : '🤍'}${p.likes && p.likes.length ? ' ' + p.likes.length : ''}</button>  </div>`).join('') : '<div style="grid-column:1/4;color:var(--muted);font-size:13px;padding:6px 0">No photos yet — be the first to add one!</div>'}</div>
     <div class="sec" style="display:flex;justify-content:space-between;align-items:center">
@@ -1961,8 +1975,13 @@ async function delReview(sid, rid) {
 
 /* ── PHOTOS: upload, lightbox, likes ── */
 async function uploadPhoto(spotId) {
-  if (!cur || !(cur.role === 'active' || cur.role === 'admin'))
-    return alert('Active members can upload photos.');
+  if (!cur) return authModal(false);
+  if (cur.role !== 'active' && cur.role !== 'admin') {
+    if (myPhotoCount(cur.id) >= NEWCOMER_PHOTO_LIMIT)
+      return alert(
+        `You've used all ${NEWCOMER_PHOTO_LIMIT} photo uploads available as a newcomer. Write ${QUEST_A_REVIEWS} reviews to become an Active member and upload unlimited photos!`,
+      );
+  }
   window._pendingUploadSpotId = spotId;
   modal(
     '<h2>📷 Add a Photo</h2>' +
