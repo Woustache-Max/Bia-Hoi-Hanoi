@@ -293,7 +293,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.9.8';
+const APP_VERSION = '0.9.9';
 const MONTHLY_AWARDS = [
   {
     type: 'photo',
@@ -2222,7 +2222,13 @@ function spotMoreMenu(id) {
   if (!s) return;
   const admin = cur && cur.role === 'admin';
   const canEdit = cur && (s.createdBy === cur.id || admin);
-  let btns =
+  let btns = '';
+  if (cur)
+    btns +=
+      '<button class="btn-line" style="width:100%;margin-bottom:8px" onclick="closeModal();addToList(\'' +
+      id +
+      '\')">➕ Add to list</button>';
+  btns +=
     '<button class="btn-line" style="width:100%;margin-bottom:8px" onclick="closeModal();reportSpot(\'' +
     id +
     '\')">⚑ Report</button>';
@@ -2326,6 +2332,499 @@ async function submitReport(id) {
     ];
   closeModal();
   showToast('✅ Report sent — thanks, an admin will review it.');
+}
+/* ============================================================
+   LISTS — curated, shareable collections of spots
+   ============================================================ */
+async function fetchListsFor(uid, includePrivate) {
+  try {
+    const { data } = await db
+      .from('lists')
+      .select('*')
+      .eq('owner_id', uid)
+      .order('created_at', { ascending: false });
+    let lists = data || [];
+    if (!includePrivate) lists = lists.filter((l) => l.is_public);
+    return lists;
+  } catch (e) {
+    return [];
+  }
+}
+async function fetchList(listId) {
+  try {
+    const { data } = await db
+      .from('lists')
+      .select('*')
+      .eq('id', listId)
+      .single();
+    return data || null;
+  } catch (e) {
+    return null;
+  }
+}
+async function fetchListItems(listId) {
+  try {
+    const { data } = await db
+      .from('list_items')
+      .select('*')
+      .eq('list_id', listId)
+      .order('position', { ascending: true });
+    return data || [];
+  } catch (e) {
+    return [];
+  }
+}
+function listCardHTML(l) {
+  return (
+    '<div class="list-item" onclick="showListDetail(\'' +
+    l.id +
+    '\')"><div class="list-thumb-ph">📋</div><div class="list-text"><h3>' +
+    esc(l.name) +
+    (l.is_featured
+      ? ' <span class="chip verified" style="font-size:10px">⭐ Featured</span>'
+      : '') +
+    '</h3><div class="meta"><span>' +
+    (l.is_public ? 'Public' : 'Private') +
+    '</span></div></div></div>'
+  );
+}
+async function showLists(uid) {
+  navPush('lists:' + uid);
+  openSidebar();
+  {
+    var _tb = document.querySelector('.toolbar');
+    if (_tb) _tb.style.display = 'none';
+  }
+  document.getElementById('sidebarBody').innerHTML =
+    '<div class="panel"><span class="back" onclick="bhBack()">← All spots</span><div style="text-align:center;padding:30px;color:var(--muted)">Loading…</div></div>';
+  const isOwn = cur && cur.id === uid;
+  const lists = await fetchListsFor(uid, isOwn);
+  const u = userById(uid) || {};
+  const head =
+    '<span class="back" onclick="bhBack()">← All spots</span><h2 style="margin:4px 0 10px">📋 ' +
+    (isOwn ? 'My Lists' : esc(u.name || 'Their') + '’s Lists') +
+    '</h2>';
+  const createBtn = isOwn
+    ? '<button class="btn-gold" style="width:100%;margin-bottom:14px" onclick="createList()">+ New list</button>'
+    : '';
+  const body = lists.length
+    ? lists.map(listCardHTML).join('')
+    : '<div class="txt-muted" style="padding:12px 2px">' +
+      (isOwn
+        ? 'No lists yet. Create one to start curating your favourite spots.'
+        : 'No public lists yet.') +
+      '</div>';
+  document.getElementById('sidebarBody').innerHTML =
+    '<div class="panel">' + head + createBtn + body + '</div>';
+  document.getElementById('sidebar').scrollTop = 0;
+}
+async function showListDetail(listId) {
+  navPush('list:' + listId);
+  openSidebar();
+  {
+    var _tb = document.querySelector('.toolbar');
+    if (_tb) _tb.style.display = 'none';
+  }
+  document.getElementById('sidebarBody').innerHTML =
+    '<div class="panel"><span class="back" onclick="bhBack()">← All spots</span><div style="text-align:center;padding:30px;color:var(--muted)">Loading…</div></div>';
+  const l = await fetchList(listId);
+  if (!l) {
+    document.getElementById('sidebarBody').innerHTML =
+      '<div class="panel"><span class="back" onclick="bhBack()">← All spots</span><div style="text-align:center;padding:40px 20px"><div style="font-size:36px;margin-bottom:8px">📋</div><h2 style="margin:0 0 8px">List not found</h2><p style="color:var(--muted);font-size:14px">It may be private or have been deleted.</p></div></div>';
+    return;
+  }
+  const isOwner = cur && cur.id === l.owner_id;
+  if (!l.is_public && !l.is_featured && !isOwner) {
+    document.getElementById('sidebarBody').innerHTML =
+      '<div class="panel"><span class="back" onclick="bhBack()">← All spots</span><div style="text-align:center;padding:40px 20px"><div style="font-size:36px;margin-bottom:8px">🔒</div><h2 style="margin:0 0 8px">Private list</h2></div></div>';
+    return;
+  }
+  const items = await fetchListItems(listId);
+  const listSpots = items
+    .map((it) => ({ spot: byId(it.spot_id) }))
+    .filter((x) => x.spot);
+  const owner = userById(l.owner_id) || {};
+  const head =
+    '<span class="back" onclick="bhBack()">← All spots</span>' +
+    '<h2 style="margin:4px 0 2px">📋 ' +
+    esc(l.name) +
+    (l.is_featured ? ' <span style="font-size:13px">⭐</span>' : '') +
+    '</h2>' +
+    (l.description
+      ? '<div style="font-size:13px;color:var(--muted);margin-bottom:6px">' +
+        esc(l.description) +
+        '</div>'
+      : '') +
+    '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">by <a onclick="showProfile(\'' +
+    l.owner_id +
+    '\')" style="color:var(--gold-dark);cursor:pointer;font-weight:700">' +
+    esc(owner.name || 'someone') +
+    '</a> · ' +
+    (l.is_public ? 'Public' : 'Private') +
+    ' · ' +
+    listSpots.length +
+    ' spot' +
+    (listSpots.length === 1 ? '' : 's') +
+    '</div>';
+  const ownerControls = isOwner
+    ? '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">' +
+      '<button class="btn-line btn-sm" onclick="toggleListPublic(\'' +
+      listId +
+      '\')">' +
+      (l.is_public ? '🔒 Make private' : '🌐 Make public') +
+      '</button>' +
+      '<button class="btn-line btn-sm" onclick="editListInfo(\'' +
+      listId +
+      '\')">✎ Edit</button>' +
+      '<button class="btn-line btn-sm" style="color:var(--red)" onclick="deleteListConfirm(\'' +
+      listId +
+      '\')">🗑 Delete</button>' +
+      '</div>'
+    : '';
+  const adminControls =
+    cur && cur.role === 'admin'
+      ? '<button class="btn-line btn-sm" style="margin-bottom:12px" onclick="adminToggleFeatured(\'' +
+        listId +
+        '\',' +
+        !l.is_featured +
+        ')">' +
+        (l.is_featured ? '⭐ Unfeature' : '⭐ Feature this list') +
+        '</button>'
+      : '';
+  const shareBtn =
+    l.is_public || l.is_featured
+      ? '<button class="btn-gold btn-sm" style="margin-bottom:12px;width:100%" onclick="shareList(\'' +
+        listId +
+        '\')">📲 Share this list</button>'
+      : '';
+  const itemsHTML = listSpots.length
+    ? listSpots
+        .map(({ spot: s }, i) => {
+          const th =
+            s.photos && s.photos.length
+              ? '<img class="list-thumb" src="' +
+                s.photos[0].url +
+                '" alt="" loading="lazy">'
+              : '<div class="list-thumb-ph">🍺</div>';
+          const av = spotAvg(s);
+          const avHtml = av
+            ? '<span style="background:var(--gold);color:#000;font-size:11px;font-weight:800;padding:1px 6px;border-radius:20px">' +
+              av.toFixed(1) +
+              ' 🍺</span>'
+            : '';
+          const ownerBtns = isOwner
+            ? '<div style="display:flex;flex-direction:column;gap:2px" onclick="event.stopPropagation()">' +
+              '<button class="vote" style="padding:1px 6px;font-size:11px"' +
+              (i === 0 ? ' disabled' : '') +
+              ' onclick="reorderListItem(\'' +
+              listId +
+              "','" +
+              s.id +
+              '\',-1)">▲</button>' +
+              '<button class="vote" style="padding:1px 6px;font-size:11px"' +
+              (i === listSpots.length - 1 ? ' disabled' : '') +
+              ' onclick="reorderListItem(\'' +
+              listId +
+              "','" +
+              s.id +
+              '\',1)">▼</button>' +
+              '</div>'
+            : '';
+          const removeBtn = isOwner
+            ? '<button class="vote" style="font-size:11px" onclick="event.stopPropagation();removeFromList(\'' +
+              listId +
+              "','" +
+              s.id +
+              '\')">✕</button>'
+            : '';
+          return (
+            '<div class="list-item" style="align-items:center" onclick="showDetail(\'' +
+            s.id +
+            '\')">' +
+            ownerBtns +
+            th +
+            '<div class="list-text"><h3>' +
+            esc(s.name) +
+            '</h3><div class="meta"><span>' +
+            avHtml +
+            '</span><span>' +
+            esc(s.district || '') +
+            '</span></div></div>' +
+            removeBtn +
+            '</div>'
+          );
+        })
+        .join('')
+    : '<div class="txt-muted" style="padding:12px 2px">No spots in this list yet.' +
+      (isOwner ? ' Add spots via a spot’s ⋯ More menu.' : '') +
+      '</div>';
+  document.getElementById('sidebarBody').innerHTML =
+    '<div class="panel">' +
+    head +
+    ownerControls +
+    adminControls +
+    shareBtn +
+    itemsHTML +
+    '</div>';
+  document.getElementById('sidebar').scrollTop = 0;
+}
+function createList() {
+  if (!cur) return authModal(false);
+  modal(
+    '<h2 style="margin:0 0 12px">New list</h2>' +
+      '<input id="nl_name" type="text" placeholder="List name" maxlength="60" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-family:inherit;font-size:14px;background:var(--card);color:var(--ink);margin-bottom:8px">' +
+      '<textarea id="nl_desc" placeholder="Description (optional)" maxlength="200" style="width:100%;box-sizing:border-box;min-height:60px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-family:inherit;font-size:14px;background:var(--card);color:var(--ink);resize:vertical;margin-bottom:8px"></textarea>' +
+      '<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:14px"><input type="checkbox" id="nl_public"> Make this list public</label>' +
+      '<button class="btn-gold" style="width:100%" onclick="submitCreateList()">Create list</button>' +
+      '<button class="btn-line" style="width:100%;margin-top:7px" onclick="closeModal()">Cancel</button>',
+  );
+}
+async function submitCreateList() {
+  if (!cur) return authModal(false);
+  const name = (val('nl_name') || '').trim();
+  if (!name) return alert('Please give your list a name.');
+  const description = (val('nl_desc') || '').trim();
+  const is_public = !!document.getElementById('nl_public')?.checked;
+  const { data, error } = await db
+    .from('lists')
+    .insert({ owner_id: cur.id, name, description, is_public })
+    .select()
+    .single();
+  if (error) return alert('Error creating list: ' + error.message);
+  closeModal();
+  const pending = window._pendingAddToListSpot;
+  window._pendingAddToListSpot = null;
+  if (pending) {
+    await db
+      .from('list_items')
+      .insert({ list_id: data.id, spot_id: pending, position: 0 });
+    showToast('✅ List created and spot added.');
+  } else {
+    showToast('✅ List created.');
+  }
+  showListDetail(data.id);
+}
+async function editListInfo(listId) {
+  const l = await fetchList(listId);
+  if (!l) return;
+  modal(
+    '<h2 style="margin:0 0 12px">Edit list</h2>' +
+      '<input id="el_name" type="text" value="' +
+      esc(l.name) +
+      '" maxlength="60" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-family:inherit;font-size:14px;background:var(--card);color:var(--ink);margin-bottom:8px">' +
+      '<textarea id="el_desc" maxlength="200" style="width:100%;box-sizing:border-box;min-height:60px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-family:inherit;font-size:14px;background:var(--card);color:var(--ink);resize:vertical;margin-bottom:14px">' +
+      esc(l.description || '') +
+      '</textarea>' +
+      '<button class="btn-gold" style="width:100%" onclick="submitEditList(\'' +
+      listId +
+      '\')">Save</button>' +
+      '<button class="btn-line" style="width:100%;margin-top:7px" onclick="closeModal()">Cancel</button>',
+  );
+}
+async function submitEditList(listId) {
+  const name = (val('el_name') || '').trim();
+  if (!name) return alert('Please give your list a name.');
+  const description = (val('el_desc') || '').trim();
+  const { error } = await db
+    .from('lists')
+    .update({ name, description })
+    .eq('id', listId);
+  if (error) return alert('Error: ' + error.message);
+  closeModal();
+  showToast('✅ List updated.');
+  showListDetail(listId);
+}
+async function toggleListPublic(listId) {
+  const l = await fetchList(listId);
+  if (!l) return;
+  const { error } = await db
+    .from('lists')
+    .update({ is_public: !l.is_public })
+    .eq('id', listId);
+  if (error) return alert('Error: ' + error.message);
+  showListDetail(listId);
+}
+async function deleteListConfirm(listId) {
+  if (!confirm('Delete this list? This cannot be undone.')) return;
+  const { error } = await db.from('lists').delete().eq('id', listId);
+  if (error) return alert('Error: ' + error.message);
+  showToast('🗑 List deleted.');
+  showLists(cur.id);
+}
+async function removeFromList(listId, spotId) {
+  const { error } = await db
+    .from('list_items')
+    .delete()
+    .eq('list_id', listId)
+    .eq('spot_id', spotId);
+  if (error) return alert('Error: ' + error.message);
+  showListDetail(listId);
+}
+async function reorderListItem(listId, spotId, dir) {
+  const items = await fetchListItems(listId);
+  const idx = items.findIndex((it) => it.spot_id === spotId);
+  const swapIdx = idx + dir;
+  if (idx < 0 || swapIdx < 0 || swapIdx >= items.length) return;
+  const a = items[idx],
+    b = items[swapIdx];
+  await Promise.all([
+    db
+      .from('list_items')
+      .update({ position: b.position })
+      .eq('list_id', listId)
+      .eq('spot_id', a.spot_id),
+    db
+      .from('list_items')
+      .update({ position: a.position })
+      .eq('list_id', listId)
+      .eq('spot_id', b.spot_id),
+  ]);
+  showListDetail(listId);
+}
+async function shareList(listId) {
+  const l = await fetchList(listId);
+  if (!l) return;
+  const url =
+    'https://woustache-max.github.io/Bia-Hoi-Hanoi/?list=' +
+    encodeURIComponent(listId);
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: l.name || 'Bác Hơi',
+        text: 'Check out “' + (l.name || 'this list') + '” on Bác Hơi 🍺',
+        url,
+      });
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast('🔗 Link copied to clipboard!');
+  } catch (e) {
+    prompt('Copy this link:', url);
+  }
+}
+async function showFeaturedLists() {
+  navPush('featured-lists');
+  openSidebar();
+  {
+    var _tb = document.querySelector('.toolbar');
+    if (_tb) _tb.style.display = 'none';
+  }
+  document.getElementById('sidebarBody').innerHTML =
+    '<div class="panel"><span class="back" onclick="bhBack()">← All spots</span><div style="text-align:center;padding:30px;color:var(--muted)">Loading…</div></div>';
+  let lists = [];
+  try {
+    const { data } = await db
+      .from('lists')
+      .select('*')
+      .eq('is_featured', true)
+      .order('created_at', { ascending: false });
+    lists = data || [];
+  } catch (e) {}
+  const head =
+    '<span class="back" onclick="bhBack()">← All spots</span><h2 style="margin:4px 0 10px">🌟 Featured Lists</h2>';
+  const body = lists.length
+    ? lists.map(listCardHTML).join('')
+    : '<div class="txt-muted" style="padding:12px 2px">No featured lists yet — check back soon!</div>';
+  document.getElementById('sidebarBody').innerHTML =
+    '<div class="panel">' + head + body + '</div>';
+  document.getElementById('sidebar').scrollTop = 0;
+}
+async function adminToggleFeatured(listId, newVal) {
+  const { error } = await db
+    .from('lists')
+    .update({ is_featured: newVal })
+    .eq('id', listId);
+  if (error) return alert('Error: ' + error.message);
+  showToast(newVal ? '⭐ List featured.' : 'List unfeatured.');
+  showListDetail(listId);
+}
+async function addToList(spotId) {
+  if (!cur) return authModal(false);
+  const lists = await fetchListsFor(cur.id, true);
+  const s = byId(spotId);
+  let itemsHTML;
+  if (!lists.length) {
+    itemsHTML =
+      '<div class="txt-muted" style="padding:8px 0 14px">You don’t have any lists yet.</div>';
+  } else {
+    const checks = await Promise.all(
+      lists.map((l) =>
+        db
+          .from('list_items')
+          .select('spot_id')
+          .eq('list_id', l.id)
+          .eq('spot_id', spotId)
+          .maybeSingle()
+          .then((r) => !!r.data)
+          .catch(() => false),
+      ),
+    );
+    itemsHTML =
+      '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">' +
+      lists
+        .map(
+          (l, i) =>
+            '<label style="display:flex;align-items:center;gap:9px;padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;cursor:pointer"><input type="checkbox" data-list-id="' +
+            l.id +
+            '"' +
+            (checks[i] ? ' checked' : '') +
+            ' onchange="toggleSpotInList(this,\'' +
+            spotId +
+            '\')"><span style="font-weight:600">' +
+            esc(l.name) +
+            '</span></label>',
+        )
+        .join('') +
+      '</div>';
+  }
+  modal(
+    '<h2 style="margin:0 0 4px">Add to list</h2>' +
+      (s
+        ? '<p style="font-size:13px;color:var(--muted);margin:0 0 12px">' +
+          esc(s.name) +
+          '</p>'
+        : '') +
+      itemsHTML +
+      '<button class="btn-line" style="width:100%" onclick="closeModal();createListThenAdd(\'' +
+      spotId +
+      '\')">+ New list</button>',
+  );
+}
+async function toggleSpotInList(checkbox, spotId) {
+  const listId = checkbox.getAttribute('data-list-id');
+  if (checkbox.checked) {
+    const { count } = await db
+      .from('list_items')
+      .select('*', { count: 'exact', head: true })
+      .eq('list_id', listId);
+    const { error } = await db
+      .from('list_items')
+      .insert({ list_id: listId, spot_id: spotId, position: count || 0 });
+    if (error) {
+      checkbox.checked = false;
+      return alert('Error: ' + error.message);
+    }
+    showToast('✅ Added to list.');
+  } else {
+    const { error } = await db
+      .from('list_items')
+      .delete()
+      .eq('list_id', listId)
+      .eq('spot_id', spotId);
+    if (error) {
+      checkbox.checked = true;
+      return alert('Error: ' + error.message);
+    }
+    showToast('Removed from list.');
+  }
+}
+function createListThenAdd(spotId) {
+  window._pendingAddToListSpot = spotId;
+  createList();
 }
 /* ── Generic content reporting (reviews, photos, replies) ── */
 const REPORT_REASONS = [
@@ -3426,6 +3925,7 @@ async function showProfile(uid) {
     : added.length && added[0].photos && added[0].photos.length
       ? `<img src="${added[0].photos[0].url}" style="width:54px;height:54px;border-radius:50%;object-fit:cover;${avBorder}flex-shrink:0"${avClass} alt="">`
       : `<div style="width:54px;height:54px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0"${avClass}>👤</div>`;
+  const profileLists = await fetchListsFor(uid, isOwn);
   document.getElementById('sidebarBody').innerHTML = `<div class="panel">
     <span class="back" onclick="bhBack()">← All spots</span>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
@@ -3499,6 +3999,21 @@ async function showProfile(uid) {
           })
           .join('')
       );
+    })()}
+    ${(() => {
+      if (!profileLists.length && !isOwn) return '';
+      const listHead =
+        '<div class="sec" style="display:flex;justify-content:space-between;align-items:center"><span>📋 Lists</span>' +
+        (isOwn
+          ? '<button class="btn-line btn-sm" style="font-size:12px" onclick="createList()">+ New</button>'
+          : '') +
+        '</div>';
+      if (!profileLists.length)
+        return (
+          listHead +
+          '<div class="txt-muted" style="padding:6px 0">No public lists yet.</div>'
+        );
+      return listHead + profileLists.map(listCardHTML).join('');
     })()}
     ${(() => {
       const earned = badgesFor(uid);
@@ -3965,6 +4480,8 @@ function setUserLabel() {
     '<button class="user-menu-item" onclick="closeUserMenu();openInbox()" style="display:flex;align-items:center;justify-content:space-between">🔔 Notifications<span id="menuNotifCount" style="display:none;background:var(--red);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;padding:0 4px;align-items:center;justify-content:center;line-height:1"></span></button>';
   html +=
     '<button class="user-menu-item" onclick="closeUserMenu();showProfile(cur.id)">&#128100; My profile</button>';
+  html +=
+    '<button class="user-menu-item" onclick="closeUserMenu();showLists(cur.id)">&#128203; My Lists</button>';
   html +=
     '<button class="user-menu-item" onclick="closeUserMenu();showWrapped()">&#127873; Bia Hơi Wrapped</button>';
   html +=
@@ -5732,6 +6249,9 @@ async function init() {
       }
     }, 600);
   }
+  // Deep-link: ?list=ID opens that list on load
+  const deepList = params.get('list');
+  if (deepList) setTimeout(() => showListDetail(deepList), 600);
 }
 
 /* ============================================================
@@ -7011,7 +7531,7 @@ function denyAge() {
 function showWelcomeIfNew() {
   // Don't show if arriving via deep-link — they were sent here intentionally
   const params = new URLSearchParams(window.location.search);
-  if (params.get('spot')) return;
+  if (params.get('spot') || params.get('list')) return;
   if (!localStorage.getItem('welcomed')) {
     const _wo = document.getElementById('welcomeOverlay');
     if (_wo) _wo.classList.remove('hidden');
