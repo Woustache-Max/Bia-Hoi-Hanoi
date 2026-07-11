@@ -293,7 +293,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.8.0';
+const APP_VERSION = '0.9.6';
 const MONTHLY_AWARDS = [
   {
     type: 'photo',
@@ -555,11 +555,14 @@ function unreadCount() {
   return notifs.filter((n) => !n.read).length;
 }
 function updateBell() {
-  const el = document.getElementById('bellCount');
-  if (!el) return;
   const n = unreadCount();
-  el.textContent = n > 9 ? '9+' : n || '';
-  el.style.display = n ? 'flex' : 'none';
+  const dot = document.getElementById('avNotifDot');
+  if (dot) dot.style.display = n ? 'block' : 'none';
+  const mc = document.getElementById('menuNotifCount');
+  if (mc) {
+    mc.textContent = n > 9 ? '9+' : n || '';
+    mc.style.display = n ? 'inline-flex' : 'none';
+  }
 }
 function notifIcon(t) {
   return t === 'like'
@@ -671,14 +674,12 @@ function questComplete(uid) {
 async function checkAndUpgrade() {
   if (!cur || cur.role !== 'newcomer') return;
   if (questComplete(cur.id)) {
-    const { error } = await db
-      .from('profiles')
-      .update({ role: 'active' })
-      .eq('id', cur.id);
-    if (error) return;
+    const { data, error } = await db.rpc('claim_active');
+    if (error || data !== 'active') return;
     cur.role = 'active';
     profilesCache[cur.id] = cur;
     setUserLabel();
+    if (typeof fireConfetti === 'function') fireConfetti();
     modal(`<h2>🎉 You're now Active!</h2>
       <p>You've contributed enough to unlock full reviews and trusted status. Your spots will now be auto-verified. Thanks for helping build the map!</p>
       <button class="btn-gold" style="width:100%;margin-top:10px" onclick="closeModal()">Let's go 🍺</button>`);
@@ -1196,6 +1197,45 @@ function surpriseSpot() {
 /* ============================================================
    LIST — sidebar spot list rendering
    ============================================================ */
+function sortBarHTML() {
+  const m = window._sortMode || 'top';
+  const chip = (id, label) =>
+    `<button class="lsort${m === id ? ' on' : ''}" onclick="setSort('${id}')">${label}</button>`;
+  return (
+    '<div class="list-sort">' +
+    chip('top', 'Top rated') +
+    chip('week', '🔥 This week') +
+    chip('new', 'Newest') +
+    '</div>'
+  );
+}
+function setSort(mode) {
+  window._sortMode = mode;
+  renderList();
+}
+function adjRating(s) {
+  const n = s.reviews ? s.reviews.length : 0;
+  if (!n) return 0;
+  const m = 2;
+  const prior = window._globalAvg || 4.0;
+  return (spotAvg(s) * n + prior * m) / (n + m);
+}
+async function loadWeekPopular() {
+  window._weekLoaded = true;
+  try {
+    const wk = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { data } = await db
+      .from('check_ins')
+      .select('spot_id')
+      .gte('created_at', wk);
+    const map = {};
+    (data || []).forEach((r) => {
+      map[r.spot_id] = (map[r.spot_id] || 0) + 1;
+    });
+    window._weekCounts = map;
+  } catch (e) {}
+  renderList();
+}
 function renderList(sortByDist) {
   {
     var _tb = document.querySelector('.toolbar');
@@ -1216,7 +1256,27 @@ function renderList(sortByDist) {
           dist(window._me[0], window._me[1], a.lat, a.lng) -
           dist(window._me[0], window._me[1], b.lat, b.lng),
       );
-  else list = list.slice().sort((a, b) => spotAvg(b) - spotAvg(a));
+  else {
+    const rated = spots.filter((x) => x.reviews && x.reviews.length);
+    window._globalAvg = rated.length
+      ? rated.reduce((a, x) => a + spotAvg(x), 0) / rated.length
+      : 4.0;
+    const mode = window._sortMode || 'top';
+    const wc = window._weekCounts || {};
+    if (mode === 'new')
+      list = list
+        .slice()
+        .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    else if (mode === 'week')
+      list = list
+        .slice()
+        .sort(
+          (a, b) =>
+            (wc[b.id] || 0) - (wc[a.id] || 0) || adjRating(b) - adjRating(a),
+        );
+    else list = list.slice().sort((a, b) => adjRating(b) - adjRating(a));
+  }
+  if (!window._weekLoaded) loadWeekPopular();
   const body = document.getElementById('sidebarBody');
   // Update result count bar
   const rb = document.getElementById('resultBar');
@@ -1232,7 +1292,7 @@ function renderList(sortByDist) {
   }
   if (!spots.length) {
     body.innerHTML =
-      '<div class="empty-note">🍺 No spots yet.<br><br>Tap <b>+ Add spot</b> to put a bia hơi on the map — no sign-up needed!</div>';
+      '<div class="empty-note">🍺 No spots yet.<br><br><b>Sign in</b>, then tap <b>+ Add spot</b> to put the first bia hơi on the map!</div>';
     return;
   }
   if (!list.length) {
@@ -1265,6 +1325,7 @@ function renderList(sortByDist) {
   const _new = spots.filter((s) => s.createdAt && s.createdAt > _wk);
   const _newSec = '';
   body.innerHTML =
+    sortBarHTML() +
     _newSec +
     list
       .map((s) => {
@@ -1276,6 +1337,11 @@ function renderList(sortByDist) {
         const dtxt =
           d !== null
             ? `<span style="background:#e8f0fe;color:#185fa5;border-radius:20px;padding:1px 7px;font-size:11px;font-weight:700">${d < 1 ? (d * 1000).toFixed(0) + 'm' : d.toFixed(1) + 'km'}</span>`
+            : '';
+        const _wc = window._weekCounts || {};
+        const hotTag =
+          (_wc[s.id] || 0) >= 2
+            ? '<span style="background:#fff1e0;color:#c2410c;border:1px solid #fed7aa;border-radius:20px;padding:1px 7px;font-size:10px;font-weight:800;white-space:nowrap">🔥 Popular this week</span>'
             : '';
         const verBadge = s.verified
           ? ''
@@ -1304,7 +1370,7 @@ function renderList(sortByDist) {
           return a
             ? `<span style="background:var(--gold);color:#000;font-size:11px;font-weight:800;padding:1px 7px;border-radius:20px">${a.toFixed(1)} 🍺</span>`
             : '<i style="color:var(--muted)">new</i>';
-        })()}&nbsp;${s.reviews.length ? '(' + s.reviews.length + ') ' : ''}${dtxt}</span>
+        })()}&nbsp;${s.reviews.length ? '(' + s.reviews.length + ') ' : ''}${dtxt}${hotTag ? ' ' + hotTag : ''}</span>
         <span>${esc(s.district || '')}${s.pricePerGlass ? ' · ' + esc(s.pricePerGlass) : ''}${s.openH != null && s.closeH != null && !closed ? ' · ' + fmtHr(s.openH) + '–' + fmtHr(s.closeH) : ''}</span></div>
       </div></div>`;
       })
@@ -1589,7 +1655,7 @@ function reviewHTML(s, r) {
         .map((rep) => {
           const rn = esc((profilesCache[rep.user_id] || {}).name || 'User');
           const own = cur && cur.id === rep.user_id;
-          return `<div class="reply-item"><span class="reply-who">${rn}:</span> ${esc(rep.body)}${own ? ` <button class="vote" style="color:var(--red)" onclick="deleteReply('${rep.id}','${r.id}','${s.id}')">delete</button>` : ''}</div>`;
+          return `<div class="reply-item"><span class="reply-who">${rn}:</span> ${esc(rep.body)}${own ? ` <button class="vote" style="color:var(--red)" onclick="deleteReply('${rep.id}','${r.id}','${s.id}')">delete</button>` : ''}${!own && cur ? ` <button class="vote" onclick="reportContent('reply','${rep.id}','reply')">⚑ Report</button>` : ''}</div>`;
         })
         .join('')}</div>`
     : '';
@@ -1599,6 +1665,9 @@ function reviewHTML(s, r) {
     : '';
   const replyFormHtml = canReply
     ? `<div id="rf_${r.id}" style="display:none;margin-top:6px"><textarea class="reply-textarea" id="rt_${r.id}" placeholder="Write a reply…"></textarea><div style="display:flex;gap:6px;margin-top:4px"><button class="btn-gold btn-sm" style="font-size:12px" onclick="submitReply('${r.id}','${s.id}')">Post</button><button class="btn-line btn-sm" style="font-size:12px" onclick="toggleReplyForm('${r.id}')">Cancel</button></div></div>`
+    : '';
+  const reportBtn = cur && r.userId !== cur.id
+    ? ` · <button class="vote" onclick="reportContent('review','${r.id}','review')">⚑ Report</button>`
     : '';
   return `<div class="review">
     <div class="who"><span>${whoLink}${avgBadge}</span>
@@ -1610,7 +1679,7 @@ function reviewHTML(s, r) {
       )
       .join('')}</div>
     ${r.txt ? (r.txt.length > 200 ? `<div class="txt">${esc(r.txt.slice(0, 200))}<span id="txe_${r.id}">… </span><span id="txm_${r.id}" style="display:none">${esc(r.txt.slice(200))} </span><button class="vote" id="txb_${r.id}" onclick="toggleMore('${r.id}')">Read more</button></div>` : `<div class="txt">${esc(r.txt)}</div>`) : ''}
-    <div class="when">${r.when} · <button class="vote" onclick="voteHelpful('${s.id}','${r.id}')">${didI ? '✓ Helpful' : '👍 Helpful'}${helped ? ' (' + helped + ')' : ''}</button>${replyBtn}</div>
+    <div class="when">${r.when} · <button class="vote" onclick="voteHelpful('${s.id}','${r.id}')">${didI ? '✓ Helpful' : '👍 Helpful'}${helped ? ' (' + helped + ')' : ''}</button>${replyBtn}${reportBtn}</div>
     ${repliesHtml}${replyFormHtml}
   </div>`;
 }
@@ -2107,6 +2176,12 @@ async function lbLike() {
   }
   renderLightbox();
 }
+function lbReport() {
+  const p = _lbPhotos[_lbIdx];
+  if (!p || !p.id) return;
+  if (!cur) { authModal(false); return; }
+  reportContent('photo', p.id, 'photo');
+}
 function closeLightbox() {
   document.getElementById('photoLightbox').classList.remove('open');
   document.removeEventListener('keydown', lbKey);
@@ -2252,6 +2327,76 @@ async function submitReport(id) {
   closeModal();
   showToast('✅ Report sent — thanks, an admin will review it.');
 }
+/* ── Generic content reporting (reviews, photos, replies) ── */
+const REPORT_REASONS = [
+  ['Spam or advertising', '📢'],
+  ['Offensive or abusive', '⚠️'],
+  ['Off-topic or wrong info', '❓'],
+  ['Inappropriate photo', '🔞'],
+  ['Duplicate', '👯'],
+  ['Other', '✏️'],
+];
+function reportContent(type, id, label) {
+  if (!cur) {
+    authModal(false);
+    return;
+  }
+  window._reportReason = '';
+  window._reportCtx = { type, id };
+  const titles = { review: 'review', photo: 'photo', reply: 'reply' };
+  // photos don't need the "wrong info" style reasons but the shared list is fine
+  const reasons = REPORT_REASONS.filter(
+    ([r]) => type === 'photo' || r !== 'Inappropriate photo',
+  );
+  modal(`
+    <div style="display:flex;align-items:center;gap:8px;margin:0 0 2px">
+      <span style="font-size:20px">⚑</span><h2 style="margin:0;font-size:18px">Report this ${titles[type] || 'content'}</h2>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin:2px 0 14px">${label ? '“' + esc(label) + '” — ' : ''}thanks for helping keep Bác Hơi friendly. What's wrong?</p>
+    <div id="reportReasons" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+      ${reasons.map(([r, e]) => `<button type="button" class="report-reason" data-r="${r}" onclick="pickReportReason(this)" style="display:flex;align-items:center;gap:10px;text-align:left;padding:11px 13px;border:1.5px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .12s"><span style="font-size:16px">${e}</span>${r}</button>`).join('')}
+    </div>
+    <textarea id="reportDetails" placeholder="Add any details (optional)…" style="width:100%;box-sizing:border-box;min-height:66px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-family:inherit;font-size:14px;background:var(--card);color:var(--ink);resize:vertical"></textarea>
+    <button id="reportSubmitBtn" class="btn-gold" style="width:100%;margin-top:14px;padding:11px;font-weight:800;border-radius:10px" onclick="submitContentReport()">Submit report</button>
+    <button class="btn-line" style="width:100%;margin-top:7px;padding:10px;border-radius:10px" onclick="closeModal()">Cancel</button>`);
+}
+async function submitContentReport() {
+  if (!cur) {
+    authModal(false);
+    return;
+  }
+  const ctx = window._reportCtx || {};
+  const reason = window._reportReason;
+  if (!reason) {
+    showToast('Please pick a reason first.');
+    return;
+  }
+  const details = (
+    document.getElementById('reportDetails')?.value || ''
+  ).trim();
+  const btn = document.getElementById('reportSubmitBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+  }
+  const { error } = await db.rpc('add_content_report', {
+    p_type: ctx.type,
+    p_id: String(ctx.id),
+    p_reason: reason,
+    p_details: details,
+  });
+  if (error) {
+    showToast('Could not send report: ' + error.message);
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Submit report';
+    }
+    return;
+  }
+  closeModal();
+  showToast('✅ Report sent — thanks, an admin will review it.');
+}
+
 async function shareSpot(id) {
   const s = byId(id);
   const url = `https://woustache-max.github.io/Bia-Hoi-Hanoi/?spot=${encodeURIComponent(id)}`;
@@ -3545,10 +3690,14 @@ async function changeAvatar() {
     } catch (err) {
       return showToast('Could not process that image — please try another.');
     }
-    const fpath = 'avatars/' + cur.id + '.jpg';
+    const oldPath =
+      cur.avatar_url && cur.avatar_url.includes('/spot-photos/avatars/')
+        ? cur.avatar_url.split('/spot-photos/')[1].split('?')[0]
+        : null;
+    const fpath = 'avatars/' + cur.id + '_' + Date.now() + '.jpg';
     const { error: upErr } = await db.storage
       .from('spot-photos')
-      .upload(fpath, up, { contentType: 'image/jpeg', upsert: true });
+      .upload(fpath, up, { contentType: 'image/jpeg', upsert: false });
     if (upErr) return showToast('Upload failed: ' + upErr.message);
     const {
       data: { publicUrl },
@@ -3563,6 +3712,11 @@ async function changeAvatar() {
     setUserLabel();
     showProfile(cur.id);
     showToast('✅ Profile photo updated!');
+    if (oldPath) {
+      try {
+        await db.storage.from('spot-photos').remove([oldPath]);
+      } catch (e) {}
+    }
   };
   input.click();
 }
@@ -3588,12 +3742,36 @@ function authModal(signup) {
      <input id="a_email" placeholder="Email" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;margin-bottom:6px">
      ${pwField('a_pw', 'Password', '6px')}
      ${signup ? `${pwField('a_pw2', 'Confirm password', '6px')}` : ''}
+     <div id="cfTurnstile" style="margin:8px 0;display:flex;justify-content:center"></div>
      <button class="btn-gold" style="width:100%;margin-bottom:8px" onclick="${signup ? 'doSignup()' : 'doLogin()'}">
        ${signup ? 'Create account' : 'Sign in'}
      </button>
      <p style="text-align:center;margin:0;font-size:13px">${signup ? 'Have an account? <a style="color:var(--gold-dark);cursor:pointer" onclick="authModal(false)">Sign in</a>' : 'New here? <a style="color:var(--gold-dark);cursor:pointer" onclick="authModal(true)">Create a free account</a>'}</p>
+     ${!signup ? '<p style="text-align:center;margin:6px 0 0;font-size:13px"><a style="color:var(--gold-dark);cursor:pointer" onclick="forgotPasswordModal()">Forgot password?</a></p>' : ''}
      <p style="text-align:center;margin:9px 0 0;font-size:11px;color:var(--muted)">By continuing you agree to our <a style="color:var(--muted);cursor:pointer;text-decoration:underline" onclick="showTerms()">Terms</a> and <a style="color:var(--muted);cursor:pointer;text-decoration:underline" onclick="showPrivacy()">Privacy Policy</a>.</p>
    </div>`);
+  renderCaptcha();
+}
+
+const TURNSTILE_SITEKEY = '0x4AAAAAADyihgbkjaSQ4Co_';
+function renderCaptcha() {
+  const el = document.getElementById('cfTurnstile');
+  if (!el) return;
+  if (window.turnstile && !el.dataset.rendered) {
+    try {
+      window.turnstile.render(el, { sitekey: TURNSTILE_SITEKEY });
+      el.dataset.rendered = '1';
+    } catch (e) {}
+  } else if (!window.turnstile) {
+    setTimeout(renderCaptcha, 300);
+  }
+}
+function getCaptchaToken() {
+  try {
+    return window.turnstile ? window.turnstile.getResponse() : '';
+  } catch (e) {
+    return '';
+  }
 }
 
 const RESERVED_NAMES = [
@@ -3658,7 +3836,7 @@ async function doSignup() {
   const { error } = await db.auth.signUp({
     email,
     password: pw,
-    options: { data: { name, role } },
+    options: { data: { name, role }, captchaToken: getCaptchaToken() },
   });
   if (error) return alert(error.message);
   closeModal();
@@ -3671,9 +3849,62 @@ async function doLogin() {
   const email = val('a_email').toLowerCase(),
     pw = val('a_pw');
   if (!email || !pw) return alert('Enter your email and password.');
-  const { error } = await db.auth.signInWithPassword({ email, password: pw });
+  const { error } = await db.auth.signInWithPassword({
+    email,
+    password: pw,
+    options: { captchaToken: getCaptchaToken() },
+  });
   if (error) return alert('Wrong email or password.');
   closeModal();
+}
+
+function forgotPasswordModal() {
+  modal(
+    '<h2 style="margin:0 0 6px">Reset your password 🔑</h2>' +
+      '<p style="font-size:13px;color:var(--muted);margin:0 0 12px">Enter your email and we\'ll send you a link to set a new password.</p>' +
+      '<input id="fp_email" placeholder="Email" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--line);border-radius:7px;margin-bottom:8px;font-family:inherit;background:var(--card);color:var(--ink)">' +
+      '<div id="cfTurnstile" style="margin:8px 0;display:flex;justify-content:center"></div>' +
+      '<button class="btn-gold" style="width:100%" onclick="sendReset()">Send reset link</button>' +
+      '<button class="btn-line" style="width:100%;margin-top:8px" onclick="authModal(false)">Back to sign in</button>',
+  );
+  renderCaptcha();
+}
+async function sendReset() {
+  const email = (val('fp_email') || '').toLowerCase().trim();
+  if (!email) return alert('Please enter your email.');
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: location.origin + location.pathname,
+    captchaToken: getCaptchaToken(),
+  });
+  if (error) return alert(error.message);
+  closeModal();
+  modal(
+    '<h2 style="margin:0 0 8px">Check your email 📧</h2>' +
+      '<p style="font-size:14px">If an account exists for <b>' +
+      esc(email) +
+      '</b>, we\'ve sent a link to reset your password. Open it on this device to set a new one.</p>' +
+      '<button class="btn-gold" style="width:100%;margin-top:10px" onclick="closeModal()">Got it</button>',
+  );
+}
+function setNewPasswordModal() {
+  modal(
+    '<h2 style="margin:0 0 6px">Set a new password 🔒</h2>' +
+      '<p style="font-size:13px;color:var(--muted);margin:0 0 12px">Enter a new password for your account.</p>' +
+      pwField('np_pw', 'New password', '8px') +
+      pwField('np_pw2', 'Confirm new password', '8px') +
+      '<button class="btn-gold" style="width:100%" onclick="savePassword()">Update password</button>',
+  );
+}
+async function savePassword() {
+  const pw = val('np_pw'),
+    pw2 = val('np_pw2');
+  if (!pw || pw.length < 8)
+    return alert('Password must be at least 8 characters.');
+  if (pw !== pw2) return alert("Passwords don't match.");
+  const { error } = await db.auth.updateUser({ password: pw });
+  if (error) return alert(error.message);
+  closeModal();
+  showToast("✅ Password updated — you're signed in.");
 }
 
 async function logout() {
@@ -3697,16 +3928,16 @@ function setUserLabel() {
     ? '<img class="av-sm" src="' + cur.avatar_url + '" alt="">'
     : '👤';
   const bkCount = (cur.bookmarks || []).length;
-  let html =
-    '<button class="btn-ghost btn-sm" onclick="openInbox()" aria-label="Notifications" title="Notifications" style="position:relative;margin-right:2px">🔔<span id="bellCount" style="display:none;position:absolute;top:-2px;right:-2px;background:var(--red);color:#fff;font-size:9px;font-weight:800;min-width:15px;height:15px;border-radius:8px;padding:0 3px;align-items:center;justify-content:center;line-height:1"></span></button>';
-  html += '<div class="user-dropdown" id="userDropWrap">';
+  let html = '<div class="user-dropdown" id="userDropWrap">';
   const _flair = localStorage.getItem('bhFlair_' + cur.id);
   const _flairIcon = _flair
     ? (BADGES.find((b) => b.id === _flair) || {}).icon || ''
     : '';
   html +=
     '<button class="user-btn" onclick="toggleUserMenu()">' +
+    '<span style="position:relative;display:inline-block;vertical-align:middle">' +
     av +
+    '<span id="avNotifDot" style="display:none;position:absolute;top:-2px;right:-2px;width:9px;height:9px;background:var(--red);border-radius:50%;border:2px solid var(--nav-bg);z-index:2"></span></span>' +
     '<span style="font-size:8px;color:var(--gold);opacity:.8;margin-left:2px">&#9660;</span><span class="user-meta"> <span>' +
     esc(cur.name) +
     '</span>' +
@@ -3723,6 +3954,8 @@ function setUserLabel() {
     '</span>' +
     rolePill(cur.role) +
     '</div>';
+  html +=
+    '<button class="user-menu-item" onclick="closeUserMenu();openInbox()" style="display:flex;align-items:center;justify-content:space-between">🔔 Notifications<span id="menuNotifCount" style="display:none;background:var(--red);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;padding:0 4px;align-items:center;justify-content:center;line-height:1"></span></button>';
   html +=
     '<button class="user-menu-item" onclick="closeUserMenu();showProfile(cur.id)">&#128100; My profile</button>';
   html +=
@@ -4412,6 +4645,15 @@ function openSidebar() {
     if (_oi) _oi.style.display = 'none';
   }
 }
+function openExplore() {
+  navPush('list');
+  openSidebar();
+  renderList();
+  setTimeout(function () {
+    var s = document.getElementById('searchBox');
+    if (s) s.focus();
+  }, 80);
+}
 function toggleFilters() {
   document.getElementById('filters').classList.toggle('open');
 }
@@ -4456,17 +4698,22 @@ async function openAdmin() {
   bg.innerHTML =
     '<div class="modal modal-admin"><div style="text-align:center;padding:40px;color:var(--muted)">🍺 Loading admin data…</div></div>';
   document.body.appendChild(bg);
-  const [sr, ur, rr, pr] = await Promise.all([
+  const [sr, ur, rr, pr, cr] = await Promise.all([
     db.from('spots').select('*'),
     db.from('profiles').select('*'),
     db.from('reviews').select('*'),
     db.from('photos').select('*'),
+    db.from('content_reports')
+      .select('*')
+      .eq('status', 'open')
+      .order('created_at', { ascending: false }),
   ]);
   adminData = {
     spots: sr.data || [],
     users: ur.data || [],
     reviews: rr.data || [],
     photos: pr.data || [],
+    contentReports: (cr && cr.data) || [],
   };
   renderAdmin('overview');
 }
@@ -4774,6 +5021,7 @@ function renderAdmin(tab) {
   const d = adminData;
   const reported = d.spots.filter((s) => (s.reports || []).length > 0);
   const unverified = d.spots.filter((s) => !s.verified);
+  const _repTotal = reported.length + ((d.contentReports) || []).length;
   const tabDefs = {
     overview: '📊 Overview',
     spots: '📍 Spots',
@@ -4786,8 +5034,8 @@ function renderAdmin(tab) {
   const tabs = Object.keys(tabDefs)
     .map((t) => {
       const badge =
-        t === 'reports' && reported.length
-          ? ` <span style="background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px">${reported.length}</span>`
+        t === 'reports' && _repTotal
+          ? ` <span style="background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px">${_repTotal}</span>`
           : '';
       return `<button class="admin-tab${t === tab ? ' on' : ''}" onclick="renderAdmin('${t}')">${tabDefs[t]}${badge}</button>`;
     })
@@ -4926,8 +5174,9 @@ function renderAdmin(tab) {
         : '<div style="color:var(--muted);font-size:13px">No photos yet.</div>'
     }`;
   } else if (tab === 'reports') {
-    body = reported.length
-      ? `<table class="admin-table">
+    const cReports = d.contentReports || [];
+    const _spotRep = reported.length
+      ? `<div class="form-sec-title" style="margin-bottom:8px">⚑ Reported spots (${reported.length})</div><table class="admin-table">
       <tr><th>Spot</th><th>Report details</th><th>Actions</th></tr>
       ${reported
         .map(
@@ -4945,7 +5194,8 @@ function renderAdmin(tab) {
         )
         .join('')}
     </table>`
-      : '<div class="empty-note">No reports. All clear! 🍺</div>';
+      : '';
+    body = _spotRep + contentReportsHTML(cReports);
   } else if (tab === 'activity') {
     const evts = [];
     d.spots.forEach((s) => {
@@ -5144,9 +5394,16 @@ async function adminDeleteSpot(id) {
 async function adminSetRole(uid, role) {
   const u = adminData.users.find((x) => x.id === uid);
   if (!confirm(`Change ${u ? u.name : 'this user'} to ${role}?`)) return;
-  const { error } = await db.from('profiles').update({ role }).eq('id', uid);
+  const { data, error } = await db.rpc('admin_set_role', {
+    p_target: uid,
+    p_role: role,
+  });
   if (error) {
     alert('Error: ' + error.message);
+    return;
+  }
+  if (data !== 'ok') {
+    alert('Could not change role: ' + data);
     return;
   }
   if (u) u.role = role;
@@ -5206,9 +5463,13 @@ async function adminRemoveUser(uid, name) {
     )
   )
     return;
-  const { error } = await db.from('profiles').delete().eq('id', uid);
+  const { data, error } = await db.rpc('admin_remove_user', { p_target: uid });
   if (error) {
     alert('Error: ' + error.message);
+    return;
+  }
+  if (data !== 'ok') {
+    alert('Could not remove user: ' + data);
     return;
   }
   adminData.users = adminData.users.filter((x) => x.id !== uid);
@@ -5262,12 +5523,83 @@ async function adminDismissReports(id) {
   renderAdmin('reports');
 }
 
+function contentReportsHTML(list) {
+  if (!list || !list.length) return '';
+  const typeLbl = { review: '📝 Review', photo: '📷 Photo', reply: '💬 Reply' };
+  const rows = list
+    .map((rp) => {
+      const isPhoto = rp.content_type === 'photo';
+      const prev = isPhoto
+        ? `<a href="${rp.preview}" target="_blank"><img src="${rp.preview}" style="width:56px;height:56px;object-fit:cover;border-radius:8px"></a>`
+        : `<div style="font-size:12px;max-width:230px">${esc((rp.preview || '').slice(0, 160)) || '<i>(empty)</i>'}</div>`;
+      return `<tr>
+        <td><div style="font-weight:700;font-size:12px;margin-bottom:3px">${typeLbl[rp.content_type] || rp.content_type}</div>${prev}<div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(rp.context || '')}</div><div style="font-size:11px;color:var(--muted)">by ${esc(rp.author_name || 'User')}</div></td>
+        <td style="font-size:12px"><b>${esc(rp.reason)}</b>${rp.details ? `<div style="color:var(--muted)">${esc(rp.details)}</div>` : ''}<div style="color:var(--muted);font-size:11px;margin-top:3px">— ${esc(rp.reporter_name || 'User')} · ${(rp.created_at || '').slice(0, 10)}</div></td>
+        <td style="white-space:nowrap">
+          <button class="btn-line btn-sm" onclick="adminDismissContentReport(${rp.id})">✓ Dismiss</button><br style="margin:3px 0">
+          <button class="btn-line btn-sm" style="color:var(--red);margin-top:4px" onclick="adminRemoveReportedContent(${rp.id})">🗑 Remove ${rp.content_type}</button><br style="margin:3px 0">
+          ${rp.author_id ? `<button class="btn-line btn-sm" style="color:var(--red);margin-top:4px" onclick="adminRemoveReportedUser(${rp.id})">⛔ Remove user</button>` : ''}
+        </td>
+      </tr>`;
+    })
+    .join('');
+  return `<div class="form-sec-title" style="margin:16px 0 8px">⚑ Reported reviews, photos &amp; replies (${list.length})</div><table class="admin-table"><tr><th>Content</th><th>Report</th><th>Actions</th></tr>${rows}</table>`;
+}
+async function adminDismissContentReport(id) {
+  const { error } = await db
+    .from('content_reports')
+    .update({ status: 'dismissed' })
+    .eq('id', id);
+  if (error) return alert('Error: ' + error.message);
+  adminData.contentReports = (adminData.contentReports || []).filter(
+    (r) => r.id !== id,
+  );
+  renderAdmin('reports');
+}
+function adminRemoveReportedUser(id) {
+  const rp = (adminData.contentReports || []).find((r) => r.id === id);
+  if (!rp || !rp.author_id) return;
+  adminRemoveUser(rp.author_id, rp.author_name || 'User');
+}
+async function adminRemoveReportedContent(id) {
+  const rp = (adminData.contentReports || []).find((r) => r.id === id);
+  if (!rp) return;
+  if (!confirm('Permanently remove this ' + rp.content_type + '?')) return;
+  let error = null;
+  if (rp.content_type === 'review') {
+    ({ error } = await db.from('reviews').delete().eq('id', rp.content_id));
+  } else if (rp.content_type === 'reply') {
+    ({ error } = await db
+      .from('review_replies')
+      .delete()
+      .eq('id', rp.content_id));
+  } else if (rp.content_type === 'photo') {
+    if (rp.content_path)
+      await db.storage.from('spot-photos').remove([rp.content_path]);
+    ({ error } = await db.from('photos').delete().eq('id', rp.content_id));
+  }
+  if (error) return alert('Error: ' + error.message);
+  await db
+    .from('content_reports')
+    .update({ status: 'actioned' })
+    .eq('content_type', rp.content_type)
+    .eq('content_id', rp.content_id);
+  adminData.contentReports = (adminData.contentReports || []).filter(
+    (r) =>
+      !(r.content_type === rp.content_type && r.content_id === rp.content_id),
+  );
+  showToast('Removed. ✅');
+  renderAdmin('reports');
+}
+
+
 /* ============================================================
    INIT — app bootstrap, data loading, deep-link handling
    ============================================================ */
 DISTRICTS.forEach((d) => fDistrict.add(new Option(d, d)));
 
 async function init() {
+  if (/type=recovery/.test(location.hash)) setTimeout(setNewPasswordModal, 900);
   const {
     data: { session },
   } = await db.auth.getSession();
@@ -5291,6 +5623,7 @@ async function init() {
     if (_bk && _bk.v) localStorage.setItem('bhLastBackup', _bk.v);
   } catch (e) {}
   db.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'PASSWORD_RECOVERY') setNewPasswordModal();
     if (session) {
       if (event === 'SIGNED_IN') await new Promise((r) => setTimeout(r, 400));
       const { data: profile } = await db
@@ -6245,8 +6578,11 @@ function setLbScope(s) {
    ONBOARDING / LEGAL — welcome overlay, About, policies, age gate
    ============================================================ */
 function dismissWelcome() {
-  localStorage.setItem('welcomed', '1');
-  document.getElementById('welcomeOverlay').classList.add('hidden');
+  const w = document.getElementById('welcomeOverlay');
+  if (w) w.classList.add('hidden');
+  try {
+    localStorage.setItem('welcomed', '1');
+  } catch (e) {}
 }
 function showAbout() {
   modal(
@@ -6263,6 +6599,39 @@ function showAbout() {
       '</div>' +
       '<div style="display:flex;gap:12px;justify-content:center;margin:16px 0 2px;font-size:12px"><a onclick="showPrivacy()" style="color:var(--muted);cursor:pointer;text-decoration:underline">Privacy</a><a onclick="showTerms()" style="color:var(--muted);cursor:pointer;text-decoration:underline">Terms</a></div>' +
       '<button class="btn-gold btn-sm" style="margin-top:10px" onclick="closeModal()">Close</button>' +
+      '</div>',
+  );
+}
+function showHelp() {
+  const s = (t, b) =>
+    '<details style="border-bottom:1px solid var(--line)"><summary style="cursor:pointer;list-style:none;padding:11px 2px;font-weight:700;font-size:14px">' +
+    t +
+    '</summary><div style="font-size:13px;line-height:1.55;padding:0 2px 12px">' +
+    b +
+    '</div></details>';
+  modal(
+    '<div style="max-height:78vh;overflow-y:auto;text-align:left;padding-right:4px">' +
+      '<h2 style="margin:0 0 4px">❓ Help &amp; FAQ</h2>' +
+      '<p style="font-size:12px;color:var(--muted);margin:0 0 10px">Everything you can do on Bác Hơi — tap a topic to expand.</p>' +
+      s('🚀 Getting started', 'Bác Hơi is a community map of Vietnam’s best bia hơi spots. Browse the map or the side list and tap a beer icon to open a spot. You can explore freely — you only need a free account to add spots, write reviews, or upload photos.') +
+      s('📲 Install it on your phone', 'Add Bác Hơi to your home screen so it opens full-screen like an app.<br><b>iPhone (Safari):</b> tap the Share button (□↑) at the bottom → “Add to Home Screen” → Add.<br><b>Android (Chrome):</b> tap the ⋮ menu → “Install app” → Install.') +
+      s('🔎 Finding a spot', 'Use <b>Search</b> to find a place by name, or <b>⚲ Filters</b> to narrow by district, vibe (you can pick several), rating, price, open-now, or verified-only. <b>📍 Near me</b> sorts spots by distance using your location. <b>🔀 Random</b> picks a surprise spot from whatever’s on your screen.') +
+      s('➕ Adding a spot', 'Tap <b>+ Add spot</b>, drop a pin on the map, and fill in the details — name, price per glass, hours, vibes, and a photo. Anyone can add a spot; new ones start “unverified” until confirmed by an active member or admin.') +
+      s('⭐ Reviews & ratings', 'Open a spot and scroll to “Add your review.” Rate it across categories (beer, food, atmosphere, cleanliness, service) and add a comment if you’re signed in. You can mark other people’s reviews as 👍 Helpful and reply to them.') +
+      s('📷 Photos', 'On a spot, tap “Add photo” to upload one — photos are automatically shrunk so they load fast and save space. Tap ❤️ to like a photo. You can tag a photo “👍 Uncle Approved” or “🤙 Full Uncle” for fun badges.') +
+      s('🕓 Check-ins & freshness', 'Sitting at a spot? Tap <b>✓ Check in</b> to confirm it’s still open — you need to be nearby for it to count. Each spot shows when it was “last checked in,” so everyone can trust the info is fresh.') +
+      s('👥 Following & the Latest feed', 'Open someone’s profile and tap <b>Follow</b>. The <b>Latest</b> feed has two tabs: <b>Everyone</b> (all recent activity) and <b>Following</b> (just people you follow). There’s no messaging — following is only for seeing each other’s contributions.') +
+      s('🏅 Badges, Quests & Rewards', 'Earn badges for contributing — adding spots, writing reviews, uploading photos, exploring districts, and more. The 🎯 Quests screen shows your progress. Some awards are monthly (Photo / Reviewer / Explorer of the Month), and winning one repeatedly unlocks a prestige tier.') +
+      s('🔑 Account & levels', 'Sign up free with an email (you’ll confirm it via a link). New members start as <b>Newcomer</b> with a shorter review limit; write <b>2 reviews</b> to become <b>Active</b>, which unlocks full-length reviews and auto-verified spots. Forgot your password? Use “Forgot password?” on the sign-in screen.') +
+      s('🏆 Leaderboard', 'See the top contributors by spots added, reviews written, or helpful votes. Switch between <b>Everyone</b> and <b>Following</b> to compare with just the people you follow.') +
+      s('🔖 Saved spots', 'Tap 🔖 Save on any spot to bookmark it, then find your saved spots from the <b>Saved</b> button or your profile.') +
+      s('🔔 Notifications', 'The 🔔 bell lights up when someone likes your photo, marks your review helpful, replies to you, verifies your spot, or follows you.') +
+      s('🕯️ Lost spots & the archive', 'When a spot closes for good it isn’t deleted — it moves to the <b>Lost spots</b> memorial (in the logo menu) so it’s never forgotten. Think a spot might be closing? Flag it via a spot’s ⋯ More → Report. Turn on <b>Ghost pins</b> (logo menu) to see closed spots faintly on the map.') +
+      s('🎲 Games & sharing', 'The account menu has drinking games to play at the hơi (Một Hai Ba Dô, Horse Racing and more). Use 📲 Share, or a spot’s Share button, to send friends a link or QR code.') +
+      s('🌙 Dark mode', 'Switch between light and dark themes any time from the account menu (🌙 Dark mode).') +
+      s('⚑ Reporting & safety', 'See something wrong — a closed spot, wrong location, or bad content? Open the spot → ⋯ More → Report. Bác Hơi is for adults of legal drinking age; please enjoy responsibly and never drink and drive.') +
+      s('🔒 Privacy', 'We only collect what’s needed to run the app, and we never sell your data. Read the full <a onclick="showPrivacy()" style="color:var(--gold-dark);cursor:pointer">Privacy Policy</a> and <a onclick="showTerms()" style="color:var(--gold-dark);cursor:pointer">Terms of Use</a>.') +
+      '<div style="margin-top:14px;text-align:right"><button class="btn-gold btn-sm" onclick="closeModal()">Close</button></div>' +
       '</div>',
   );
 }
@@ -6390,7 +6759,7 @@ function showAgeGate() {
   var el = document.createElement('div');
   el.id = 'ageGate';
   el.style.cssText =
-    'position:fixed;inset:0;z-index:2800;background:var(--nav-bg);display:flex;align-items:center;justify-content:center;padding:24px';
+    'position:fixed;inset:0;z-index:2800;background:var(--nav-bg);display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
   el.innerHTML =
     '<div style="max-width:360px;width:100%;text-align:center;color:#fff">' +
     '<div style="font-size:44px;margin-bottom:6px">🍺</div>' +

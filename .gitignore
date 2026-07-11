@@ -1,0 +1,29 @@
+# Local tooling
+.claude/
+
+# Data backups (contain real user data — never publish)
+APP BACKUPS/
+
+# DB migrations / schema & security internals (run manually in Supabase, not for public repo)
+*.sql
+
+# Internal docs, planning, specs
+*.docx
+BACKUP-LOG.md
+BADGES-PLAN.md
+DEPLOY-PENDING.md
+PROGRESS-CHECKLIST.md
+REFACTOR-BRIEF.md
+SPEC-social-and-archive.md
+STATUS-AND-ROADMAP.md
+pre-beta-todo.md
+VERSION.md
+Bac Hoi Tech Brief/
+Working Index/
+splash-preview.html
+
+# Unused source images (not referenced by the deployed site)
+LOGO.png
+ADMIN PFP.png
+CORE USERS PFP.png
+NEW CARD.png

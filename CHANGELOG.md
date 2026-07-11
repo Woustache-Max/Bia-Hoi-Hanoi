@@ -4,6 +4,50 @@ A running log of notable changes to the Bác Hơi app. Newest first.
 Format: date → Added / Changed / Fixed / Ops.
 Outstanding work is in the "Planned / Outstanding" section below and, with priorities, in `PROGRESS-CHECKLIST.md`.
 
+**Versioning rule:** bump `APP_VERSION` in `app.js` on *every* change — patch (0.9.**x**) for fixes/tweaks, minor (0.**x**.0) for new features — alongside the `sw.js` cache bump. Promote to **1.0.0** at the public launch.
+
+---
+
+## v0.9.3 — new logo card + SEO polish
+
+**Changed**
+- Swapped in the new **nón lá logo** share card (`og-card.png`) and lengthened the page `<title>` + meta description so Google search snippets read better. (Share-card image now resized to exactly 1200×630 and compressed under 1 MB.)
+
+---
+
+## v0.9.2 — content moderation + share cards
+
+**New — moderation** _(run `reports_setup.sql`)_
+- **Users can now report reviews, photos and replies** (spots were already reportable). A ⚑ Report action opens a reason picker + optional note.
+- **Admin → Reports** now has a second section listing reported reviews/photos/replies, each with a preview, reason and reporter. Actions: **Dismiss**, **Remove** the content, or **Remove user** for repeat offenders. The tab badge counts spot + content reports together.
+- Reports are admin-only to read; a user can't report the same item twice; nothing auto-hides (queue-based, you stay in control).
+
+**New — social share cards**
+- Added Open Graph / Twitter meta tags + a branded **1200×630 preview image** (`og-card.png`), so links shared to Facebook, Zalo, Messenger, X etc. show the Bác Hơi card instead of a bare URL.
+
+---
+
+## v0.9.1 — profile-picture fix + storage security
+
+**Fixed**
+- **Changing your profile picture works reliably.** Avatars now upload as a unique file each time (no more blocked "overwrite" — the cause of "new row violates row-level security policy"), the profile switches to it immediately, and the previous avatar file is deleted to save space.
+
+**Security** _(run `storage_security_setup.sql`)_
+- **Tightened `spot-photos` bucket permissions** — only a file's **owner or an admin** can delete/overwrite a file (was: any signed-in user, via the API). Public read + normal uploads unchanged.
+
+---
+
+## 🏷️ v0.9.0 — feature-complete, launch candidate
+
+Milestone marking the app as feature-complete and security-hardened, entering the soft-launch / final-testing phase. Everything since v0.8.0, in brief:
+- **Social layer:** public member profiles (bio, Top spots, follower counts), one-way follow, Everyone/Following feed toggle, friends leaderboard filter.
+- **Living archive:** nearby-gated check-ins + "last checked in" freshness, community at-risk flags + admin-confirmed closures, Lost Spots memorial + ghost pins, logo dropdown menu.
+- **Discovery:** multi-select vibe filter, 🔀 Random (on-screen) picker.
+- **Trust & legal:** Privacy Policy, Terms, 18+ gate; About + full **Help & FAQ**.
+- **Performance/cost:** client-side image compression + size cap + long cache headers.
+- **Security:** role-escalation hole closed (RPC-gated role changes), Cloudflare Turnstile captcha on auth, admin full account removal, self-service password reset, unique display names.
+- **Codebase:** refactored from one 3,700-line file into `index.html` + `styles.css` + `app.js`; `README.md` + `ARCHITECTURE.md` added.
+
 ---
 
 ## Planned / Outstanding (not yet built)
@@ -366,33 +410,4 @@ Amber stays the single hero accent throughout — the "neutral base + one accent
 
 ---
 
-## 2026-06-30 — Rebrand to "Bác Hơi" + announcements — ✅ deployed & live
-
-### Changed
-- **Rebranded** "Bia Hơi Hanoi" → **Bác Hơi** across the app, page title, share text, `manifest.json`, and service worker.
-- **New logo & app icons** — header now shows the logo image + "Bác Hơi" wordmark (was a 🍺 emoji); regenerated `icon-192.png` / `icon-512.png` from `LOGO.png` (full-bleed gold so they work as maskable PWA icons).
-- **Ratings** — "Atmosphere & location" → **Atmosphere**; "Value for money" → **Staff / Service** (label change only; existing scores remap).
-- **Add-a-spot flow** reframed so the description reads as a *neutral* "what is this place," with the personal review as a clearly separate step after saving.
-
-### Added
-- **Editable usernames** — profile → ✎ Edit name (updates the profile and the user's past reviews).
-- **Photo auto-shrink** — every uploaded photo is resized/compressed in the browser (max 1600px).
-- **Admin announcement banner** — Admin Panel → 📣 Announce. Posts a message all users see on next open (dismissible). New `announcements` Supabase table + RLS + grants.
-
-### Fixed
-- **Peek panel** was clipping the spot name/photo on mobile — now resets scroll.
-- **Welcome screen** could trap new users with no way to dismiss — added tap-outside / ✕ / scroll.
-- **Outage:** an `index.html` got truncated when copied via the shell (stale mount) and broke the live app (blank map, frozen loading). Restored the file and corrected the project's editing guidance so it can't recur.
-
-### Ops
-- Service-worker cache bumped to **`biahoi-shell-v5`**.
-- Removed the outdated June-9 context file; `Bac Hoi Tech Brief/CLAUDE.md` is now the canonical briefing.
-- **Lesson recorded:** edit/sync these files with the file tools, never the shell; always test `index.html` locally before uploading; new Supabase tables need RLS **and** grants.
-
----
-
-<!-- Template for new entries:
-## YYYY-MM-DD — short summary
-### Added / Changed / Fixed / Ops
-- ...
--->
+## 2026-06-30 — Rebrand to "Bác Hơi" + announcements — ✅ depl
