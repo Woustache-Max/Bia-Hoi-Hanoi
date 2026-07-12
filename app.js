@@ -5220,15 +5220,6 @@ function goHome() {
   if (typeof map !== 'undefined' && map && map.setView)
     map.setView([21.0278, 105.8342], 13);
 }
-function toggleSidebar() {
-  const _sb = document.getElementById('sidebar');
-  _sb.classList.toggle('open');
-  const _so = document.getElementById('sheetOverlay');
-  if (_so) {
-    if (_sb.classList.contains('open')) _so.classList.add('on');
-    else _so.classList.remove('on');
-  }
-}
 function openSidebar() {
   if (innerWidth <= 680) {
     const _os = document.getElementById('sidebar');
