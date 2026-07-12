@@ -313,7 +313,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.10.1';
+const APP_VERSION = '0.10.2';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -7570,7 +7570,7 @@ function _ph(t) {
 function showPrivacy() {
   policyModal(
     'Privacy Policy',
-    '7 July 2026',
+    '12 July 2026',
     _pp(
       'Bác Hơi ("we", "us") is a free, community-run, crowdsourced map of bia hơi and draft-beer spots. This policy explains what we collect and how we use it.',
     ) +
@@ -7586,6 +7586,9 @@ function showPrivacy() {
       ) +
       _pp(
         "<b>Device storage.</b> We use your browser's local storage to remember preferences such as your theme, filters and age confirmation. We do not use advertising cookies or trackers.",
+      ) +
+      _pp(
+        '<b>Analytics.</b> We use Cloudflare Web Analytics to see how many people visit the app. It is cookieless and collects no personal data.',
       ) +
       _ph('How we use it') +
       _pp(
