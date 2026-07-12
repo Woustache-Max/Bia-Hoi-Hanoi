@@ -949,6 +949,7 @@ form textarea {
   position: relative;
   max-height: calc(100vh - 32px);
   overflow-y: auto;
+  animation: wc-in 0.25s ease;
 }
 [data-theme='dark'] .welcome-card {
   background: var(--card);
@@ -2082,15 +2083,6 @@ form textarea {
   background: rgba(255, 255, 255, 0.15);
   color: #fff;
 }
-.welcome-card {
-  background: var(--card);
-  border-radius: 18px;
-  padding: 28px 24px;
-  max-width: 360px;
-  width: 100%;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.35);
-  animation: wc-in 0.25s ease;
-}
 @keyframes wc-in {
   from {
     opacity: 0;
@@ -2100,10 +2092,6 @@ form textarea {
     opacity: 1;
     transform: translateY(0);
   }
-}
-.welcome-card h2 {
-  margin: 0 0 4px;
-  font-size: 22px;
 }
 /* floating island */
 .floating-island {
