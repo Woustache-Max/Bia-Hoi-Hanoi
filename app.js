@@ -295,6 +295,13 @@ const BADGES = [
     name: 'Hype Uncle',
     desc: 'Invited 5 friends who joined Bác Hơi',
   },
+  /* Onboarding */
+  {
+    id: 'family',
+    icon: '🏡',
+    name: 'Part of the Family',
+    desc: 'Completed the new-member checklist: introduced yourself, found your local, wrote a review, saved a spot, made a list, checked in, and invited a friend',
+  },
   /* Legend */
   {
     id: 'legend',
@@ -313,7 +320,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.10.2';
+const APP_VERSION = '0.10.3';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -443,6 +450,7 @@ async function checkIn(spotId) {
         return;
       }
       s.lastCheckinAt = new Date().toISOString();
+      checkBadges();
       showToast('✅ Checked in — thanks for keeping the record fresh!');
       showDetail(spotId);
     },
@@ -1458,6 +1466,10 @@ async function showDetail(id) {
   _sd_sb.classList.remove('peek');
   const s = byId(id);
   if (!s) return;
+  if (cur && !localStorage.getItem('bhViewedSpot')) {
+    localStorage.setItem('bhViewedSpot', '1');
+    checkBadges();
+  }
   if (innerWidth <= 680) {
     _sd_sb.classList.add('open');
     const _sd_isl = document.getElementById('floatingIsland');
@@ -2261,6 +2273,7 @@ async function toggleBookmark(id) {
     btn.textContent = added ? '🔖 Saved' : '🔖 Save';
   }
   renderList();
+  if (added) checkBadges();
   showToast(added ? 'Spot saved!' : 'Removed from saved');
 }
 /* ── SPOTS: menu, report, share ── */
@@ -2649,6 +2662,7 @@ async function submitCreateList() {
   } else {
     showToast('✅ List created.');
   }
+  checkBadges();
   showListDetail(data.id);
 }
 async function editListInfo(listId) {
@@ -3809,6 +3823,7 @@ async function saveBio() {
   cur.bio = v;
   if (profilesCache[cur.id]) profilesCache[cur.id].bio = v;
   closeModal();
+  checkBadges();
   showProfile(cur.id);
   showToast('✅ Bio updated.');
 }
@@ -4088,7 +4103,7 @@ async function showProfile(uid) {
     })()}
     ${(() => {
       if (!isOwn) return '';
-      const earned = badgesFor(uid);
+      const earned = [...new Set([...badgesFor(uid), ...(u.badges || [])])];
       if (!earned.length) return '';
       const curFlair = localStorage.getItem('bhFlair_' + uid) || '';
       const badges = BADGES.filter((b) => earned.includes(b.id));
@@ -4281,6 +4296,7 @@ async function changeAvatar() {
     cur.avatar_url = publicUrl;
     profilesCache[cur.id] = cur;
     setUserLabel();
+    checkBadges();
     showProfile(cur.id);
     showToast('✅ Profile photo updated!');
     if (oldPath) {
@@ -6401,6 +6417,12 @@ async function shareInvite() {
   const url =
     'https://woustache-max.github.io/Bia-Hoi-Hanoi/?ref=' +
     encodeURIComponent(cur.referral_code);
+  const markShared = () => {
+    if (!localStorage.getItem('bhInviteShared')) {
+      localStorage.setItem('bhInviteShared', '1');
+      checkBadges();
+    }
+  };
   if (navigator.share) {
     try {
       await navigator.share({
@@ -6408,6 +6430,7 @@ async function shareInvite() {
         text: 'Join me on Bác Hơi — Hanoi’s bia hơi map 🍺',
         url,
       });
+      markShared();
       return;
     } catch (e) {
       if (e.name === 'AbortError') return;
@@ -6416,9 +6439,104 @@ async function shareInvite() {
   try {
     await navigator.clipboard.writeText(url);
     showToast('🔗 Invite link copied to clipboard!');
+    markShared();
   } catch (e) {
     prompt('Copy this link:', url);
+    markShared();
   }
+}
+
+/* ============================================================
+   ONBOARDING CHECKLIST — "Part of the Family" badge
+   Reuses badgesFor(), fetchListsFor(), myCheckedInSpotIds() and the
+   normal checkBadges()/showBadgeToast()/fireConfetti() award flow —
+   this only computes the 7 checklist items, it doesn't award anything
+   itself.
+   ============================================================ */
+async function familyChecklist() {
+  if (!cur) return [];
+  const [myLists, myCheckins] = await Promise.all([
+    fetchListsFor(cur.id, true),
+    myCheckedInSpotIds(cur.id),
+  ]);
+  return [
+    {
+      icon: '👤',
+      label: 'Introduce yourself',
+      desc: 'Set a profile photo and a short bio',
+      done: !!(cur.avatar_url && cur.bio && cur.bio.trim()),
+    },
+    {
+      icon: '🗺️',
+      label: 'Find your local',
+      desc: 'Open a spot via Near me or the map',
+      done: !!localStorage.getItem('bhViewedSpot'),
+    },
+    {
+      icon: '⭐',
+      label: 'Write your first review',
+      desc: 'Rate a spot you know',
+      done: badgesFor(cur.id).includes('first_review'),
+    },
+    {
+      icon: '🔖',
+      label: 'Save a spot',
+      desc: 'Bookmark one for later',
+      done: (cur.bookmarks || []).length >= 1,
+    },
+    {
+      icon: '📋',
+      label: 'Create a list',
+      desc: 'Start your own collection',
+      done: myLists.length >= 1,
+    },
+    {
+      icon: '🍺',
+      label: 'Check in',
+      desc: 'Visit a bia hơi in person',
+      done: myCheckins.length >= 1,
+    },
+    {
+      icon: '📨',
+      label: 'Invite a friend',
+      desc: 'Share your invite link',
+      done: !!localStorage.getItem('bhInviteShared'),
+    },
+  ];
+}
+async function familyBadgeFor(uid) {
+  if (!cur || uid !== cur.id) return [];
+  const items = await familyChecklist();
+  return items.length && items.every((i) => i.done) ? ['family'] : [];
+}
+function familyItemHTML(item) {
+  return (
+    '<div class="qitem' +
+    (item.done ? ' done' : '') +
+    '"><div class="qi-icon">' +
+    item.icon +
+    '</div><div class="qi-body"><div class="qi-name">' +
+    esc(item.label) +
+    '</div><div class="qi-desc">' +
+    esc(item.desc) +
+    '</div></div><div class="qi-chk">' +
+    (item.done ? '✅' : '') +
+    '</div></div>'
+  );
+}
+async function familyChecklistHTML() {
+  if (!cur || (cur.badges || []).includes('family')) return '';
+  const items = await familyChecklist();
+  const doneCount = items.filter((i) => i.done).length;
+  return (
+    '<div class="sec">🏡 Part of the Family (' +
+    doneCount +
+    ' / ' +
+    items.length +
+    ')</div>' +
+    '<p style="font-size:12px;color:var(--muted);margin:0 0 8px">Get to know Bác Hơi — finish all 7 for a badge and a flair to show off on your profile.</p>' +
+    items.map(familyItemHTML).join('')
+  );
 }
 
 /* ============================================================
@@ -6592,7 +6710,11 @@ function badgesFor(uid) {
 
 async function checkBadges() {
   if (!cur) return;
-  const earned = [...badgesFor(cur.id), ...(await referralBadgesFor(cur.id))];
+  const earned = [
+    ...badgesFor(cur.id),
+    ...(await referralBadgesFor(cur.id)),
+    ...(await familyBadgeFor(cur.id)),
+  ];
   const existing = cur.badges || [];
   const newOnes = earned.filter((b) => !existing.includes(b));
   if (!newOnes.length) return;
@@ -6884,6 +7006,8 @@ async function showQuests() {
   openSidebar();
   document.getElementById('sidebarBody').innerHTML =
     '<div class="panel"><div style="text-align:center;padding:30px;color:var(--muted)">Loading…</div></div>';
+
+  const familyHTML = await familyChecklistHTML();
 
   const { data: legendData } = await db
     .from('profiles')
@@ -7260,6 +7384,7 @@ async function showQuests() {
     '<span class="back" onclick="bhBack()">← All spots</span>' +
     '<h2 style="margin:0 0 4px">🎯 Quests & Badges</h2>' +
     '<p style="font-size:13px;color:var(--muted);margin:0 0 14px">Explore Vietnam\'s bia hơi scene and earn badges</p>' +
+    familyHTML +
     '<div class="sec">🏆 Bác Hơi Legends</div>' +
     legendsHTML +
     '<div class="sec" style="margin-top:14px">👑 King of Thumbs — ' +
