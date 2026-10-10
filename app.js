@@ -764,11 +764,11 @@ const CARTO_ATTR =
   '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>';
 const tileLight = L.tileLayer(
   'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_4g01_1_a710462f6b36314120ec668e',
-  { maxZoom: 19, attribution: CARTO_ATTR },
+  { maxZoom: 20, maxNativeZoom: 18, attribution: CARTO_ATTR },
 );
 const tileDark = L.tileLayer(
   'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=cb1_4g01_1_a710462f6b36314120ec668e',
-  { maxZoom: 19, attribution: CARTO_ATTR },
+  { maxZoom: 20, maxNativeZoom: 18, attribution: CARTO_ATTR },
 );
 (localStorage.getItem('theme') === 'dark' ? tileDark : tileLight).addTo(map);
 const cluster = L.markerClusterGroup({
