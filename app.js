@@ -34,7 +34,7 @@ const URBAN_DISTRICTS = [
 const DISTRICTS = [...URBAN_DISTRICTS, 'Other'];
 const VIBES = [
   'Touristy',
-  'Local-only',
+  'Local favourite',
   'Lively',
   'Chill',
   'Cheap',
@@ -325,7 +325,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.10.8';
+const APP_VERSION = '0.10.9';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
