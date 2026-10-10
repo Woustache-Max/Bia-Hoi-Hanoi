@@ -320,7 +320,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.10.6';
+const APP_VERSION = '0.10.7';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -2746,7 +2746,7 @@ async function shareList(listId) {
   const l = await fetchList(listId);
   if (!l) return;
   const url =
-    'https://woustache-max.github.io/Bia-Hoi-Hanoi/?list=' +
+    'https://bachoi.app/?list=' +
     encodeURIComponent(listId);
   if (navigator.share) {
     try {
@@ -2959,7 +2959,7 @@ async function submitContentReport() {
 
 async function shareSpot(id) {
   const s = byId(id);
-  const url = `https://woustache-max.github.io/Bia-Hoi-Hanoi/?spot=${encodeURIComponent(id)}`;
+  const url = `https://bachoi.app/?spot=${encodeURIComponent(id)}`;
   if (navigator.share) {
     try {
       await navigator.share({
@@ -6376,7 +6376,7 @@ async function showInvite() {
   const count = await referralCount(cur.id);
   await checkBadges();
   const url = code
-    ? 'https://woustache-max.github.io/Bia-Hoi-Hanoi/?ref=' +
+    ? 'https://bachoi.app/?ref=' +
       encodeURIComponent(code)
     : '';
   const nextGoal = count < 1 ? 1 : count < 3 ? 3 : count < 5 ? 5 : null;
@@ -6406,7 +6406,7 @@ async function showInvite() {
 async function shareInvite() {
   if (!cur || !cur.referral_code) return;
   const url =
-    'https://woustache-max.github.io/Bia-Hoi-Hanoi/?ref=' +
+    'https://bachoi.app/?ref=' +
     encodeURIComponent(cur.referral_code);
   const markShared = () => {
     if (!localStorage.getItem('bhInviteShared')) {
@@ -6975,7 +6975,7 @@ async function shareWrapped() {
     ' reviews written' +
     (st.topSpot ? ', top spot: ' + st.topSpot.name : '') +
     '.';
-  const url = 'https://woustache-max.github.io/Bia-Hoi-Hanoi/';
+  const url = 'https://bachoi.app/';
   if (navigator.share) {
     try {
       await navigator.share({ title: 'My Bác Hơi Wrapped', text, url });
@@ -7887,7 +7887,7 @@ window.addEventListener('popstate', function () {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
-      .register('sw.js', { scope: '/Bia-Hoi-Hanoi/' })
+      .register('sw.js', { scope: '/' })
       .then((r) => console.log('SW registered:', r.scope))
       .catch((e) => console.warn('SW registration failed:', e));
   });

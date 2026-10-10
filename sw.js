@@ -1,15 +1,16 @@
 /* Bác Hơi — Service Worker */
-const SHELL_CACHE = 'biahoi-shell-v81';
+const SHELL_CACHE = 'biahoi-shell-v82';
 const CDN_CACHE   = 'biahoi-cdn-v1';
 
 const SHELL_URLS = [
-  '/Bia-Hoi-Hanoi/',
-  '/Bia-Hoi-Hanoi/index.html',
-  '/Bia-Hoi-Hanoi/styles.css',
-  '/Bia-Hoi-Hanoi/app.js',
-  '/Bia-Hoi-Hanoi/manifest.json',
-  '/Bia-Hoi-Hanoi/icon-192.png',
-  '/Bia-Hoi-Hanoi/icon-512.png',
+  '/',
+  '/index.html',
+  '/styles.css',
+  '/app.js',
+  '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/og-card.png',
 ];
 
 const CDN_HOSTS = [
@@ -70,7 +71,7 @@ self.addEventListener('fetch', e => {
           }
           return res;
         })
-        .catch(() => caches.match(e.request).then(hit => hit || caches.match('/Bia-Hoi-Hanoi/')))
+        .catch(() => caches.match(e.request).then(hit => hit || caches.match('/')))
     );
   }
 });
