@@ -4,6 +4,11 @@
 const SUPABASE_URL = 'https://genqahabkjsmnoqbnkob.supabase.co';
 const SUPABASE_ANON =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdlbnFhaGFia2pzbW5vcWJua29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5ODYzMzQsImV4cCI6MjA5NjU2MjMzNH0.66pxak3FnH-U5DPSvKMh3pybhQi-qtWV-FYLwnSoRH4';
+// Read before createClient: Supabase strips the #access_token…&type=signup
+// hash once it has stored the session from the email-confirmation link.
+const ARRIVED_FROM_EMAIL_CONFIRM = /(?:^#|&)type=signup(?:&|$)/.test(
+  location.hash,
+);
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 const ACTIVE_CODE = 'BIAHOI-TEAM-2026';
@@ -320,7 +325,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.10.7';
+const APP_VERSION = '0.10.8';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -6198,6 +6203,10 @@ async function init() {
       profilesCache[profile.id] = cur;
       checkBadges();
     }
+    if (ARRIVED_FROM_EMAIL_CONFIRM) {
+      window._pendingVerifiedFor = session.user.id;
+      maybeShowEmailVerified();
+    }
   }
   try {
     const { data: _bk } = await db
@@ -7609,6 +7618,29 @@ function dismissWelcome() {
   try {
     localStorage.setItem('welcomed', '1');
   } catch (e) {}
+  maybeShowEmailVerified();
+}
+// One-time celebration after the signup email-confirmation link signs the
+// user in. Waits until the age gate and welcome overlay are out of the way,
+// since both sit in the stack alongside the modal.
+function maybeShowEmailVerified() {
+  const uid = window._pendingVerifiedFor;
+  if (!uid) return;
+  // The age gate is decided on DOMContentLoaded; showAgeGate() calls back here.
+  if (!window._ageGateRan || document.getElementById('ageGate')) return;
+  const w = document.getElementById('welcomeOverlay');
+  if (w && !w.classList.contains('hidden')) return;
+  window._pendingVerifiedFor = null;
+  const key = 'bhVerifiedShown_' + uid;
+  try {
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, '1');
+  } catch (e) {}
+  const name = cur && cur.id === uid && cur.name ? ', ' + esc(cur.name) : '';
+  fireConfetti();
+  modal(`<h2>✅ Your email is verified — welcome to Bác Hơi${name}!</h2>
+    <p>You're signed in and ready to go. Find a spot, leave a review, and help map the best bia hơi around.</p>
+    <button class="btn-gold" style="width:100%;margin-top:10px" onclick="closeModal()">Start exploring 🍺</button>`);
 }
 function showAbout() {
   modal(
@@ -7776,13 +7808,16 @@ function showTerms() {
   );
 }
 function showAgeGate() {
+  window._ageGateRan = true;
   try {
     if (localStorage.getItem('bhAge18')) {
       showWelcomeIfNew();
+      maybeShowEmailVerified();
       return;
     }
   } catch (e) {
     showWelcomeIfNew();
+    maybeShowEmailVerified();
     return;
   }
   var el = document.createElement('div');
@@ -7807,6 +7842,7 @@ function confirmAge() {
   var g = document.getElementById('ageGate');
   if (g) g.remove();
   showWelcomeIfNew();
+  maybeShowEmailVerified();
 }
 function denyAge() {
   var g = document.getElementById('ageGate');
