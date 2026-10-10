@@ -320,7 +320,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.10.5';
+const APP_VERSION = '0.10.6';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -758,11 +758,11 @@ const map = L.map('map').setView(HANOI, 13);
 const CARTO_ATTR =
   '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>';
 const tileLight = L.tileLayer(
-  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_4g01_1_a710462f6b36314120ec668e',
   { maxZoom: 19, attribution: CARTO_ATTR },
 );
 const tileDark = L.tileLayer(
-  'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=cb1_4g01_1_a710462f6b36314120ec668e',
   { maxZoom: 19, attribution: CARTO_ATTR },
 );
 (localStorage.getItem('theme') === 'dark' ? tileDark : tileLight).addTo(map);
