@@ -1341,7 +1341,7 @@ function isRanked(s) {
 function adjRating(s) {
   if (!isRanked(s)) return 0;
   const { n, avg } = rankingAvg(s);
-  const m = 3;
+  const m = 5;
   const prior = window._globalAvg || 4.0;
   return (avg * n + prior * m) / (n + m);
 }
@@ -1386,7 +1386,9 @@ function renderList(sortByDist) {
           dist(window._me[0], window._me[1], b.lat, b.lng),
       );
   else {
-    const rated = spots.map(rankingAvg).filter((x) => x.n);
+    const rated = spots
+      .filter((x) => x.status !== 'perm_closed' && isRanked(x))
+      .map(rankingAvg);
     window._globalAvg = rated.length
       ? rated.reduce((a, x) => a + x.avg, 0) / rated.length
       : 4.0;
