@@ -706,6 +706,13 @@ function timeAgo(ts) {
   if (d < 7) return d + 'd ago';
   return relDate(ts);
 }
+// Older and newer notifications both store only "liked your photo", so name the
+// spot here. The verified message already has the name in it.
+function notifText(n) {
+  const body = n.body || '';
+  const s = n.spot_id ? byId(n.spot_id) : null;
+  return s && s.name && !body.includes(s.name) ? body + ' on ' + s.name : body;
+}
 function openInbox() {
   if (!cur) {
     authModal(false);
@@ -731,7 +738,7 @@ function openInbox() {
             notifIcon(n.type) +
             '</div>' +
             '<div style="flex:1;min-width:0"><div style="font-size:13.5px;color:var(--ink);line-height:1.35">' +
-            esc(n.body || '') +
+            esc(notifText(n)) +
             '</div>' +
             '<div style="font-size:11px;color:var(--muted);margin-top:2px">' +
             timeAgo(n.created_at) +
