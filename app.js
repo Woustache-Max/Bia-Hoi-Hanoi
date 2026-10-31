@@ -421,7 +421,7 @@ async function introduceQuests() {
       '<h2 style="margin:0 0 8px">Nice, your first check-in!</h2>' +
       '<p style="font-size:14px;color:var(--muted);margin:0 0 14px">Checking in, reviewing and adding spots all earn badges. See what you can go for next.</p>' +
       '<button class="btn-gold" style="width:100%" onclick="closeModal();showQuests()">See Badges &amp; Quests</button>' +
-      '<button class="btn-ghost" style="width:100%;margin-top:8px" onclick="closeModal()">Not now</button></div>',
+      '<button class="btn-line" style="width:100%;margin-top:8px" onclick="closeModal()">Not now</button></div>',
   );
 }
 async function checkIn(spotId) {
@@ -2263,7 +2263,7 @@ async function uploadPhoto(spotId) {
       '<div><div style="font-weight:700">🤙 Full Uncle</div><div style="font-size:12px;color:var(--muted)">5+ people all doing thumbs-up in the photo</div></div>' +
       '</label></div>' +
       '<button class="btn-gold" style="width:100%" onclick="proceedUpload()">Choose Photo & Upload</button>' +
-      '<button class="btn-ghost" style="width:100%;margin-top:8px" onclick="closeModal()">Cancel</button>',
+      '<button class="btn-line" style="width:100%;margin-top:8px" onclick="closeModal()">Cancel</button>',
   );
 }
 
@@ -3766,7 +3766,7 @@ function askPinCorrect() {
       (addr ? ', and it\'s at <b>' + esc(addr) + '</b>.' : ' in the middle of the map.') +
       '</p>' +
       '<button class="btn-gold" style="width:100%" onclick="pinCorrectYes()">Yes, submit</button>' +
-      '<button class="btn-ghost" style="width:100%;margin-top:8px" onclick="closeModal();changeSpotLocation()">Move pin</button>',
+      '<button class="btn-line" style="width:100%;margin-top:8px" onclick="closeModal();changeSpotLocation()">Move pin</button>',
   );
 }
 function pinCorrectYes() {
