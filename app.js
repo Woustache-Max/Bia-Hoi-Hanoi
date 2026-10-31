@@ -2062,15 +2062,8 @@ async function deleteReply(replyId, rid, sid) {
 function reviewFormHTML(id) {
   if (!cur) {
     return `<div>
-      <div style="pointer-events:none;opacity:.45;user-select:none">
-        ${RCATS.map(
-          (c) => `
-        <div class="rate-row"><span class="lbl">${c[1]}</span>
-          <span class="gpick">${[1, 2, 3, 4, 5].map((i) => `<span>🍺</span>`).join('')}</span></div>`,
-        ).join('')}
-      </div>
-      <div style="background:#fbf6ea;border:1px solid var(--line);border-radius:10px;padding:13px 16px;margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-        <p style="margin:0;font-size:13px;color:var(--ink);font-weight:600;line-height:1.4">Sign in to add spots, rate &amp; review<br><span style="font-weight:400;color:var(--muted)">It's free and takes seconds.</span></p>
+      <div style="background:#fbf6ea;border:1px solid var(--line);border-radius:10px;padding:13px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <p style="margin:0;font-size:13px;color:var(--ink);font-weight:600;line-height:1.4">Been here? Sign in to rate it<br><span style="font-weight:400;color:var(--muted)">It's free and takes seconds.</span></p>
         <div style="display:flex;gap:7px;flex-shrink:0">
           <button class="btn-gold btn-sm" onclick="authModal(true)">Join free</button>
           <button class="btn-line btn-sm" onclick="authModal(false)">Sign in</button>
