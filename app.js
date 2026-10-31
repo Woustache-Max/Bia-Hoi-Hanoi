@@ -1295,7 +1295,7 @@ function surpriseSpot() {
 /* ============================================================
    LIST — sidebar spot list rendering
    ============================================================ */
-function sortBarHTML() {
+function sortBarHTML(sortByDist) {
   const m = window._sortMode || 'top';
   const chip = (id, label) =>
     `<button class="lsort${m === id ? ' on' : ''}" onclick="setSort('${id}')">${label}</button>`;
@@ -1304,7 +1304,10 @@ function sortBarHTML() {
     chip('top', 'Top rated') +
     chip('week', '🔥 This week') +
     chip('new', 'Newest') +
-    '</div>'
+    '</div>' +
+    (m === 'top' && !sortByDist
+      ? '<div style="font-size:11px;color:var(--muted);padding:0 12px 6px">Ranked by rating and number of reviews.</div>'
+      : '')
   );
 }
 function setSort(mode) {
@@ -1314,7 +1317,7 @@ function setSort(mode) {
 function adjRating(s) {
   const n = s.reviews ? reviewCount(s) : 0;
   if (!n) return 0;
-  const m = 2;
+  const m = 3;
   const prior = window._globalAvg || 4.0;
   return (spotAvg(s) * n + prior * m) / (n + m);
 }
@@ -1423,7 +1426,7 @@ function renderList(sortByDist) {
   const _new = spots.filter((s) => s.createdAt && s.createdAt > _wk);
   const _newSec = '';
   body.innerHTML =
-    sortBarHTML() +
+    sortBarHTML(sortByDist && window._me) +
     _newSec +
     list
       .map((s) => {
