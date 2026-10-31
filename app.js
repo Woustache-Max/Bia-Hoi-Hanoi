@@ -5050,11 +5050,12 @@ function setUserLabel() {
     ? (BADGES.find((b) => b.id === _flair) || {}).icon || ''
     : '';
   html +=
-    '<button class="user-btn" onclick="toggleUserMenu()">' +
-    '<span style="position:relative;display:inline-block;vertical-align:middle">' +
+    '<button type="button" class="user-btn" id="userMenuBtn" onclick="toggleUserMenu()" aria-label="Account menu" aria-haspopup="true" aria-expanded="false" aria-controls="userMenu">' +
+    '<span class="user-btn-burger" aria-hidden="true">&#9776;</span>' +
+    '<span class="user-btn-av">' +
     av +
     '<span id="avNotifDot" style="display:none;position:absolute;top:-2px;right:-2px;width:9px;height:9px;background:var(--red);border-radius:50%;border:2px solid var(--nav-bg);z-index:2"></span></span>' +
-    '<span style="font-size:8px;color:var(--gold);opacity:.8;margin-left:2px">&#9660;</span><span class="user-meta"> <span>' +
+    '<span class="user-meta"><span class="user-name">' +
     esc(cur.name) +
     '</span>' +
     (_flairIcon
@@ -5063,7 +5064,7 @@ function setUserLabel() {
     '</span></button>';
   html += '<div class="user-menu" id="userMenu" style="display:none">';
   html +=
-    '<div style="padding:9px 12px;border-bottom:1px solid var(--line);font-weight:700;font-size:13px;display:flex;align-items:center;gap:7px">' +
+    '<div class="menu-head">' +
     av +
     '<span>' +
     esc(cur.name) +
@@ -5117,11 +5118,13 @@ function toggleUserMenu() {
   if (!m) return;
   const open = m.style.display !== 'none';
   m.style.display = open ? 'none' : 'block';
+  setUserMenuExpanded(!open);
   if (!open) {
     setTimeout(() => {
       function outsideClick(e) {
         if (!document.getElementById('userDropWrap')?.contains(e.target)) {
           m.style.display = 'none';
+          setUserMenuExpanded(false);
           document.removeEventListener('click', outsideClick);
         }
       }
@@ -5132,6 +5135,11 @@ function toggleUserMenu() {
 function closeUserMenu() {
   const m = document.getElementById('userMenu');
   if (m) m.style.display = 'none';
+  setUserMenuExpanded(false);
+}
+function setUserMenuExpanded(open) {
+  const b = document.getElementById('userMenuBtn');
+  if (b) b.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
 /* ── ARCHIVE: logo menu, lost spots, ghost pins ── */
 function toggleLogoMenu() {

@@ -2008,20 +2008,56 @@ form textarea {
 }
 .user-btn {
   background: transparent;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.35);
   color: #fff;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
+  min-height: 40px;
   font-size: 13px;
   font-family: inherit;
-  padding: 4px 7px;
-  border-radius: 7px;
+  padding: 4px 6px 4px 12px;
+  border-radius: 999px;
   line-height: 1.2;
 }
 .user-btn:hover {
   background: rgba(255, 255, 255, 0.12);
+}
+.user-btn-burger {
+  font-size: 16px;
+  line-height: 1;
+}
+.user-btn-av {
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+}
+.user-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 6px;
+}
+.user-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* small heading that says which menu this is */
+.menu-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+.menu-head + .menu-sec {
+  border-top: none;
 }
 .user-menu {
   position: absolute;
