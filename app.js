@@ -324,7 +324,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.18.1';
+const APP_VERSION = '0.19.0';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -8763,6 +8763,7 @@ function showHelp() {
       s('⭐ Reviews & ratings', 'Open a spot and scroll to “Add your review.” Rate it across categories (beer, food, atmosphere, cleanliness, service) and add a comment if you’re signed in. You can mark other people’s reviews as 👍 Helpful and reply to them.') +
       s('📷 Photos', 'On a spot, tap “Add photo” to upload one — photos are automatically shrunk so they load fast and save space. Tap ❤️ to like a photo. You can tag a photo “👍 Uncle Approved” or “🤙 Full Uncle” for fun badges.') +
       s('🕓 Check-ins & freshness', 'Sitting at a spot? Tap <b>✓ Check in</b> to confirm it’s still open — you need to be nearby for it to count. Each spot shows when it was “last checked in,” so everyone can trust the info is fresh.') +
+      s('🚫 Hết bia (beer’s run out)', 'At a spot and the keg’s empty? Tap <b>Mark Hết bia</b> so nobody makes a wasted trip. Flagged spots leave “Open now” until someone taps <b>Beer’s back</b>, or until 6am Hanoi time. You need to be signed in and at the spot.') +
       s('👥 Following & the Latest feed', 'Open someone’s profile and tap <b>Follow</b>. The <b>Latest</b> feed has two tabs: <b>Everyone</b> (all recent activity) and <b>Following</b> (just people you follow). There’s no messaging — following is only for seeing each other’s contributions.') +
       s('🏅 Badges, Quests & Rewards', 'Earn badges for contributing — adding spots, writing reviews, uploading photos, exploring areas, and more. The 🎯 Badges &amp; Quests screen shows your progress. The Bác Hơi Legend badge takes 25 other badges; earning all ' + BADGES.length + ' puts you in the Hall of Fame with a title of your choice. Some awards are monthly (Photo / Reviewer / Explorer of the Month), and winning one repeatedly unlocks a prestige tier.') +
       s('🔑 Account & levels', 'Sign up free with an email (you’ll confirm it via a link). New members start as <b>Newcomer</b> with a shorter review limit; write <b>2 reviews</b> to become <b>Active</b>, which unlocks full-length reviews and auto-verified spots. Forgot your password? Use “Forgot password?” on the sign-in screen.') +
