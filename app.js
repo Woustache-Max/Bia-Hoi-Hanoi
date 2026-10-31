@@ -555,18 +555,33 @@ async function checkIn(spotId) {
           return;
         }
       } catch (e) {}
-      const { error } = await db
-        .from('check_ins')
-        .insert({ spot_id: spotId, user_id: cur.id });
-      if (error && (error.message || '').includes('checkin_too_soon')) {
-        showToast('You already checked in here recently. 🍺');
-        return;
-      }
+      const { data: result, error } = await db.rpc('check_in', {
+        p_spot_id: spotId,
+        p_lat: p.coords.latitude,
+        p_lng: p.coords.longitude,
+      });
       if (error) {
         showToast(
           'Could not check in: ' + (error.message || error.code || 'unknown error'),
           5000,
         );
+        return;
+      }
+      if (result === 'too soon') {
+        showToast('You already checked in here recently. 🍺');
+        return;
+      }
+      if (result === 'too far') {
+        showToast(
+          "You need to be at the spot to check in — you're " +
+            (d < 1 ? Math.round(d * 1000) + 'm' : d.toFixed(1) + 'km') +
+            ' away.',
+          3500,
+        );
+        return;
+      }
+      if (result !== 'ok') {
+        showToast('Could not check in. Please try again.', 3500);
         return;
       }
       s.lastCheckinAt = new Date().toISOString();
