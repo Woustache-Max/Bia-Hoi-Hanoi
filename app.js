@@ -324,7 +324,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.18.0';
+const APP_VERSION = '0.18.1';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -6306,7 +6306,7 @@ function exportCSV(type) {
     rows.push(
       row([
         'Name',
-        'District',
+        'Area',
         'Address',
         'Lat',
         'Lng',
@@ -6563,7 +6563,7 @@ function renderAdmin(tab) {
     ${
       unverified.length
         ? `<table class="admin-table">
-      <tr><th>Name</th><th>District</th><th>Added by</th><th>Actions</th></tr>
+      <tr><th>Name</th><th>Area</th><th>Added by</th><th>Actions</th></tr>
       ${unverified
         .map(
           (s) => `<tr>
@@ -6795,7 +6795,7 @@ function renderAdminSpotTable(list) {
   if (!list.length)
     return '<div style="color:var(--muted);font-size:13px;padding:10px 0">No spots match.</div>';
   return `<table class="admin-table">
-    <tr><th>Name</th><th>District</th><th>Status</th><th>Verified</th><th>Reports</th><th>Actions</th></tr>
+    <tr><th>Name</th><th>Area</th><th>Status</th><th>Verified</th><th>Reports</th><th>Actions</th></tr>
     ${list
       .map(
         (s) => `<tr>
