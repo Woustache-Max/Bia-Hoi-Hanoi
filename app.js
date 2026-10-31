@@ -1718,7 +1718,7 @@ async function showDetail(id) {
   highlightMarker(id);
   const admin = cur && cur.role === 'admin';
   const canEdit = cur && (s.createdBy === cur.id || admin);
-  const canVerify = cur && !s.verified;
+  const canVerify = canVerifySpots() && !s.verified;
   const _dm = window._me
     ? dist(window._me[0], window._me[1], s.lat, s.lng)
     : null;
@@ -1794,7 +1794,7 @@ async function showDetail(id) {
         '</div>'
       );
     })()}
-    ${!s.verified ? `<div class="hint-verify">Added anonymously — not yet verified.${canVerify ? " If you've been here and it's real, hit <b>Verify</b>." : ' Sign in to verify it.'}</div>` : ''}
+    ${!s.verified ? `<div class="hint-verify">Added anonymously — not yet verified.${canVerify ? " If you've been here and it's real, hit <b>Verify</b>." : cur ? ' Active members can verify it.' : ' Sign in to verify it.'}</div>` : ''}
     <div class="actions">
       <a href="${gmaps}" target="_blank"><button class="btn-gold btn-sm">🧭 Directions</button></a>
       ${canVerify ? `<button class="btn-verify" onclick="verifySpot('${s.id}')">✓ Verify spot</button>` : ''}
@@ -1910,8 +1910,11 @@ async function showDetail(id) {
 /* ============================================================
    VERIFY — spot verification
    ============================================================ */
+function canVerifySpots() {
+  return !!cur && (cur.role === 'active' || cur.role === 'admin');
+}
 async function verifySpot(id) {
-  if (!cur) return;
+  if (!canVerifySpots()) return;
   const s = byId(id);
   const verifiedAt = new Date().toISOString().slice(0, 10);
   const { error } = await db
@@ -3862,7 +3865,7 @@ async function saveSpot(editId) {
   if (editId) {
     const existing = byId(editId);
     const update = { ...formData };
-    if (cur && !existing.verified) {
+    if (canVerifySpots() && !existing.verified) {
       update.verified = true;
       update.verified_by = cur.id;
       update.verified_at = new Date().toISOString().slice(0, 10);
@@ -3886,7 +3889,7 @@ async function saveSpot(editId) {
       vibes,
       desc: formData.description,
     });
-    if (cur && !existing.verified) {
+    if (canVerifySpots() && !existing.verified) {
       existing.verified = true;
       existing.verifiedBy = cur.id;
       existing.verifiedAt = update.verified_at;
