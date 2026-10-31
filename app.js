@@ -2435,7 +2435,7 @@ function renderLightbox() {
   if (lb) {
     const liked = cur && p.likes && p.likes.includes(cur.id);
     lb.innerHTML =
-      (liked ? '❤️ Liked' : '🤍 Like') +
+      (liked ? '❤️ Liked photo' : '🤍 Like photo') +
       (p.likes && p.likes.length ? ' · ' + p.likes.length : '');
     lb.style.background = liked ? '#ffd9d9' : 'var(--gold)';
   }
@@ -8223,7 +8223,7 @@ function showHelp() {
       s('🏅 Badges, Quests & Rewards', 'Earn badges for contributing — adding spots, writing reviews, uploading photos, exploring districts, and more. The 🎯 Quests screen shows your progress. Some awards are monthly (Photo / Reviewer / Explorer of the Month), and winning one repeatedly unlocks a prestige tier.') +
       s('🔑 Account & levels', 'Sign up free with an email (you’ll confirm it via a link). New members start as <b>Newcomer</b> with a shorter review limit; write <b>2 reviews</b> to become <b>Active</b>, which unlocks full-length reviews and auto-verified spots. Forgot your password? Use “Forgot password?” on the sign-in screen.') +
       s('🏆 Leaderboard', 'See the top contributors by spots added, reviews written, or helpful votes. Switch between <b>Everyone</b> and <b>Following</b> to compare with just the people you follow.') +
-      s('🔖 Saved spots', 'Tap 🔖 Save on any spot to bookmark it, then find your saved spots from the <b>Saved</b> button or your profile.') +
+      s('🔖 Saved spots', 'Tap 🔖 Save on any spot to bookmark it, then find your saved spots from the <b>Saved</b> button or your profile. Saving is for spots you want to keep; ❤️ Like is only for photos, to tell the photographer you enjoyed it.') +
       s('🔔 Notifications', 'The 🔔 bell lights up when someone likes your photo, marks your review helpful, replies to you, verifies your spot, or follows you.') +
       s('🕯️ Lost spots & the archive', 'When a spot closes for good it isn’t deleted — it moves to the <b>Lost spots</b> memorial (in the logo menu) so it’s never forgotten. Think a spot might be closing? Flag it via a spot’s ⋯ More → Report. Turn on <b>Ghost pins</b> (logo menu) to see closed spots faintly on the map.') +
       s('🎲 Games & sharing', 'The ☰ menu has drinking games to play at the hơi (Một Hai Ba Dô, Horse Racing and more). Use 📲 Share, or a spot’s Share button, to send friends a link or QR code.') +
