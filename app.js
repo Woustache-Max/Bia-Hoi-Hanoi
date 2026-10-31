@@ -5021,7 +5021,7 @@ function setUserLabel() {
   const el = document.getElementById('userLabel');
   if (!cur) {
     el.innerHTML =
-      '<button class="btn-ghost btn-sm" title="Games" onclick="openGames()">🎲</button> <button class="btn-ghost btn-sm" onclick="authModal(false)">Sign in</button>';
+      '<button class="btn-ghost btn-sm" onclick="authModal(false)">Sign in</button>';
     return;
   }
   const av = cur.avatar_url
@@ -5066,8 +5066,6 @@ function setUserLabel() {
     '<button class="user-menu-item" onclick="closeUserMenu();showLeaderboard()">&#127942; Leaderboard</button>';
   html +=
     '<button class="user-menu-item" onclick="closeUserMenu();showQuests()">&#127919; Badges &amp; Quests</button>';
-  html +=
-    '<button class="user-menu-item" onclick="closeUserMenu();openGames()">&#127922; Games</button>';
   html +=
     '<button class="user-menu-item" onclick="closeUserMenu();showInvite()">&#128101; Invite a friend</button>';
   html +=
@@ -8228,7 +8226,7 @@ function showHelp() {
       s('🔖 Saved spots', 'Tap 🔖 Save on any spot to bookmark it, then find your saved spots from the <b>Saved</b> button or your profile.') +
       s('🔔 Notifications', 'The 🔔 bell lights up when someone likes your photo, marks your review helpful, replies to you, verifies your spot, or follows you.') +
       s('🕯️ Lost spots & the archive', 'When a spot closes for good it isn’t deleted — it moves to the <b>Lost spots</b> memorial (in the logo menu) so it’s never forgotten. Think a spot might be closing? Flag it via a spot’s ⋯ More → Report. Turn on <b>Ghost pins</b> (logo menu) to see closed spots faintly on the map.') +
-      s('🎲 Games & sharing', 'The account menu has drinking games to play at the hơi (Một Hai Ba Dô, Horse Racing and more). Use 📲 Share, or a spot’s Share button, to send friends a link or QR code.') +
+      s('🎲 Games & sharing', 'The ☰ menu has drinking games to play at the hơi (Một Hai Ba Dô, Horse Racing and more). Use 📲 Share, or a spot’s Share button, to send friends a link or QR code.') +
       s('🌙 Dark mode', 'Switch between light and dark themes any time from the account menu (🌙 Dark mode).') +
       s('⚑ Reporting & safety', 'See something wrong — a closed spot, wrong location, or bad content? Open the spot → ⋯ More → Report. Bác Hơi is for adults of legal drinking age; please enjoy responsibly and never drink and drive.') +
       s('🔒 Privacy', 'We only collect what’s needed to run the app, and we never sell your data. Read the full <a onclick="showPrivacy()" style="color:var(--gold-dark);cursor:pointer">Privacy Policy</a> and <a onclick="showTerms()" style="color:var(--gold-dark);cursor:pointer">Terms of Use</a>.') +
