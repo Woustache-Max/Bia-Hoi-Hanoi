@@ -325,7 +325,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.15.0';
+const APP_VERSION = '0.16.0';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -1865,7 +1865,7 @@ async function showDetail(id) {
             .join('')
         : '<div style="color:var(--muted);font-size:13px">No reviews yet — be the first.</div>'
     }</div>
-    <div class="sec">${myLatestReview(s) ? 'Your review' : 'Add your review'}</div>
+    <div class="sec" id="reviewFormHead">${myLatestReview(s) ? 'Your review' : 'Add your review'}</div>
     ${reviewFormHTML(s.id)}
   </div>`;
   if (!_sd_reopen) document.getElementById('sidebar').scrollTop = 0;
@@ -3969,7 +3969,17 @@ async function saveSpot(editId) {
   }
   renderList();
   showDetail(id);
-  showToast('✅ Spot added! Now add your personal ⭐ review below.', 6000);
+  modal(
+    '<div style="text-align:center"><div style="font-size:42px;margin-bottom:6px">🍺</div>' +
+      '<h2 style="margin:0 0 8px">Spot added! Rate it now?</h2>' +
+      '<p style="font-size:14px;color:var(--muted);margin:0 0 14px">You know this place, so your review helps the next person decide.</p>' +
+      '<button class="btn-gold" style="width:100%" onclick="closeModal();goToReviewForm()">Rate it now</button>' +
+      '<button class="btn-line" style="width:100%;margin-top:8px" onclick="closeModal()">Not now</button></div>',
+  );
+}
+function goToReviewForm() {
+  const el = document.getElementById('reviewFormHead');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 /* ── BADGES / QUESTS: progress display (used within the add/edit spot form) ── */
