@@ -1076,7 +1076,11 @@ function drawMarkers() {
   visibleSpots().forEach((s) => {
     const closed = s.status !== 'active',
       unverified = !s.verified;
-    const m = L.marker([s.lat, s.lng], { icon: pinIcon(closed, unverified) });
+    const m = L.marker([s.lat, s.lng], {
+      icon: pinIcon(closed, unverified),
+      title: s.name,
+      alt: s.name,
+    });
     const _ptu =
       s.cover_photo_url || (s.photos && s.photos.length ? s.photos[0].url : '');
     const popPhoto = _ptu
@@ -1101,7 +1105,11 @@ function drawMarkers() {
     spots
       .filter((s) => s.status === 'perm_closed')
       .forEach((s) => {
-        const gm = L.marker([s.lat, s.lng], { icon: ghostIcon() });
+        const gm = L.marker([s.lat, s.lng], {
+          icon: ghostIcon(),
+          title: s.name + ' (closed)',
+          alt: s.name + ' (closed)',
+        });
         gm.bindPopup(
           '<div style="padding:6px 8px"><b style="font-size:14px">' +
             esc(s.name) +
@@ -1690,7 +1698,7 @@ function restoreReviewDraft(id) {
 }
 function photoStripHTML(s) {
   const admin = cur && cur.role === 'admin';
-  return s.photos && s.photos.length ? s.photos.map((p, i) => `<div style="position:relative"><img src="${p.url}" onclick="viewPhoto('${s.id}',${i})" style="width:100%;height:90px;object-fit:cover;border-radius:6px;cursor:pointer">${cur && (p.uploaded_by === cur.id || cur.role === 'admin') ? `<button onclick="deletePhoto('${p.id}','${p.path}','${s.id}')" title="Delete photo" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;padding:0;cursor:pointer;line-height:20px;text-align:center">✕</button>` : ''}${admin ? `<button onclick="adminSetCover('${s.id}','${p.url}')" style="position:absolute;bottom:3px;left:3px;background:${s.cover_photo_url === p.url ? 'var(--gold)' : 'rgba(0,0,0,.55)'};color:${s.cover_photo_url === p.url ? '#000' : '#fff'};border:none;border-radius:8px;font-size:10px;font-weight:700;padding:2px 5px;cursor:pointer;line-height:1.4">${s.cover_photo_url === p.url ? '★ Cover' : '☆ Cover'}</button>` : ''}<button onclick="event.stopPropagation();likePhoto('${p.id}','${s.id}')" title="Like photo" style="position:absolute;bottom:3px;right:3px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:12px;font-size:11px;font-weight:700;padding:2px 7px;cursor:pointer;line-height:1.4">${cur && p.likes && p.likes.includes(cur.id) ? '❤️' : '🤍'}${p.likes && p.likes.length ? ' ' + p.likes.length : ''}</button>  </div>`).join('') : '<div style="grid-column:1/4;color:var(--muted);font-size:13px;padding:6px 0">No photos yet — be the first to add one!</div>';
+  return s.photos && s.photos.length ? s.photos.map((p, i) => `<div style="position:relative"><img src="${p.url}" onclick="viewPhoto('${s.id}',${i})" style="width:100%;height:90px;object-fit:cover;border-radius:6px;cursor:pointer">${cur && (p.uploaded_by === cur.id || cur.role === 'admin') ? `<button onclick="deletePhoto('${p.id}','${p.path}','${s.id}')" title="Delete photo" aria-label="Delete photo" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;padding:0;cursor:pointer;line-height:20px;text-align:center">✕</button>` : ''}${admin ? `<button onclick="adminSetCover('${s.id}','${p.url}')" style="position:absolute;bottom:3px;left:3px;background:${s.cover_photo_url === p.url ? 'var(--gold)' : 'rgba(0,0,0,.55)'};color:${s.cover_photo_url === p.url ? '#000' : '#fff'};border:none;border-radius:8px;font-size:10px;font-weight:700;padding:2px 5px;cursor:pointer;line-height:1.4">${s.cover_photo_url === p.url ? '★ Cover' : '☆ Cover'}</button>` : ''}<button onclick="event.stopPropagation();likePhoto('${p.id}','${s.id}')" title="Like photo" style="position:absolute;bottom:3px;right:3px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:12px;font-size:11px;font-weight:700;padding:2px 7px;cursor:pointer;line-height:1.4">${cur && p.likes && p.likes.includes(cur.id) ? '❤️' : '🤍'}${p.likes && p.likes.length ? ' ' + p.likes.length : ''}</button>  </div>`).join('') : '<div style="grid-column:1/4;color:var(--muted);font-size:13px;padding:6px 0">No photos yet — be the first to add one!</div>';
 }
 async function showDetail(id) {
   navPush('detail:' + id);
@@ -2861,7 +2869,7 @@ async function showListDetail(listId) {
               '</div>'
             : '';
           const removeBtn = isOwner
-            ? '<button class="vote" style="font-size:11px" onclick="event.stopPropagation();removeFromList(\'' +
+            ? '<button class="vote" aria-label="Remove from list" style="font-size:11px" onclick="event.stopPropagation();removeFromList(\'' +
               listId +
               "','" +
               s.id +
@@ -8651,7 +8659,7 @@ function denyAge() {
   const card = document.getElementById('welcomeCard');
   if (!card) return;
   card.innerHTML =
-    '<div class="welcome-logo">🔞</div><h1>Come back when you’re 18</h1><p class="sub" style="margin:8px 0 0">Sorry, Bác Hơi is only for adults of legal drinking age. Please close this page.</p>';
+    '<div class="welcome-logo">🔞</div><h2>Come back when you’re 18</h2><p class="sub" style="margin:8px 0 0">Sorry, Bác Hơi is only for adults of legal drinking age. Please close this page.</p>';
 }
 init();
 window.addEventListener('DOMContentLoaded', function () {

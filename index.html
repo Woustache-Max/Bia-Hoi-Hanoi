@@ -81,12 +81,12 @@ setTimeout(function(){if(window.hideSplash)window.hideSplash();},4500);})();
   <div class="main">
     <div id="map"></div>
     <div id="sidebar">
-      <div class="sheet-handle" onclick="closeSidebar()" title="Close"></div>
-      <button class="sidebar-close" onclick="closeSidebar()" title="Close sidebar">✕</button>
+      <div class="sheet-handle" onclick="closeSidebar()" title="Close" role="button" aria-label="Close panel"></div>
+      <button class="sidebar-close" onclick="closeSidebar()" title="Close sidebar" aria-label="Close panel">✕</button>
       <div class="toolbar">
         <div class="search-wrap">
           <input class="search" id="searchBox" placeholder="Search spots…" oninput="onSearch()">
-          <button class="search-clear" id="searchClear" onclick="clearSearch()" title="Clear search">✕</button>
+          <button class="search-clear" id="searchClear" onclick="clearSearch()" title="Clear search" aria-label="Clear search">✕</button>
         </div>
         <button class="btn-line btn-sm" onclick="toggleFilters()">⚲ Filters</button>
         <button class="btn-line btn-sm tool-desktop" onclick="fiNav('new')" aria-label="What's New" title="What's New">✨<span class="near-lbl"> Latest</span></button>
@@ -145,7 +145,7 @@ setTimeout(function(){if(window.hideSplash)window.hideSplash();},4500);})();
 <div id="welcomeOverlay" class="hidden">
   <div class="welcome-card" id="welcomeCard">
     <div class="welcome-logo">🍺</div>
-    <h1>Bác Hơi</h1>
+    <h2>Bác Hơi</h2>
     <p class="sub">Vietnam's crowdsourced map of the best bia hơi spots</p>
     <div class="welcome-features">
       <div class="wf"><span class="wf-icon">🗺️</span><div class="wf-text"><strong>Explore the map</strong><span>Find bia hơi spots near you across Vietnam</span></div></div>
@@ -163,7 +163,7 @@ setTimeout(function(){if(window.hideSplash)window.hideSplash();},4500);})();
   <span style="font-size:22px">📲</span>
   <span class="pwa-text">Add <b>Bác Hơi</b> to your home screen</span>
   <button class="pwa-install" id="pwaInstallBtn">Install</button>
-  <button class="pwa-dismiss" id="pwaDismissBtn">✕</button>
+  <button class="pwa-dismiss" id="pwaDismissBtn" aria-label="Dismiss install message">✕</button>
 </div>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "9c590fe19bb64b30bb0cc5b94f323eb5"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
