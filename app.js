@@ -324,7 +324,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.17.0';
+const APP_VERSION = '0.18.0';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -1436,6 +1436,7 @@ function renderList(sortByDist) {
     if (_tb) _tb.style.display = '';
   }
   adding = false;
+  clearEditPin();
   if (tmpMarker) {
     map.removeLayer(tmpMarker);
     tmpMarker = null;
@@ -1734,6 +1735,7 @@ function photoStripHTML(s) {
   return s.photos && s.photos.length ? s.photos.map((p, i) => `<div style="position:relative"><img src="${p.url}" onclick="viewPhoto('${s.id}',${i})" style="width:100%;height:90px;object-fit:cover;border-radius:6px;cursor:pointer">${cur && (p.uploaded_by === cur.id || cur.role === 'admin') ? `<button onclick="deletePhoto('${p.id}','${p.path}','${s.id}')" title="Delete photo" aria-label="Delete photo" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;padding:0;cursor:pointer;line-height:20px;text-align:center">✕</button>` : ''}${admin ? `<button onclick="adminSetCover('${s.id}','${p.url}')" style="position:absolute;bottom:3px;left:3px;background:${s.cover_photo_url === p.url ? 'var(--gold)' : 'rgba(0,0,0,.55)'};color:${s.cover_photo_url === p.url ? '#000' : '#fff'};border:none;border-radius:8px;font-size:10px;font-weight:700;padding:2px 5px;cursor:pointer;line-height:1.4">${s.cover_photo_url === p.url ? '★ Cover' : '☆ Cover'}</button>` : ''}<button onclick="event.stopPropagation();likePhoto('${p.id}','${s.id}')" title="Like photo" style="position:absolute;bottom:3px;right:3px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:12px;font-size:11px;font-weight:700;padding:2px 7px;cursor:pointer;line-height:1.4">${cur && p.likes && p.likes.includes(cur.id) ? '❤️' : '🤍'}${p.likes && p.likes.length ? ' ' + p.likes.length : ''}</button>  </div>`).join('') : '<div style="grid-column:1/4;color:var(--muted);font-size:13px;padding:6px 0">No photos yet — be the first to add one!</div>';
 }
 async function showDetail(id) {
+  clearEditPin();
   navPush('detail:' + id);
   const _sd_resume = draftGet('bhResume');
   if (_sd_resume && _sd_resume.kind === 'review' && _sd_resume.id !== id)
@@ -3408,12 +3410,14 @@ function renderAddForm(editId, lat, lng) {
     <div class="form-section">
       <div><label>Address</label><input id="f_addr" value="${s ? esc(s.address) : ''}" placeholder="Street or nearby landmark"></div>
       ${s ? '' : '<button type="button" class="btn-line btn-sm form-use-loc" onclick="useMyLocationForPin()">📡 Use my location</button>'}
+      ${s ? (innerWidth > 680 ? '<div class="hint" style="margin:0">📌 Drag the pin on the map to move this spot.</div>' : '<button type="button" class="btn-line btn-sm" onclick="editPinOnMap()">📍 Move pin on map</button>') : ''}
+      ${s ? '<div id="f_pin_moved" class="pin-moved" style="display:none"><b>📍 Pin moved</b><button type="button" onclick="undoEditPin()">Undo</button><button type="button" onclick="updateAddressFromPin()">Update address from pin</button></div>' : ''}
       <div id="f_pin_err" style="display:none;color:#c62828;font-size:12px;font-weight:600">⚠ Pin required${s ? '' : ' — use the 📍 Change location button above'}</div>
       <details id="f_coords" class="form-coords">
         <summary>Enter coordinates</summary>
         <div class="row2">
-          <div><label>Latitude *</label><input id="f_lat" inputmode="decimal" value="${s ? s.lat : lat || ''}" placeholder="21.0345"${s ? '' : ' onchange="addCoordsTyped()"'}></div>
-          <div><label>Longitude *</label><input id="f_lng" inputmode="decimal" value="${s ? s.lng : lng || ''}" placeholder="105.8525"${s ? '' : ' onchange="addCoordsTyped()"'}></div>
+          <div><label>Latitude *</label><input id="f_lat" inputmode="decimal" value="${s ? s.lat : lat || ''}" placeholder="21.0345" onchange="addCoordsTyped()"></div>
+          <div><label>Longitude *</label><input id="f_lng" inputmode="decimal" value="${s ? s.lng : lng || ''}" placeholder="105.8525" onchange="addCoordsTyped()"></div>
         </div>
       </details>
     </div>
@@ -3573,6 +3577,7 @@ function restoreAddDraft(d) {
 }
 
 function startAdd(editId) {
+  clearEditPin();
   if (!editId && !cur) {
     authModal(true);
     return;
@@ -3598,6 +3603,7 @@ function startAdd(editId) {
   openSidebar();
   if (editId) {
     renderAddForm(editId, null, null);
+    startEditPin(editId);
     return;
   }
   const c = map.getCenter();
@@ -3617,6 +3623,7 @@ function placeAddPin(lat, lng) {
     }),
     draggable: true,
     title: 'Drag to move the pin',
+    zIndexOffset: 1000,
   }).addTo(map);
   tmpMarker.on('dragend', () => {
     const p = tmpMarker.getLatLng();
@@ -3633,8 +3640,100 @@ function addPinMoved(lat, lng) {
     fn = document.getElementById('f_lng');
   if (fl) fl.value = lat.toFixed(5);
   if (fn) fn.value = lng.toFixed(5);
+  if (window._editPin) {
+    updateEditPinUI();
+    return;
+  }
   saveAddDraft();
   reverseGeocode(lat, lng);
+}
+/* ── EDIT SPOT: move the pin. Nothing is saved until Save changes. ── */
+function startEditPin(id) {
+  const s = byId(id);
+  if (!s) return;
+  window._editPin = { lat: s.lat, lng: s.lng };
+  placeAddPin(s.lat, s.lng);
+  if (innerWidth > 680) map.setView([s.lat, s.lng], Math.max(map.getZoom(), 16));
+}
+function clearEditPin() {
+  if (!window._editPin) return;
+  window._editPin = null;
+  if (tmpMarker) {
+    map.removeLayer(tmpMarker);
+    tmpMarker = null;
+  }
+  const bar = document.getElementById('pinConfirmBar');
+  if (bar) {
+    bar.remove();
+    const isl = document.getElementById('floatingIsland');
+    if (isl) isl.style.display = '';
+  }
+}
+function editPinHasMoved() {
+  const p = window._editPin;
+  if (!p) return false;
+  return (
+    Math.abs(parseFloat(val('f_lat')) - p.lat) >= 0.00001 ||
+    Math.abs(parseFloat(val('f_lng')) - p.lng) >= 0.00001
+  );
+}
+function updateEditPinUI() {
+  const el = document.getElementById('f_pin_moved');
+  if (el) el.style.display = editPinHasMoved() ? 'flex' : 'none';
+}
+function undoEditPin() {
+  const p = window._editPin;
+  if (!p) return;
+  document.getElementById('f_lat').value = p.lat;
+  document.getElementById('f_lng').value = p.lng;
+  placeAddPin(p.lat, p.lng);
+  map.panTo([p.lat, p.lng]);
+  if (p.before) {
+    document.getElementById('f_addr').value = p.before.addr;
+    document.getElementById('f_district').value = p.before.district;
+    p.before = null;
+  }
+  updateEditPinUI();
+}
+function updateAddressFromPin() {
+  const p = window._editPin;
+  if (!p) return;
+  if (!p.before) p.before = { addr: val('f_addr'), district: val('f_district') };
+  reverseGeocode(parseFloat(val('f_lat')), parseFloat(val('f_lng')), true);
+}
+// On phones the dimmed overlay covers the map, so lower the sheet while dragging.
+// The form stays in place underneath.
+function editPinOnMap() {
+  if (!tmpMarker) return;
+  closeSidebar();
+  const isl = document.getElementById('floatingIsland');
+  if (isl) isl.style.display = 'none';
+  map.setView(tmpMarker.getLatLng(), Math.max(map.getZoom(), 16));
+  const bar = document.createElement('div');
+  bar.id = 'pinConfirmBar';
+  bar.innerHTML = `<div class="pcb-label">📍 Drag the pin to the right place</div>
+    <div class="pcb-btns"><button class="pcb-confirm" onclick="editPinDone()">✓ Done</button></div>`;
+  document.body.appendChild(bar);
+}
+function editPinDone() {
+  const bar = document.getElementById('pinConfirmBar');
+  if (bar) bar.remove();
+  openSidebar();
+}
+function askEditPinSave(id) {
+  modal(
+    '<h2 style="margin:0 0 8px">You moved this spot. Save the new location?</h2>' +
+      '<p style="font-size:14px;color:var(--muted);margin:0 0 14px">Everyone will see the pin in its new place.</p>' +
+      '<button class="btn-gold" style="width:100%" onclick="editPinSaveYes(\'' +
+      id +
+      '\')">Yes, save</button>' +
+      '<button class="btn-line" style="width:100%;margin-top:8px" onclick="closeModal()">Keep editing</button>',
+  );
+}
+function editPinSaveYes(id) {
+  if (window._editPin) window._editPin.confirmed = true;
+  closeModal();
+  saveSpot(id);
 }
 // Opens on the given pin, or on the middle of the map.
 function startPinDrop(at) {
@@ -3675,6 +3774,7 @@ function changeSpotLocation() {
   saveAddDraft();
 }
 function cancelAdd() {
+  clearEditPin();
   adding = false;
   window._pinChecked = false;
   window._addFormData = null;
@@ -3749,12 +3849,12 @@ function addCoordsTyped() {
 let _geoSeq = 0,
   _autoAddr = '',
   _autoDistrict = '';
-async function reverseGeocode(lat, lng) {
+async function reverseGeocode(lat, lng, force) {
   const el = document.getElementById('f_addr');
   if (!el) return;
   const seq = ++_geoSeq;
-  const fillAddr = !el.value || el.value === _autoAddr;
-  if (fillAddr) el.value = '';
+  const fillAddr = force || !el.value || el.value === _autoAddr;
+  if (fillAddr && !force) el.value = ''; // force keeps the old address if the lookup fails
   el.placeholder = 'Looking up address…';
   try {
     const r = await fetch(
@@ -3769,6 +3869,8 @@ async function reverseGeocode(lat, lng) {
     if (fillAddr && parts.length) {
       el.value = parts.join(', ');
       _autoAddr = el.value;
+    } else if (force) {
+      showToast("Couldn't find an address for that spot.");
     }
     // Match district
     const rawDist = (a.city_district || a.suburb || '')
@@ -3782,7 +3884,7 @@ async function reverseGeocode(lat, lng) {
       );
       if (match) {
         const sel = document.getElementById('f_district');
-        if (sel && (!sel.value || sel.value === _autoDistrict)) {
+        if (sel && (force || !sel.value || sel.value === _autoDistrict)) {
           sel.value = match;
           _autoDistrict = match;
         }
@@ -3790,6 +3892,7 @@ async function reverseGeocode(lat, lng) {
     }
   } catch (e) {
     if (seq !== _geoSeq) return;
+    if (force) showToast("Couldn't look up the address. Check your connection.");
   }
   el.placeholder = 'Street or nearby landmark';
   saveAddDraft();
@@ -3883,6 +3986,10 @@ async function saveSpot(editId) {
   if (_ae) _ae.style.display = 'none';
   if (!editId && !window._pinChecked) {
     askPinCorrect();
+    return;
+  }
+  if (editId && editPinHasMoved() && !window._editPin.confirmed) {
+    askEditPinSave(editId);
     return;
   }
   const vibes = [...document.querySelectorAll('#f_vibes input:checked')].map(

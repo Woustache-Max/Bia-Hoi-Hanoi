@@ -2249,6 +2249,30 @@ form textarea {
     display: none !important;
   }
 }
+/* edit-a-spot: shown once the pin has moved */
+.pin-moved {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 8px 10px;
+  background: #fff8e1;
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  color: #241b12;
+  font-size: 13px;
+}
+.pin-moved button {
+  min-height: 32px;
+  background: none;
+  border: none;
+  padding: 0;
+  color: #185fa5;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
 /* add-a-spot: price chips */
 .price-chips {
   display: flex;
