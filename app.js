@@ -1531,7 +1531,7 @@ function renderListBody(sortByDist) {
     const q = (document.getElementById('searchBox') || {}).value || '';
     if (q.trim()) activeFilters.push(`"${q.trim()}"`);
     if ((document.getElementById('fDistrict') || {}).value)
-      activeFilters.push('district');
+      activeFilters.push('area');
     if ((window._vibeFilter || []).length) activeFilters.push('vibe');
     if (parseFloat((document.getElementById('fRating') || {}).value) > 0)
       activeFilters.push('rating');
@@ -1789,7 +1789,7 @@ async function showDetail(id) {
     distStr ? ['Distance', distStr] : null,
   ].filter(Boolean);
   const secondaryFacts = [
-    ['District', s.district],
+    ['Area', s.district],
     ['Address', s.address],
     ['Seating', s.seating],
     ['Payment', s.payment],
@@ -3358,7 +3358,7 @@ function renderAddForm(editId, lat, lng) {
     <div class="form-sec-title">Basic info</div>
     <div class="form-section">
       <div><label>Name *</label><input id="f_name" value="${s ? esc(s.name) : esc(_fd.name || '')}" placeholder="e.g. Bia Hơi Minh"><div id="f_name_err" style="display:none;color:#c62828;font-size:12px;margin-top:4px;font-weight:600">⚠ Spot name is required</div></div>
-      <div><label>District</label><select id="f_district"><option value="">Auto-detect…</option>${DISTRICTS.map((d) => `<option value="${d}" ${(s && s.district === d) || (_fd.district && _fd.district === d) ? 'selected' : ''}>${d}</option>`).join('')}</select></div>
+      <div><label>Area</label><select id="f_district"><option value="">Auto-detect…</option>${DISTRICTS.map((d) => `<option value="${d}" ${(s && s.district === d) || (_fd.district && _fd.district === d) ? 'selected' : ''}>${d}</option>`).join('')}</select></div>
       <div><label>Price per glass</label>
         <div class="price-chips" id="f_price_chips">${PRICE_CHIPS.map((p) => `<button type="button" class="lsort" data-price="${p[1]}" aria-pressed="false" onclick="pickPrice('${p[1]}')">${p[0]}</button>`).join('')}<button type="button" class="lsort" data-price="other" aria-pressed="false" onclick="pickPrice('other')">Other</button></div>
         <select id="f_price" onchange="syncPriceChips(true)" aria-label="Other price" style="display:none;width:100%;margin-top:8px;padding:9px 11px;border:1.5px solid var(--line);border-radius:9px;font-size:14px;font-family:inherit;background:#fff;color:var(--ink)">${(() => {
