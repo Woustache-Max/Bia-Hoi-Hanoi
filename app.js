@@ -325,7 +325,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.10.10';
+const APP_VERSION = '0.10.11';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -4329,7 +4329,7 @@ function togglePw(id) {
 function authModal(signup) {
   modal(`<h2>${signup ? 'Create a free account 🍺' : 'Welcome back 🍺'}</h2>
    <p>${signup ? 'Free to join. Rate spots, write reviews, and track your contributions.' : 'Sign in to your account.'}</p>
-   <form novalidate onsubmit="${signup ? 'doSignup()' : 'doLogin()'};return false">
+   <form class="auth-form" novalidate onsubmit="${signup ? 'doSignup()' : 'doLogin()'};return false">
      ${signup ? '<input id="a_name" type="text" autocomplete="nickname" placeholder="Display name" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;margin-bottom:6px">' : ''}
      <input id="a_email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="Email" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;margin-bottom:6px">
      ${pwField('a_pw', 'Password', '6px', signup ? 'new-password' : 'current-password')}
@@ -4455,7 +4455,7 @@ function forgotPasswordModal() {
   modal(
     '<h2 style="margin:0 0 6px">Reset your password 🔑</h2>' +
       '<p style="font-size:13px;color:var(--muted);margin:0 0 12px">Enter your email and we\'ll send you a link to set a new password.</p>' +
-      '<form novalidate onsubmit="sendReset();return false">' +
+      '<form class="auth-form" novalidate onsubmit="sendReset();return false">' +
       '<input id="fp_email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="Email" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--line);border-radius:7px;margin-bottom:8px;font-family:inherit;background:var(--card);color:var(--ink)">' +
       '<div id="cfTurnstile" style="margin:8px 0;display:flex;justify-content:center"></div>' +
       '<button type="submit" class="btn-gold" style="width:100%">Send reset link</button>' +
@@ -4485,7 +4485,7 @@ function setNewPasswordModal() {
   modal(
     '<h2 style="margin:0 0 6px">Set a new password 🔒</h2>' +
       '<p style="font-size:13px;color:var(--muted);margin:0 0 12px">Enter a new password for your account.</p>' +
-      '<form novalidate onsubmit="savePassword();return false">' +
+      '<form class="auth-form" novalidate onsubmit="savePassword();return false">' +
       pwField('np_pw', 'New password', '8px') +
       pwField('np_pw2', 'Confirm new password', '8px') +
       '<button type="submit" class="btn-gold" style="width:100%">Update password</button>' +
