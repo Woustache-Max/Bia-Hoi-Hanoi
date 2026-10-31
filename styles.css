@@ -697,6 +697,14 @@ form textarea {
 .auth-err:empty {
   display: none;
 }
+.auth-form .auth-err-action {
+  min-height: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font-size: inherit;
+  text-decoration: underline;
+}
 .modal img.full {
   max-width: 88vw;
   max-height: 84vh;

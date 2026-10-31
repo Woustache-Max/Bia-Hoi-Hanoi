@@ -325,7 +325,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.10.12';
+const APP_VERSION = '0.10.13';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -4326,9 +4326,61 @@ function togglePw(id) {
   const el = document.getElementById(id);
   el.type = el.type === 'password' ? 'text' : 'password';
 }
-function showAuthError(msg) {
+function showAuthError(msg, action) {
   const el = document.getElementById('authErr');
-  if (el) el.textContent = msg;
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = '';
+  if (action) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'auth-err-action';
+    b.textContent = action.label;
+    b.onclick = action.run;
+    el.append(' ', b);
+  }
+}
+// Turns a Supabase auth error into a message that says what actually went wrong.
+function authErrorMessage(error, fallback) {
+  const code = error.code || '',
+    msg = (error.message || '').toLowerCase();
+  if (code === 'captcha_failed' || msg.includes('captcha'))
+    return 'The security check failed or expired. Please wait for it to finish, then try again.';
+  if (code === 'invalid_credentials' || msg.includes('invalid login credentials'))
+    return 'Wrong email or password.';
+  if (code === 'email_not_confirmed' || msg.includes('email not confirmed'))
+    return 'Please confirm your email first. Check your inbox and spam folder.';
+  if (error.status === 429 || code.includes('rate_limit') || msg.includes('rate limit'))
+    return 'Too many attempts. Please wait a few minutes and try again.';
+  if (
+    error.name === 'AuthRetryableFetchError' ||
+    msg.includes('failed to fetch') ||
+    msg.includes('networkerror') ||
+    navigator.onLine === false
+  )
+    return "Couldn't reach the server. Check your connection and try again.";
+  if (code === 'user_already_exists' || code === 'email_exists')
+    return 'An account with this email already exists. Try signing in instead.';
+  if (code === 'email_address_invalid' || msg.includes('validate email'))
+    return 'Please enter a valid email address.';
+  return fallback;
+}
+function isUnconfirmedEmail(error) {
+  return (
+    error.code === 'email_not_confirmed' ||
+    (error.message || '').toLowerCase().includes('email not confirmed')
+  );
+}
+async function resendConfirmation() {
+  const email = val('a_email').toLowerCase();
+  const { error } = await db.auth.resend({
+    type: 'signup',
+    email,
+    options: { captchaToken: getCaptchaToken() },
+  });
+  if (error) return showAuthError(authErrorMessage(error, error.message));
+  showAuthError('Confirmation email sent to ' + email + '. Check your spam folder too.');
+  document.getElementById('authErr').style.color = 'var(--green)';
 }
 function authModal(signup) {
   modal(`<h2>${signup ? 'Create a free account 🍺' : 'Welcome back 🍺'}</h2>
@@ -4438,7 +4490,7 @@ async function doSignup() {
     password: pw,
     options: { data: { name, role, ref }, captchaToken: getCaptchaToken() },
   });
-  if (error) return showAuthError(error.message);
+  if (error) return showAuthError(authErrorMessage(error, error.message));
   closeModal();
   modal(`<h2>Welcome, ${esc(name)}! 🍺</h2>
     <p>Check your email for a confirmation link, then sign in to start contributing.</p>
@@ -4455,7 +4507,13 @@ async function doLogin() {
     password: pw,
     options: { captchaToken: getCaptchaToken() },
   });
-  if (error) return showAuthError('Wrong email or password.');
+  if (error)
+    return showAuthError(
+      authErrorMessage(error, "Couldn't sign you in. Please try again."),
+      isUnconfirmedEmail(error)
+        ? { label: 'Resend link', run: resendConfirmation }
+        : null,
+    );
   closeModal();
 }
 
@@ -4481,7 +4539,7 @@ async function sendReset() {
     redirectTo: location.origin + location.pathname,
     captchaToken: getCaptchaToken(),
   });
-  if (error) return showAuthError(error.message);
+  if (error) return showAuthError(authErrorMessage(error, error.message));
   closeModal();
   modal(
     '<h2 style="margin:0 0 8px">Check your email 📧</h2>' +
@@ -4511,7 +4569,7 @@ async function savePassword() {
     return showAuthError('Password must be at least 8 characters.');
   if (pw !== pw2) return showAuthError("Passwords don't match.");
   const { error } = await db.auth.updateUser({ password: pw });
-  if (error) return showAuthError(error.message);
+  if (error) return showAuthError(authErrorMessage(error, error.message));
   closeModal();
   showToast("✅ Password updated — you're signed in.");
 }
