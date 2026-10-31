@@ -3350,7 +3350,7 @@ function renderAddForm(editId, lat, lng) {
   const _fd = window._addFormData || {};
   const body = document.getElementById('sidebarBody');
   body.innerHTML = `<div class="panel spot-form" style="padding-bottom:28px"><form ${s ? '' : 'id="addSpotForm" oninput="saveAddDraft()" onchange="saveAddDraft()"'} onsubmit="return false">
-    <span class="back" onclick="cancelAdd()">← Cancel</span>
+    <span class="back" onclick="${s ? 'cancelEdit()' : 'cancelAdd()'}">← Cancel</span>
     <h2 style="font-size:20px;margin:4px 0 2px;font-weight:800">${s ? 'Edit spot' : 'Add a spot'}</h2>
     <p style="font-size:13px;color:var(--muted);margin:0 0 4px">${s ? 'Update the details below.' : 'Fill in what you know — every field helps!'}</p>
     ${!s && innerWidth > 680 ? '<div class="hint" style="margin:8px 0 2px">📌 Drag the pin or click the map to move it.</div>' : ''}
@@ -3773,8 +3773,14 @@ function changeSpotLocation() {
   startPinDrop(isNaN(lat) || isNaN(lng) ? null : { lat, lng });
   saveAddDraft();
 }
-function cancelAdd() {
+// Leaves any add-a-spot draft alone; that belongs to cancelAdd().
+function cancelEdit() {
   clearEditPin();
+  const isl = document.getElementById('floatingIsland');
+  if (isl) isl.style.display = '';
+  renderList();
+}
+function cancelAdd() {
   adding = false;
   window._pinChecked = false;
   window._addFormData = null;
