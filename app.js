@@ -325,7 +325,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.10.15';
+const APP_VERSION = '0.10.16';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -4373,11 +4373,13 @@ function isUnconfirmedEmail(error) {
 }
 async function resendConfirmation() {
   const email = val('a_email').toLowerCase();
+  if (captchaPending()) return showAuthError(CAPTCHA_PENDING_MSG);
   const { error } = await db.auth.resend({
     type: 'signup',
     email,
     options: { captchaToken: getCaptchaToken() },
   });
+  resetCaptcha();
   if (error) return showAuthError(authErrorMessage(error, error.message));
   showAuthError('Confirmation email sent to ' + email + '. Check your spam folder too.');
   document.getElementById('authErr').style.color = 'var(--green)';
@@ -4403,12 +4405,23 @@ function authModal(signup) {
 }
 
 const TURNSTILE_SITEKEY = '0x4AAAAAADyihgbkjaSQ4Co_';
+let _cfWidgetId = null;
 function renderCaptcha() {
   const el = document.getElementById('cfTurnstile');
   if (!el) return;
   if (window.turnstile && !el.dataset.rendered) {
     try {
-      window.turnstile.render(el, { sitekey: TURNSTILE_SITEKEY, theme: 'light' });
+      // Each modal builds a new container, so drop the widget from the last one.
+      if (_cfWidgetId !== null) {
+        try {
+          window.turnstile.remove(_cfWidgetId);
+        } catch (e) {}
+        _cfWidgetId = null;
+      }
+      _cfWidgetId = window.turnstile.render(el, {
+        sitekey: TURNSTILE_SITEKEY,
+        theme: 'light',
+      });
       el.dataset.rendered = '1';
     } catch (e) {}
   } else if (!window.turnstile) {
@@ -4417,11 +4430,26 @@ function renderCaptcha() {
 }
 function getCaptchaToken() {
   try {
-    return window.turnstile ? window.turnstile.getResponse() : '';
+    return window.turnstile && _cfWidgetId !== null
+      ? window.turnstile.getResponse(_cfWidgetId) || ''
+      : '';
   } catch (e) {
     return '';
   }
 }
+// Tokens are single-use, so get a fresh one after every attempt that spent it.
+function resetCaptcha() {
+  try {
+    if (window.turnstile && _cfWidgetId !== null)
+      window.turnstile.reset(_cfWidgetId);
+  } catch (e) {}
+}
+// True while the widget is on screen but hasn't produced a token yet.
+function captchaPending() {
+  return window.turnstile && _cfWidgetId !== null && !getCaptchaToken();
+}
+const CAPTCHA_PENDING_MSG =
+  'Still running the security check. Please try again in a moment.';
 
 const RESERVED_NAMES = [
   'admin',
@@ -4475,6 +4503,7 @@ async function withAuthBusy(label, run) {
   try {
     await run();
   } catch (e) {
+    resetCaptcha();
     showAuthError(authErrorMessage(e, 'Something went wrong. Please try again.'));
   } finally {
     btn.disabled = false;
@@ -4503,13 +4532,17 @@ async function submitSignup() {
   if (c === ACTIVE_CODE) role = 'active';
   else if (c && c !== '')
     return showAuthError('Invalid invite code. Leave blank to join as Newcomer.');
+  if (captchaPending()) return showAuthError(CAPTCHA_PENDING_MSG);
   const ref = localStorage.getItem('bhRefCode') || '';
   const { error } = await db.auth.signUp({
     email,
     password: pw,
     options: { data: { name, role, ref }, captchaToken: getCaptchaToken() },
   });
-  if (error) return showAuthError(authErrorMessage(error, error.message));
+  if (error) {
+    resetCaptcha();
+    return showAuthError(authErrorMessage(error, error.message));
+  }
   closeModal();
   modal(`<h2>Welcome, ${esc(name)}! 🍺</h2>
     <p>Check your email for a confirmation link, then sign in to start contributing.</p>
@@ -4524,18 +4557,21 @@ async function submitLogin() {
     pw = val('a_pw');
   showAuthError('');
   if (!email || !pw) return showAuthError('Enter your email and password.');
+  if (captchaPending()) return showAuthError(CAPTCHA_PENDING_MSG);
   const { error } = await db.auth.signInWithPassword({
     email,
     password: pw,
     options: { captchaToken: getCaptchaToken() },
   });
-  if (error)
+  if (error) {
+    resetCaptcha();
     return showAuthError(
       authErrorMessage(error, "Couldn't sign you in. Please try again."),
       isUnconfirmedEmail(error)
         ? { label: 'Resend link', run: resendConfirmation }
         : null,
     );
+  }
   closeModal();
 }
 
@@ -4560,11 +4596,15 @@ async function submitReset() {
   const email = (val('fp_email') || '').toLowerCase().trim();
   showAuthError('');
   if (!email) return showAuthError('Please enter your email.');
+  if (captchaPending()) return showAuthError(CAPTCHA_PENDING_MSG);
   const { error } = await db.auth.resetPasswordForEmail(email, {
     redirectTo: location.origin + location.pathname,
     captchaToken: getCaptchaToken(),
   });
-  if (error) return showAuthError(authErrorMessage(error, error.message));
+  if (error) {
+    resetCaptcha();
+    return showAuthError(authErrorMessage(error, error.message));
+  }
   closeModal();
   modal(
     '<h2 style="margin:0 0 8px">Check your email 📧</h2>' +
