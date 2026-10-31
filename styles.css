@@ -1273,6 +1273,14 @@ form textarea {
     0 1px 4px rgba(0, 0, 0, 0.2),
     0 0 0 2px #b7b0a2;
 }
+/* the pin being placed in add-a-spot: must stand out from the spots around it */
+.bia-pin.add-pin {
+  background: #fff;
+  outline: 3px solid #e65100;
+  outline-offset: 1px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+  cursor: grab;
+}
 .bia-pin.unverified {
   background: #ede9e0;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.18);

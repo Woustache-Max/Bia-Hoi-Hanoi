@@ -3565,7 +3565,12 @@ function startAdd(editId) {
 function placeAddPin(lat, lng) {
   if (tmpMarker) map.removeLayer(tmpMarker);
   tmpMarker = L.marker([lat, lng], {
-    icon: pinIcon(false, true),
+    icon: L.divIcon({
+      className: '',
+      html: '<div class="bia-pin add-pin">📍</div>',
+      iconSize: [44, 44],
+      iconAnchor: [22, 44],
+    }),
     draggable: true,
     title: 'Drag to move the pin',
   }).addTo(map);
