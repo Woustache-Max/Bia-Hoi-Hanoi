@@ -6426,6 +6426,7 @@ async function init() {
   } catch (e) {}
   db.auth.onAuthStateChange(async (event, session) => {
     if (event === 'PASSWORD_RECOVERY') setNewPasswordModal();
+    const prevUserId = cur ? cur.id : null;
     if (session) {
       if (event === 'SIGNED_IN') await new Promise((r) => setTimeout(r, 400));
       const { data: profile } = await db
@@ -6442,7 +6443,9 @@ async function init() {
       notifs = [];
     }
     setUserLabel();
-    renderList();
+    // Supabase re-sends SIGNED_IN when the page wakes up and on token refreshes.
+    // Only rebuild for a real sign-in or sign-out, or the open panel gets wiped.
+    if ((cur ? cur.id : null) !== prevUserId) renderList();
     loadNotifs();
     if (event === 'SIGNED_IN' && cur) checkBadges();
   });
