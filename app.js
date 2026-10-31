@@ -386,6 +386,7 @@ function dbToSpot(s) {
     reports: s.reports || [],
     cover_photo_url: s.cover_photo_url || null,
     lastCheckinAt: s.last_checkin_at || null,
+    hetBiaAt: s.het_bia_at || null,
     atRisk: s.at_risk || false,
     closedAt: s.closed_at || null,
     closedNote: s.closed_note || '',
@@ -571,9 +572,31 @@ function fmtHr(h) {
   if (hh === 0) hh = 12;
   return hh + ap;
 }
+// The most recent 6am in Hanoi (always UTC+7). A flag set before it has expired.
+function last6amHanoi(nowMs) {
+  const HANOI = 7 * 3600000,
+    SIX = 6 * 3600000,
+    DAY = 86400000;
+  return Math.floor((nowMs + HANOI - SIX) / DAY) * DAY + SIX - HANOI;
+}
+function hetBiaActive(s) {
+  if (!s || s.status !== 'active' || !s.hetBiaAt) return false;
+  return new Date(s.hetBiaAt).getTime() >= last6amHanoi(Date.now());
+}
+function hetBiaLabel(s) {
+  const min = Math.floor((Date.now() - new Date(s.hetBiaAt).getTime()) / 60000);
+  const ago =
+    min < 1
+      ? 'just now'
+      : min < 60
+        ? min + ' min ago'
+        : Math.floor(min / 60) + ' hr ago';
+  return 'Hết bia · ' + ago;
+}
 function isOpen(s) {
   if (s.status !== 'active' || s.openH == null || s.closeH == null)
     return false;
+  if (hetBiaActive(s)) return false;
   const n = new Date(),
     now = n.getHours() + n.getMinutes() / 60;
   let o = +s.openH,
