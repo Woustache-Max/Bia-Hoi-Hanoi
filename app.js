@@ -325,7 +325,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.10.20';
+const APP_VERSION = '0.10.21';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -786,6 +786,23 @@ const cluster = L.markerClusterGroup({
   },
 });
 map.addLayer(cluster);
+// Frames the Hanoi spots. A faraway spot would otherwise zoom out to all of Vietnam.
+function fitMapToSpots() {
+  const pts = spots
+    .filter(
+      (s) =>
+        s.status === 'active' && dist(HANOI[0], HANOI[1], s.lat, s.lng) < 40,
+    )
+    .map((s) => [s.lat, s.lng]);
+  if (!pts.length) return map.setView(HANOI, 13);
+  map.invalidateSize();
+  map.fitBounds(L.latLngBounds(pts), {
+    paddingTopLeft: [24, 24],
+    paddingBottomRight: [24, innerWidth <= 680 ? 90 : 24],
+    maxZoom: 15,
+    animate: false,
+  });
+}
 let tmpMarker = null,
   adding = false;
 try {
@@ -5397,8 +5414,7 @@ function goHome() {
     clearFilters();
   } catch (e) {}
   renderList();
-  if (typeof map !== 'undefined' && map && map.setView)
-    map.setView([21.0278, 105.8342], 13);
+  if (typeof map !== 'undefined' && map && map.setView) fitMapToSpots();
 }
 function openSidebar() {
   if (innerWidth <= 680) {
@@ -6488,6 +6504,7 @@ async function init() {
   loadFilters();
   setupSwipe();
   renderList();
+  if (!new URLSearchParams(location.search).get('spot')) fitMapToSpots();
   hideSplash();
   checkAnnouncement();
   // Deep-link: ?spot=ID opens that spot on load
