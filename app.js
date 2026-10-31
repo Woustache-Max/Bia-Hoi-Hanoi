@@ -4455,7 +4455,8 @@ function badgeProgressList(uid) {
     all_rounder: pr(fullRated.length, 20),
     beer_sommelier: pr(beerRated.size, 10),
     foodie: pr(foodSpots, 20),
-    the_usual: pr(sameSpotCheckinMax(uid), 5),
+    the_usual:
+      _sameSpotCheckins[uid] == null ? bn(false) : pr(sameSpotCheckinMax(uid), 5),
     streak: pr(streakWeeks, 5),
     photographer: pr(myPhotos.length, 1),
     gallery_owner: pr(myPhotos.length, 25),
@@ -7972,9 +7973,16 @@ async function myCheckedInSpotIds(uid) {
 // them first and it reads the result from here.
 const _sameSpotCheckins = {};
 async function loadSameSpotCheckins(uid) {
-  const counts = {};
-  (await myCheckedInSpotIds(uid)).forEach((id) => (counts[id] = (counts[id] || 0) + 1));
-  _sameSpotCheckins[uid] = Object.values(counts).reduce((m, n) => Math.max(m, n), 0);
+  if (cur && uid === cur.id) {
+    const counts = {};
+    (await myCheckedInSpotIds(uid)).forEach((id) => (counts[id] = (counts[id] || 0) + 1));
+    _sameSpotCheckins[uid] = Object.values(counts).reduce((m, n) => Math.max(m, n), 0);
+    return;
+  }
+  // Other people's check-ins are private. Admins get this one number; anyone else gets
+  // null, meaning "not known", and a badge they've earned still shows from their profile.
+  const { data, error } = await db.rpc('same_spot_checkin_max', { p_user: uid });
+  _sameSpotCheckins[uid] = error ? null : data;
 }
 function sameSpotCheckinMax(uid) {
   return _sameSpotCheckins[uid] || 0;
