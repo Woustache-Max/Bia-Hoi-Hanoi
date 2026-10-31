@@ -1,5 +1,5 @@
 /* Bác Hơi — Service Worker */
-const SHELL_CACHE = 'biahoi-shell-v98';
+const SHELL_CACHE = 'biahoi-shell-v99';
 const CDN_CACHE   = 'biahoi-cdn-v1';
 
 const SHELL_URLS = [

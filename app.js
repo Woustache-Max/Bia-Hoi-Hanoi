@@ -325,7 +325,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.12.0';
+const APP_VERSION = '0.13.0';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -1702,7 +1702,7 @@ async function showDetail(id) {
       const fa = s.lastCheckinAt ? checkinAgo(s.lastCheckinAt) : '';
       const label = fa
         ? 'Last checked in ' + fa
-        : 'Not yet confirmed — have you been?';
+        : 'No check-ins yet';
       return (
         '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:7px 10px;margin:0 0 10px;flex-wrap:wrap"><span style="font-size:12px;color:var(--muted)">🕓 ' +
         label +
