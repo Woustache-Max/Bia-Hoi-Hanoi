@@ -991,7 +991,7 @@ function showPinConfirmBar(lat, lng) {
   const ex = document.getElementById('pinConfirmBar');
   if (ex) ex.remove();
   const sub = document.querySelector('#pinDropBanner .pdb-sub');
-  if (sub) sub.textContent = `Pin placed — confirm or move it`;
+  if (sub) sub.textContent = 'Drag the pin or tap the map, then confirm';
   const bar = document.createElement('div');
   bar.id = 'pinConfirmBar';
   bar.innerHTML = `<div class="pcb-label">📍 Confirm this location?</div>
@@ -1006,6 +1006,7 @@ function showPinConfirmBar(lat, lng) {
 function acceptPin() {
   const p = window._pendingPin;
   if (!p) return;
+  window._pinChecked = true;
   const bar = document.getElementById('pinConfirmBar');
   if (bar) bar.remove();
   confirmPinDrop(p.lat, p.lng);
@@ -3301,7 +3302,7 @@ function renderAddForm(editId, lat, lng) {
     <span class="back" onclick="cancelAdd()">← Cancel</span>
     <h2 style="font-size:20px;margin:4px 0 2px;font-weight:800">${s ? 'Edit spot' : 'Add a spot'}</h2>
     <p style="font-size:13px;color:var(--muted);margin:0 0 4px">${s ? 'Update the details below.' : 'Fill in what you know — every field helps!'}</p>
-    ${!s && innerWidth > 680 ? '<div class="hint" style="margin:8px 0 2px">📌 Click the map to move the pin.</div>' : ''}
+    ${!s && innerWidth > 680 ? '<div class="hint" style="margin:8px 0 2px">📌 Drag the pin or click the map to move it.</div>' : ''}
 
     <div class="form-sec-title">Basic info</div>
     <div class="form-section">
@@ -3423,12 +3424,14 @@ function saveAddDraft() {
     fields &&
     (fields.name || fields.addr || fields.desc || fields.district ||
       fields.price || fields.seat || fields.vibes.length);
-  if (!pin && !typed) return;
+  // A pin that dropped by itself isn't work worth resuming; a moved one is.
+  if (!(pin && window._pinChecked) && !typed) return;
   const c = map.getCenter();
   draftSet(addDraftKey(), {
     stage: inForm ? 'form' : 'pin',
     fields,
     pin,
+    pinChecked: !!window._pinChecked,
     view: { lat: c.lat, lng: c.lng, zoom: map.getZoom() },
   });
   setResume('add');
@@ -3437,19 +3440,12 @@ function restoreAddDraft(d) {
   window._addFormData = d.fields || null;
   if (d.view)
     map.setView([d.view.lat, d.view.lng], d.view.zoom, { animate: false });
-  const placePin = () => {
-    if (tmpMarker) map.removeLayer(tmpMarker);
-    tmpMarker = L.marker([d.pin.lat, d.pin.lng], {
-      icon: pinIcon(false, true),
-    }).addTo(map);
-  };
+  // Drafts from before the pin dropped by itself always had a pin someone placed.
+  window._pinChecked = d.pinChecked !== false;
+  const placePin = () => placeAddPin(d.pin.lat, d.pin.lng);
   if (d.stage === 'pin') {
     adding = true;
-    if (!document.getElementById('pinDropBanner')) startPinDrop();
-    if (d.pin) {
-      placePin();
-      showPinConfirmBar(d.pin.lat, d.pin.lng);
-    }
+    if (!document.getElementById('pinDropBanner')) startPinDrop(d.pin);
     return;
   }
   // Only the desktop form can move the pin by clicking the map behind it.
@@ -3471,8 +3467,10 @@ function startAdd(editId) {
     if (d) return restoreAddDraft(d);
   }
   adding = !editId;
+  if (!editId) window._pinChecked = false;
   if (!editId && innerWidth <= 680) {
     if (window._addDraftCoords) {
+      window._pinChecked = true;
       navPush('add');
       openSidebar();
       renderAddForm(null, window._addDraftCoords[0], window._addDraftCoords[1]);
@@ -3483,21 +3481,58 @@ function startAdd(editId) {
   }
   navPush('add');
   openSidebar();
-  renderAddForm(editId, null, null);
+  if (editId) {
+    renderAddForm(editId, null, null);
+    return;
+  }
+  const c = map.getCenter();
+  placeAddPin(c.lat, c.lng);
+  renderAddForm(null, c.lat.toFixed(5), c.lng.toFixed(5));
+  setTimeout(() => reverseGeocode(c.lat, c.lng), 100);
 }
-function startPinDrop() {
+// The add-a-spot pin. It can be dragged, as well as moved by tapping the map.
+function placeAddPin(lat, lng) {
+  if (tmpMarker) map.removeLayer(tmpMarker);
+  tmpMarker = L.marker([lat, lng], {
+    icon: pinIcon(false, true),
+    draggable: true,
+    title: 'Drag to move the pin',
+  }).addTo(map);
+  tmpMarker.on('dragend', () => {
+    const p = tmpMarker.getLatLng();
+    addPinMoved(p.lat, p.lng);
+  });
+}
+function addPinMoved(lat, lng) {
+  window._pinChecked = true;
+  if (document.getElementById('pinDropBanner')) {
+    showPinConfirmBar(lat, lng);
+    return;
+  }
+  const fl = document.getElementById('f_lat'),
+    fn = document.getElementById('f_lng');
+  if (fl) fl.value = lat.toFixed(5);
+  if (fn) fn.value = lng.toFixed(5);
+  saveAddDraft();
+  reverseGeocode(lat, lng);
+}
+// Opens on the given pin, or on the middle of the map.
+function startPinDrop(at) {
   adding = true;
   const isl = document.getElementById('floatingIsland');
   if (isl) isl.style.display = 'none';
   const b = document.createElement('div');
   b.id = 'pinDropBanner';
   b.innerHTML = `<div class="pdb-title">📍 Drop a pin</div>
-    <div class="pdb-sub">Tap anywhere on the map to place your spot</div>
+    <div class="pdb-sub">Drag the pin or tap the map to place your spot</div>
     <div class="pdb-btns">
       <button class="pdb-use-loc" onclick="useMyLocationForPin()">📡 Use my location</button>
       <button class="pdb-cancel" onclick="cancelAdd()">✕ Cancel</button>
     </div>`;
   document.body.appendChild(b);
+  const c = at || map.getCenter();
+  placeAddPin(c.lat, c.lng);
+  showPinConfirmBar(c.lat, c.lng);
 }
 function confirmPinDrop(lat, lng) {
   const b = document.getElementById('pinDropBanner');
@@ -3512,17 +3547,16 @@ function confirmPinDrop(lat, lng) {
 }
 function changeSpotLocation() {
   window._addFormData = collectAddFields();
-  if (tmpMarker) {
-    map.removeLayer(tmpMarker);
-    tmpMarker = null;
-  }
+  const lat = parseFloat(val('f_lat')),
+    lng = parseFloat(val('f_lng'));
   closeSidebar();
   adding = true;
-  startPinDrop();
+  startPinDrop(isNaN(lat) || isNaN(lng) ? null : { lat, lng });
   saveAddDraft();
 }
 function cancelAdd() {
   adding = false;
+  window._pinChecked = false;
   window._addFormData = null;
   window._pendingPin = null;
   window._addDraftCoords = null;
@@ -3545,10 +3579,10 @@ function useMyLocationForPin() {
   if (btn) btn.textContent = '⏳ Locating…';
   if (window._me) {
     const [lat, lng] = window._me;
-    if (tmpMarker) map.removeLayer(tmpMarker);
-    tmpMarker = L.marker([lat, lng], { icon: pinIcon(false, true) }).addTo(map);
+    placeAddPin(lat, lng);
     map.setView([lat, lng], 17);
-    showPinConfirmBar(lat, lng);
+    addPinMoved(lat, lng);
+    if (btn) btn.textContent = '📡 Use my location';
     return;
   }
   if (!navigator.geolocation) {
@@ -3568,12 +3602,10 @@ function useMyLocationForPin() {
           fillOpacity: 0.92,
           weight: 2.5,
         }).addTo(map);
-      if (tmpMarker) map.removeLayer(tmpMarker);
-      tmpMarker = L.marker([lat, lng], { icon: pinIcon(false, true) }).addTo(
-        map,
-      );
+      placeAddPin(lat, lng);
       map.setView([lat, lng], 17);
-      showPinConfirmBar(lat, lng);
+      addPinMoved(lat, lng);
+      if (btn) btn.textContent = '📡 Use my location';
     },
     () => {
       showToast('Could not get your location — please allow location access.');
@@ -3619,22 +3651,27 @@ async function reverseGeocode(lat, lng) {
 map.on('moveend', saveAddDraft);
 map.on('click', (e) => {
   if (!adding) return;
-  const lat = e.latlng.lat,
-    lng = e.latlng.lng;
-  if (tmpMarker) map.removeLayer(tmpMarker);
-  tmpMarker = L.marker(e.latlng, { icon: pinIcon(false, true) }).addTo(map);
-  if (document.getElementById('pinDropBanner')) {
-    showPinConfirmBar(lat, lng);
-  } else {
-    const fl = document.getElementById('f_lat'),
-      fn = document.getElementById('f_lng');
-    if (fl) fl.value = lat.toFixed(5);
-    if (fn) fn.value = lng.toFixed(5);
-    saveAddDraft();
-    reverseGeocode(lat, lng);
-  }
+  placeAddPin(e.latlng.lat, e.latlng.lng);
+  addPinMoved(e.latlng.lat, e.latlng.lng);
 });
 
+// The pin drops by itself, so check before saving one nobody moved or confirmed.
+function askPinCorrect() {
+  const addr = val('f_addr');
+  modal(
+    '<h2 style="margin:0 0 8px">Is the pin on the right spot?</h2>' +
+      '<p style="font-size:14px;color:var(--muted);margin:0 0 14px">You haven\'t moved it since it dropped' +
+      (addr ? ', and it\'s at <b>' + esc(addr) + '</b>.' : ' in the middle of the map.') +
+      '</p>' +
+      '<button class="btn-gold" style="width:100%" onclick="pinCorrectYes()">Yes, submit</button>' +
+      '<button class="btn-ghost" style="width:100%;margin-top:8px" onclick="closeModal();changeSpotLocation()">Move pin</button>',
+  );
+}
+function pinCorrectYes() {
+  window._pinChecked = true;
+  closeModal();
+  saveSpot('');
+}
 async function saveSpot(editId) {
   const name = val('f_name'),
     lat = parseFloat(val('f_lat')),
@@ -3692,6 +3729,10 @@ async function saveSpot(editId) {
     return;
   }
   if (_ae) _ae.style.display = 'none';
+  if (!editId && !window._pinChecked) {
+    askPinCorrect();
+    return;
+  }
   const vibes = [...document.querySelectorAll('#f_vibes input:checked')].map(
     (i) => i.value,
   );
@@ -3783,6 +3824,7 @@ async function saveSpot(editId) {
   }
   window._addDraftCoords = null;
   window._addFormData = null;
+  window._pinChecked = false;
   if (cur) draftClear(addDraftKey());
   clearResume();
   spots.push({
@@ -8270,7 +8312,7 @@ function showHelp() {
       s('🚀 Getting started', 'Bác Hơi is a community map of Vietnam’s best bia hơi spots. Browse the map or the side list and tap a beer icon to open a spot. You can explore freely — you only need a free account to add spots, write reviews, or upload photos.') +
       s('📲 Install it on your phone', 'Add Bác Hơi to your home screen so it opens full-screen like an app.<br><b>iPhone (Safari):</b> tap the Share button (□↑) at the bottom → “Add to Home Screen” → Add.<br><b>Android (Chrome):</b> tap the ⋮ menu → “Install app” → Install.') +
       s('🔎 Finding a spot', 'Use <b>Search</b> to find a place by name, or <b>⚲ Filters</b> to narrow by district, vibe (you can pick several), rating, price, open-now, or verified-only. <b>📍 Near me</b> sorts spots by distance using your location. <b>🔀 Random</b> picks a surprise spot from whatever’s on your screen.') +
-      s('➕ Adding a spot', 'Tap <b>+ Add spot</b>, drop a pin on the map, and fill in the details — name, price per glass, hours, vibes, and a photo. Anyone can add a spot; new ones start “unverified” until confirmed by an active member or admin.') +
+      s('➕ Adding a spot', 'Tap <b>+ Add spot</b>, move the pin to the right place on the map, and fill in the details — name, price per glass, hours, vibes, and a photo. Anyone can add a spot; new ones start “unverified” until confirmed by an active member or admin.') +
       s('⭐ Reviews & ratings', 'Open a spot and scroll to “Add your review.” Rate it across categories (beer, food, atmosphere, cleanliness, service) and add a comment if you’re signed in. You can mark other people’s reviews as 👍 Helpful and reply to them.') +
       s('📷 Photos', 'On a spot, tap “Add photo” to upload one — photos are automatically shrunk so they load fast and save space. Tap ❤️ to like a photo. You can tag a photo “👍 Uncle Approved” or “🤙 Full Uncle” for fun badges.') +
       s('🕓 Check-ins & freshness', 'Sitting at a spot? Tap <b>✓ Check in</b> to confirm it’s still open — you need to be nearby for it to count. Each spot shows when it was “last checked in,” so everyone can trust the info is fresh.') +
