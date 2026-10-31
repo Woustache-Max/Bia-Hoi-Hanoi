@@ -1195,7 +1195,8 @@ function loadFilters() {
     setV('fPrice', f.p);
     setC('fOpen', f.o);
     setC('fVerified', f.vf);
-    if (f.rad) setV('fRadius', f.rad);
+    // 2km and 10km were removed; move anyone who had them saved to the next size up.
+    if (f.rad) setV('fRadius', { 2: '5', 10: '0' }[f.rad] || f.rad);
   } catch (e) {}
 }
 function visibleSpots() {
