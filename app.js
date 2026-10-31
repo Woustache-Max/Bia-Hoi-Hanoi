@@ -3491,8 +3491,10 @@ function saveAddDraft() {
     : window._pendingPin || null;
   const typed =
     fields &&
-    (fields.name || fields.addr || fields.desc || fields.district ||
-      fields.price || fields.seat || fields.vibes.length);
+    (fields.name ||
+      (fields.addr && fields.addr !== _autoAddr) ||
+      (fields.district && fields.district !== _autoDistrict) ||
+      fields.desc || fields.price || fields.seat || fields.vibes.length);
   // A pin that dropped by itself isn't work worth resuming; a moved one is.
   if (!(pin && window._pinChecked) && !typed) return;
   const c = map.getCenter();
