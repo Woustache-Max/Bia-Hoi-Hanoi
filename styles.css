@@ -2367,6 +2367,16 @@ form textarea {
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+@media (max-width: 400px) {
+  .floating-island {
+    padding: 8px 8px;
+    gap: 2px;
+  }
+  .fi-btn {
+    padding: 8px 9px;
+  }
 }
 .fi-btn.fi-active {
   color: var(--gold);
