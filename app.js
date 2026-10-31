@@ -147,7 +147,7 @@ const BADGES = [
     id: 'the_usual',
     icon: '🔁',
     name: 'The Usual',
-    desc: 'Reviewed the same spot 5 times',
+    desc: 'Checked in at the same spot 5 times',
   },
   {
     id: 'streak',
@@ -3910,14 +3910,6 @@ function badgeProgressList(uid) {
   ).size;
   const isUncleApproved = myPhotos.some((p) => p.thumbs_up);
   const isFullUncle = myPhotos.some((p) => p.full_uncle);
-  const reviewsPerSpot = {};
-  myReviews.forEach(
-    (r) => (reviewsPerSpot[r.spotId] = (reviewsPerSpot[r.spotId] || 0) + 1),
-  );
-  const sameSpotMax = Object.values(reviewsPerSpot).reduce(
-    (m, n) => Math.max(m, n),
-    0,
-  );
   const foodSpots = new Set(
     myReviews.filter((r) => r.ratings.food >= 1).map((r) => r.spotId),
   ).size;
@@ -3973,7 +3965,7 @@ function badgeProgressList(uid) {
     all_rounder: pr(fullRated.length, 20),
     beer_sommelier: pr(beerRated.size, 10),
     foodie: pr(foodSpots, 20),
-    the_usual: pr(sameSpotMax, 5),
+    the_usual: pr(sameSpotCheckinMax(uid), 5),
     streak: pr(streakWeeks, 5),
     photographer: pr(myPhotos.length, 1),
     gallery_owner: pr(myPhotos.length, 25),
@@ -4310,6 +4302,7 @@ async function showProfile(uid) {
   } catch (e) {}
   if (!u) return;
   await ensureFollowing();
+  await loadSameSpotCheckins(uid);
   let _followers = 0,
     _flwing = 0;
   try {
@@ -6573,8 +6566,20 @@ async function adminSetCover(sid, url) {
   showToast(newUrl ? '★ Cover photo set' : 'Cover photo cleared');
   showDetail(sid);
 }
+// Invite and Family badges can't be worked out here, and people who earned The
+// Usual under the old review rule keep it, so a recalculation never removes these.
+const RECALC_KEEP = ['first_invite', 'crew', 'hype_uncle', 'family', 'the_usual'];
+async function recalculatedBadges(uid, oldBadges) {
+  await loadSameSpotCheckins(uid);
+  const kept = (oldBadges || []).filter((b) => RECALC_KEEP.includes(b));
+  const out = [...new Set([...badgesFor(uid), ...kept])];
+  if (out.filter((b) => b !== 'legend').length >= 25 && !out.includes('legend'))
+    out.push('legend');
+  return out;
+}
 async function adminRecalcBadges(uid) {
-  const correct = badgesFor(uid);
+  const target = adminData.users.find((x) => x.id === uid);
+  const correct = await recalculatedBadges(uid, target && target.badges);
   await db.from('profiles').update({ badges: correct }).eq('id', uid);
   const u = adminData.users.find((x) => x.id === uid);
   if (u) u.badges = correct;
@@ -6592,7 +6597,7 @@ async function adminRecalcAllBadges() {
   )
     return;
   for (const u of adminData.users) {
-    const correct = badgesFor(u.id);
+    const correct = await recalculatedBadges(u.id, u.badges);
     await db.from('profiles').update({ badges: correct }).eq('id', u.id);
     u.badges = correct;
     if (profilesCache[u.id]) profilesCache[u.id].badges = correct;
@@ -7167,14 +7172,6 @@ function badgesFor(uid) {
       })
       .map((r) => r.spotId),
   ).size;
-  const reviewsPerSpot = {};
-  myReviews.forEach(
-    (r) => (reviewsPerSpot[r.spotId] = (reviewsPerSpot[r.spotId] || 0) + 1),
-  );
-  const sameSpotMax = Object.values(reviewsPerSpot).reduce(
-    (m, n) => Math.max(m, n),
-    0,
-  );
   const foodSpots = new Set(
     myReviews.filter((r) => r.ratings.food >= 1).map((r) => r.spotId),
   ).size;
@@ -7213,7 +7210,7 @@ function badgesFor(uid) {
   if (fullRated.length >= 20) earned.push('all_rounder');
   if (beerRated.size >= 10) earned.push('beer_sommelier');
   if (foodSpots >= 20) earned.push('foodie');
-  if (sameSpotMax >= 5) earned.push('the_usual');
+  if (sameSpotCheckinMax(uid) >= 5) earned.push('the_usual');
   if (streakWeeks >= 5) earned.push('streak');
   if (myPhotos.length >= 1) earned.push('photographer');
   if (myPhotos.length >= 25) earned.push('gallery_owner');
@@ -7270,6 +7267,7 @@ function badgesFor(uid) {
 
 async function checkBadges() {
   if (!cur) return;
+  await loadSameSpotCheckins(cur.id);
   const earned = [
     ...badgesFor(cur.id),
     ...(await referralBadgesFor(cur.id)),
@@ -7370,6 +7368,17 @@ async function myCheckedInSpotIds(uid) {
   } catch (e) {
     return [];
   }
+}
+// Check-ins load asynchronously but badgesFor() is synchronous, so callers load
+// them first and it reads the result from here.
+const _sameSpotCheckins = {};
+async function loadSameSpotCheckins(uid) {
+  const counts = {};
+  (await myCheckedInSpotIds(uid)).forEach((id) => (counts[id] = (counts[id] || 0) + 1));
+  _sameSpotCheckins[uid] = Object.values(counts).reduce((m, n) => Math.max(m, n), 0);
+}
+function sameSpotCheckinMax(uid) {
+  return _sameSpotCheckins[uid] || 0;
 }
 function districtsBarInnerHTML(count, total) {
   const pct = total ? Math.round((count / total) * 100) : 0;
@@ -7663,6 +7672,7 @@ async function showQuests() {
   let progressHTML = '';
   if (cur) {
     const uid = cur.id;
+    await loadSameSpotCheckins(uid);
     const mySpots = spots.filter((s) => s.createdBy === uid);
     const myReviews = [],
       reviewedDistricts = new Set();
@@ -7747,14 +7757,6 @@ async function showQuests() {
         })
         .map((r) => r.spotId),
     ).size;
-    const reviewsPerSpot = {};
-    myReviews.forEach(
-      (r) => (reviewsPerSpot[r.spotId] = (reviewsPerSpot[r.spotId] || 0) + 1),
-    );
-    const sameSpotMax = Object.values(reviewsPerSpot).reduce(
-      (m, n) => Math.max(m, n),
-      0,
-    );
     const foodSpots = new Set(
       myReviews.filter((r) => r.ratings.food >= 1).map((r) => r.spotId),
     ).size;
@@ -7844,7 +7846,6 @@ async function showQuests() {
       qi('all_rounder', fullRated.length, 20) +
       qi('beer_sommelier', beerRated.size, 10) +
       qi('foodie', foodSpots, 20) +
-      qi('the_usual', sameSpotMax, 5) +
       qi('streak', streakWeeks, 5) +
       '<div class="qsec">📷 Photos</div>' +
       qi('photographer', Math.min(myPhotos.length, 1), 1) +
@@ -7867,6 +7868,7 @@ async function showQuests() {
       ) +
       qi('old_quarter', hkSpots.length, 15) +
       qi('tay_ho', thSpots.length, 10) +
+      qi('the_usual', sameSpotCheckinMax(uid), 5) +
       qi('safety_inspector', reportCount, 5) +
       '<div class="qsec">🕐 Time & Vibe</div>' +
       qi('early_bird', earlyBirdSpots, 3) +
