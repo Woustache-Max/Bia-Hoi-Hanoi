@@ -464,6 +464,10 @@ async function checkIn(spotId) {
       const { error } = await db
         .from('check_ins')
         .insert({ spot_id: spotId, user_id: cur.id });
+      if (error && (error.message || '').includes('checkin_too_soon')) {
+        showToast('You already checked in here recently. 🍺');
+        return;
+      }
       if (error) {
         showToast(
           'Could not check in: ' + (error.message || error.code || 'unknown error'),
