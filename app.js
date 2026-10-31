@@ -325,7 +325,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.10.19';
+const APP_VERSION = '0.10.20';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -3111,6 +3111,7 @@ function renderAddForm(editId, lat, lng) {
     <button class="btn-gold" style="width:100%;margin-top:10px;padding:12px;font-size:15px;border-radius:10px" onclick="saveSpot('${editId || ''}')">${s ? 'Save changes' : 'Submit spot'}</button>
     ${!cur && !s ? `<p style="font-size:12px;color:var(--muted);margin-top:10px;text-align:center">Submitting anonymously. <a style="color:var(--gold-dark);cursor:pointer" onclick="authModal(true)">Create a free account</a> to track your contributions.</p>` : ''}
     </form></div>`;
+  document.getElementById('sidebar').scrollTop = 0;
 }
 
 function startAdd(editId) {
