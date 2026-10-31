@@ -2223,6 +2223,21 @@ form textarea {
     transform: translateY(0);
   }
 }
+/* add-a-spot: "I'm not sure" under the hours */
+.form-unsure {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.form-unsure input {
+  width: auto;
+}
+.form-section input:disabled {
+  opacity: 0.5;
+}
 /* add-a-spot: coordinates tucked away under the address */
 .form-coords summary {
   cursor: pointer;

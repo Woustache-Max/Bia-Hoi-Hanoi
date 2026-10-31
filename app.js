@@ -1731,8 +1731,13 @@ async function showDetail(id) {
       : null;
   const primaryFacts = [
     s.pricePerGlass ? ['Price / glass', s.pricePerGlass] : null,
-    s.openH != null
-      ? ['Hours', fmtHr(s.openH) + ' – ' + fmtHr(s.closeH)]
+    s.status === 'active' || s.openH != null
+      ? [
+          'Hours',
+          s.openH != null && s.closeH != null
+            ? fmtHr(s.openH) + ' – ' + fmtHr(s.closeH)
+            : 'Unknown',
+        ]
       : null,
     distStr ? ['Distance', distStr] : null,
   ].filter(Boolean);
@@ -3325,9 +3330,11 @@ function renderAddForm(editId, lat, lng) {
     <div class="form-sec-title">Hours &amp; details</div>
     <div class="form-section">
       <div class="row2">
-        <div><label>Opens (24h)</label><input id="f_open" type="number" min="0" max="23" value="${s && s.openH != null ? s.openH : 16}"></div>
-        <div><label>Closes (24h)</label><input id="f_close" type="number" min="0" max="30" value="${s && s.closeH != null ? s.closeH : 23}"></div>
+        <div><label>Opens (24h)</label><input id="f_open" type="number" min="0" max="23" placeholder="e.g. 16" value="${s && s.openH != null ? s.openH : ''}"></div>
+        <div><label>Closes (24h)</label><input id="f_close" type="number" min="0" max="30" placeholder="e.g. 23" value="${s && s.closeH != null ? s.closeH : ''}"></div>
       </div>
+      <label class="form-unsure"><input type="checkbox" id="f_hours_unsure" onchange="applyHoursUnsure()"> I'm not sure</label>
+      <div id="f_hours_err" style="display:none;color:#c62828;font-size:12px;font-weight:600">⚠ Add both hours, or tick "I'm not sure"</div>
       <div><label>Seating</label><div class="tagpick" id="f_seat_tags" style="margin-top:4px">${SEATING_OPTS.map(
         (v) => {
           const chk = (s && s.seating ? s.seating : _fd.seat || '')
@@ -3383,6 +3390,7 @@ function collectAddFields() {
     addr: val('f_addr'),
     open: val('f_open'),
     close: val('f_close'),
+    unsure: !!(document.getElementById('f_hours_unsure') || {}).checked,
     seat: checked('#f_seat_tags').join(', '),
     pay: val('f_pay'),
     desc: val('f_desc'),
@@ -3404,6 +3412,11 @@ function applyAddFields(fd) {
     const el = document.getElementById(ids[k]);
     if (el && fd[k] !== undefined) el.value = fd[k];
   });
+  if (fd.unsure) {
+    const u = document.getElementById('f_hours_unsure');
+    if (u) u.checked = true;
+    applyHoursUnsure();
+  }
   (fd.vibes || []).forEach((v) => {
     const box = document.querySelector(`#f_vibes input[value="${v}"]`);
     if (box) {
@@ -3411,6 +3424,17 @@ function applyAddFields(fd) {
       box.parentElement.classList.add('on');
     }
   });
+}
+function applyHoursUnsure() {
+  const on = !!(document.getElementById('f_hours_unsure') || {}).checked;
+  ['f_open', 'f_close'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (on) el.value = '';
+    el.disabled = on;
+  });
+  const err = document.getElementById('f_hours_err');
+  if (err && on) err.style.display = 'none';
 }
 function saveAddDraft() {
   if (!cur) return;
@@ -3751,12 +3775,16 @@ async function saveSpot(editId) {
     }
     if (_pei) _pei.style.display = 'none';
   }
+  const _hoursHalf = (val('f_open') === '') !== (val('f_close') === '');
+  const _hei = document.getElementById('f_hours_err');
+  if (_hei) _hei.style.display = _hoursHalf ? 'block' : 'none';
+  if (_hoursHalf) _errs.push('both hours');
   if (_errs.length) {
     if (_ae) {
       _ae.textContent = '⚠ Required: ' + _errs.join(' and ');
       _ae.style.display = 'block';
     }
-    const _fe = !name ? _ni : isNaN(lat) ? _li : null;
+    const _fe = !name ? _ni : isNaN(lat) ? _li : _hoursHalf ? _hei : null;
     if (_fe) _fe.scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
