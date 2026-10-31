@@ -1310,7 +1310,7 @@ function sortBarHTML(sortByDist) {
     chip('new', 'Newest') +
     '</div>' +
     (m === 'top' && !sortByDist
-      ? '<div style="font-size:11px;color:var(--muted);padding:0 12px 6px">Ranked by rating and number of reviews. A spot creator&#39;s own review doesn&#39;t count.</div>'
+      ? '<div style="font-size:11px;color:var(--muted);padding:0 12px 6px">Ranked by rating and number of reviews. A spot needs reviews from 2 different people.</div>'
       : '')
   );
 }
@@ -1318,10 +1318,8 @@ function setSort(mode) {
   window._sortMode = mode;
   renderList();
 }
-// A spot creator's own review still shows on the spot but doesn't help it rank.
 function rankingAvg(s) {
   const a = countedReviews(s)
-    .filter((r) => r.userId !== s.createdBy)
     .map(revAvg)
     .filter((x) => x > 0);
   return {
@@ -1329,12 +1327,26 @@ function rankingAvg(s) {
     avg: a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0,
   };
 }
+// Ranked spots need two different people. Anonymous reviews still count toward the
+// score, but they can't show that a second person was there.
+function isRanked(s) {
+  const people = new Set(
+    countedReviews(s)
+      .filter((r) => r.userId && r.userId !== 'anon' && revAvg(r) > 0)
+      .map((r) => r.userId),
+  );
+  return people.size >= 2;
+}
+// Bayesian average: (v*R + m*C) / (v + m)
 function adjRating(s) {
+  if (!isRanked(s)) return 0;
   const { n, avg } = rankingAvg(s);
-  if (!n) return 0;
   const m = 3;
   const prior = window._globalAvg || 4.0;
   return (avg * n + prior * m) / (n + m);
+}
+function spotTime(s) {
+  return new Date(s.createdAt || 0).getTime() || 0;
 }
 async function loadWeekPopular() {
   window._weekLoaded = true;
@@ -1364,6 +1376,7 @@ function renderList(sortByDist) {
   }
   drawMarkers();
   let list = visibleSpots();
+  let dividerAt = -1;
   if (sortByDist && window._me)
     list = list
       .slice()
@@ -1380,9 +1393,7 @@ function renderList(sortByDist) {
     const mode = window._sortMode || 'top';
     const wc = window._weekCounts || {};
     if (mode === 'new')
-      list = list
-        .slice()
-        .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      list = list.slice().sort((a, b) => spotTime(b) - spotTime(a));
     else if (mode === 'week')
       list = list
         .slice()
@@ -1390,12 +1401,16 @@ function renderList(sortByDist) {
           (a, b) =>
             (wc[b.id] || 0) - (wc[a.id] || 0) || adjRating(b) - adjRating(a),
         );
-    else
-      list = list
-        .slice()
-        .sort(
-          (a, b) => adjRating(b) - adjRating(a) || spotAvg(b) - spotAvg(a),
-        );
+    else {
+      const ranked = list
+        .filter(isRanked)
+        .sort((a, b) => adjRating(b) - adjRating(a) || spotAvg(b) - spotAvg(a));
+      const unranked = list
+        .filter((s) => !isRanked(s))
+        .sort((a, b) => spotTime(b) - spotTime(a));
+      list = ranked.concat(unranked);
+      if (unranked.length) dividerAt = ranked.length;
+    }
   }
   if (!window._weekLoaded) loadWeekPopular();
   const body = document.getElementById('sidebarBody');
@@ -1449,7 +1464,11 @@ function renderList(sortByDist) {
     sortBarHTML(sortByDist && window._me) +
     _newSec +
     list
-      .map((s) => {
+      .map((s, _i) => {
+        const _divider =
+          _i === dividerAt
+            ? '<div style="font-size:12px;font-weight:700;color:var(--muted);padding:14px 12px 8px;border-top:1px solid var(--line);margin-top:6px">Not enough reviews yet</div>'
+            : '';
         const open = isOpen(s),
           closed = s.status !== 'active';
         const d = window._me
@@ -1479,7 +1498,7 @@ function renderList(sortByDist) {
           s.photos && s.photos.length
             ? `<div style="position:relative;flex-shrink:0">${bkBadge}${rvBadge}<img class="list-thumb" src="${s.photos[0].url}" alt="" loading="lazy"></div>`
             : `<div class="list-thumb-ph" style="position:relative">${bkBadge}${rvBadge}🍺</div>`;
-        return `<div class="list-item" onclick="showDetail('${s.id}')">
+        return `${_divider}<div class="list-item" onclick="showDetail('${s.id}')">
       ${thumb}
       <div class="list-text">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
