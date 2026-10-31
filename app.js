@@ -325,7 +325,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.10.18';
+const APP_VERSION = '0.10.19';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -1523,7 +1523,9 @@ async function showDetail(id) {
       ? userById(s.createdBy)
       : null;
   const body = document.getElementById('sidebarBody');
-  body.innerHTML = `<div class="panel detail">
+  // Votes and new reviews re-render this view, so only reset scroll on a fresh open.
+  const _sd_reopen = !!body.querySelector(`.detail[data-spot="${id}"]`);
+  body.innerHTML = `<div class="panel detail" data-spot="${id}">
     <span class="back" onclick="bhBack()">← All spots</span>
     <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:6px">
       <div style="flex:1;min-width:0">
@@ -1635,6 +1637,7 @@ async function showDetail(id) {
     <div class="sec">Add your review</div>
     ${reviewFormHTML(s.id)}
   </div>`;
+  if (!_sd_reopen) document.getElementById('sidebar').scrollTop = 0;
   chosen = {};
   // Async: fetch replies, then re-render review list
   if (s.reviews.length) {
