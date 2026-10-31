@@ -406,6 +406,24 @@ function checkinAgo(iso) {
   if (d < 365) return 'over a month ago';
   return 'over a year ago';
 }
+// Quests are introduced here, after a first check-in, not on the welcome card.
+async function introduceQuests() {
+  try {
+    if (localStorage.getItem('bhQuestsIntro')) return;
+    const ids = await myCheckedInSpotIds(cur.id);
+    if (ids.length !== 1) return;
+    localStorage.setItem('bhQuestsIntro', '1');
+  } catch (e) {
+    return;
+  }
+  modal(
+    '<div style="text-align:center"><div style="font-size:42px;margin-bottom:6px">🎯</div>' +
+      '<h2 style="margin:0 0 8px">Nice, your first check-in!</h2>' +
+      '<p style="font-size:14px;color:var(--muted);margin:0 0 14px">Checking in, reviewing and adding spots all earn badges. See what you can go for next.</p>' +
+      '<button class="btn-gold" style="width:100%" onclick="closeModal();showQuests()">See Badges &amp; Quests</button>' +
+      '<button class="btn-ghost" style="width:100%;margin-top:8px" onclick="closeModal()">Not now</button></div>',
+  );
+}
 async function checkIn(spotId) {
   if (!cur) {
     authModal(false);
@@ -459,6 +477,7 @@ async function checkIn(spotId) {
       showToast('✅ Checked in — thanks for keeping the record fresh!');
       showDetail(spotId);
       window.offerInstall();
+      introduceQuests();
     },
     () => {
       showToast(
@@ -3922,7 +3941,11 @@ function badgeProgressList(uid) {
   const streakWeeks = new Set(
     myReviews.filter((r) => r.when).map((r) => isoWeekKey(r.when)),
   ).size;
-  const earned = badgesFor(uid);
+  // Include saved badges, so this agrees with the profile's "n / 41" count.
+  const _holder = uid === cur?.id ? cur : profilesCache[uid];
+  const earned = [
+    ...new Set([...badgesFor(uid), ...((_holder && _holder.badges) || [])]),
+  ];
   const pr = (cur, tot) => ({
     progress: Math.min(cur, tot) / tot,
     current: Math.min(cur, tot),
@@ -7253,6 +7276,10 @@ async function checkBadges() {
     ...(await familyBadgeFor(cur.id)),
   ];
   const existing = cur.badges || [];
+  // badgesFor can't see invite or Family badges, but they count toward Legend.
+  const others = new Set([...existing, ...earned]);
+  others.delete('legend');
+  if (others.size >= 25 && !earned.includes('legend')) earned.push('legend');
   const newOnes = earned.filter((b) => !existing.includes(b));
   if (!newOnes.length) return;
   const updated = [...new Set([...existing, ...earned])];
@@ -7298,7 +7325,7 @@ function showTitlePicker() {
     '<div style="text-align:center">' +
       '<div style="font-size:44px;margin-bottom:10px">🏆</div>' +
       '<h2 style="margin:0 0 8px">You\'ve earned every badge!</h2>' +
-      '<p style="color:var(--muted);font-size:13px;margin:0 0 18px">You are a <strong>Bác Hơi Legend</strong>. Choose your title — it will appear before your name and place you in the hall of fame forever.</p>' +
+      '<p style="color:var(--muted);font-size:13px;margin:0 0 18px">You\'re in the <strong>Bác Hơi Hall of Fame</strong>. Choose your title — it will appear before your name and on the Hall of Fame wall forever.</p>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">' +
       btns +
       '</div>' +
@@ -7320,7 +7347,7 @@ async function setTitle(t) {
   cur.title = t;
   if (profilesCache[cur.id]) profilesCache[cur.id].title = t;
   closeModal();
-  showToast('🏆 ' + t + ' — You are now in the Bác Hơi Legends!', 4000);
+  showToast('🏆 ' + t + ' — You are now in the Bác Hơi Hall of Fame!', 4000);
 }
 
 /* ============================================================
@@ -7574,10 +7601,10 @@ async function showQuests() {
       '</div>'
     : '<div class="legends-empty">' +
       '<div style="font-size:36px;margin-bottom:8px">🍺</div>' +
-      '<p style="font-weight:700;margin:0 0 5px;font-size:15px">No Legends yet</p>' +
+      '<p style="font-weight:700;margin:0 0 5px;font-size:15px">Nobody here yet</p>' +
       '<p style="color:var(--muted);font-size:13px;margin:0">Earn all ' +
       BADGES.length +
-      ' badges, choose your title, and become the first Bác Hơi Legend. Glory awaits.</p>' +
+      ' badges, choose your title, and be the first in the Hall of Fame. Glory awaits.</p>' +
       '</div>';
 
   // King of Thumbs — current month
@@ -7919,10 +7946,13 @@ async function showQuests() {
   document.getElementById('sidebarBody').innerHTML =
     '<div class="panel">' +
     '<span class="back" onclick="bhBack()">← All spots</span>' +
-    '<h2 style="margin:0 0 4px">🎯 Quests & Badges</h2>' +
+    '<h2 style="margin:0 0 4px">🎯 Badges &amp; Quests</h2>' +
     '<p style="font-size:13px;color:var(--muted);margin:0 0 14px">Explore Vietnam\'s bia hơi scene and earn badges</p>' +
     familyHTML +
-    '<div class="sec">🏆 Bác Hơi Legends</div>' +
+    '<div class="sec">🏆 Bác Hơi Hall of Fame</div>' +
+    '<p style="font-size:12px;color:var(--muted);margin:0 0 8px">For members who earn all ' +
+    BADGES.length +
+    ' badges. The Bác Hơi Legend badge comes earlier, at 25.</p>' +
     legendsHTML +
     '<div class="sec" style="margin-top:14px">👑 King of Thumbs — ' +
     mName +
@@ -8230,7 +8260,7 @@ function showHelp() {
       s('📷 Photos', 'On a spot, tap “Add photo” to upload one — photos are automatically shrunk so they load fast and save space. Tap ❤️ to like a photo. You can tag a photo “👍 Uncle Approved” or “🤙 Full Uncle” for fun badges.') +
       s('🕓 Check-ins & freshness', 'Sitting at a spot? Tap <b>✓ Check in</b> to confirm it’s still open — you need to be nearby for it to count. Each spot shows when it was “last checked in,” so everyone can trust the info is fresh.') +
       s('👥 Following & the Latest feed', 'Open someone’s profile and tap <b>Follow</b>. The <b>Latest</b> feed has two tabs: <b>Everyone</b> (all recent activity) and <b>Following</b> (just people you follow). There’s no messaging — following is only for seeing each other’s contributions.') +
-      s('🏅 Badges, Quests & Rewards', 'Earn badges for contributing — adding spots, writing reviews, uploading photos, exploring districts, and more. The 🎯 Quests screen shows your progress. Some awards are monthly (Photo / Reviewer / Explorer of the Month), and winning one repeatedly unlocks a prestige tier.') +
+      s('🏅 Badges, Quests & Rewards', 'Earn badges for contributing — adding spots, writing reviews, uploading photos, exploring districts, and more. The 🎯 Badges &amp; Quests screen shows your progress. The Bác Hơi Legend badge takes 25 other badges; earning all ' + BADGES.length + ' puts you in the Hall of Fame with a title of your choice. Some awards are monthly (Photo / Reviewer / Explorer of the Month), and winning one repeatedly unlocks a prestige tier.') +
       s('🔑 Account & levels', 'Sign up free with an email (you’ll confirm it via a link). New members start as <b>Newcomer</b> with a shorter review limit; write <b>2 reviews</b> to become <b>Active</b>, which unlocks full-length reviews and auto-verified spots. Forgot your password? Use “Forgot password?” on the sign-in screen.') +
       s('🏆 Leaderboard', 'See the top contributors by spots added, reviews written, or helpful votes. Switch between <b>Everyone</b> and <b>Following</b> to compare with just the people you follow.') +
       s('🔖 Saved spots', 'Tap 🔖 Save on any spot to bookmark it, then find your saved spots from the <b>Saved</b> button or your profile. Saving is for spots you want to keep; ❤️ Like is only for photos, to tell the photographer you enjoyed it.') +
