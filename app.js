@@ -783,6 +783,10 @@ function questProgressHTML(uid, role) {
    MAP — Leaflet setup, tile layers, markers
    ============================================================ */
 const map = L.map('map').setView(HANOI, 13);
+// A zoomToShowLayer callback can outlive its marker when the list redraws mid-zoom.
+// It then asks about the marker's missing parent, and the throw stops spots opening.
+const _mapHasLayer = map.hasLayer;
+map.hasLayer = (layer) => !!layer && _mapHasLayer.call(map, layer);
 const CARTO_ATTR =
   '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>';
 const tileLight = L.tileLayer(
@@ -3358,11 +3362,8 @@ function saveAddDraft() {
 }
 function restoreAddDraft(d) {
   window._addFormData = d.fields || null;
-  try {
-    // A leftover zoomToShowLayer callback can throw here; never let it block the restore.
-    if (d.view)
-      map.setView([d.view.lat, d.view.lng], d.view.zoom, { animate: false });
-  } catch (e) {}
+  if (d.view)
+    map.setView([d.view.lat, d.view.lng], d.view.zoom, { animate: false });
   const placePin = () => {
     if (tmpMarker) map.removeLayer(tmpMarker);
     tmpMarker = L.marker([d.pin.lat, d.pin.lng], {
