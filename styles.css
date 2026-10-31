@@ -311,6 +311,16 @@ button {
 .filters.open {
   display: flex;
 }
+.f-hinted {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.f-hint {
+  font-size: 11px;
+  color: var(--muted);
+}
 .filters select,
 .filters input {
   padding: 6px 8px;

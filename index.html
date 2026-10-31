@@ -101,7 +101,10 @@ setTimeout(function(){if(window.hideSplash)window.hideSplash();},4500);})();
       </div>
       <div class="filters" id="filters">
         <select id="fDistrict" onchange="renderList();saveFilters()"><option value="">All districts</option></select>
-        <button type="button" id="fVibeBtn" onclick="openVibeFilter()" style="padding:6px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px;font-family:inherit;background:var(--card);color:var(--ink);cursor:pointer">Any vibe</button>
+        <div class="f-hinted">
+          <button type="button" id="fVibeBtn" onclick="openVibeFilter()" style="padding:6px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px;font-family:inherit;background:var(--card);color:var(--ink);cursor:pointer">Any vibe</button>
+          <span class="f-hint">Pick the kinds of place you want</span>
+        </div>
         <select id="fRating" onchange="renderList();saveFilters()">
           <option value="0">Any rating</option><option value="3">3+ 🍺</option>
           <option value="4">4+ 🍺</option><option value="4.5">4.5+ 🍺</option></select>
@@ -110,8 +113,11 @@ setTimeout(function(){if(window.hideSplash)window.hideSplash();},4500);})();
           <option value="20000">≤20,000₫</option><option value="30000">≤30,000₫</option></select>
         <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:var(--muted)">
           <input type="checkbox" id="fOpen" style="width:auto" onchange="renderList();saveFilters()"> Open now</label>
-        <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:var(--muted)">
-          <input type="checkbox" id="fVerified" style="width:auto" onchange="renderList();saveFilters()"> Verified only</label>
+        <div class="f-hinted">
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:var(--muted)">
+            <input type="checkbox" id="fVerified" style="width:auto" onchange="renderList();saveFilters()"> Verified only</label>
+          <span class="f-hint">Details checked by an Active member or admin</span>
+        </div>
         <button class="btn-line btn-sm" onclick="clearFilters()" style="font-size:12px;align-self:center">✕ Clear</button>
       </div>
       <div id="resultBar" class="result-bar"></div>
