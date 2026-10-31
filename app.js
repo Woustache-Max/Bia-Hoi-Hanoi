@@ -669,6 +669,32 @@ function notifIcon(t) {
           ? '✅'
           : '🔔';
 }
+// "4 months ago" for a date or timestamp.
+function relDate(when) {
+  const t = Date.parse(String(when).slice(0, 10) + 'T00:00:00Z');
+  if (isNaN(t)) return String(when || '');
+  const d = Math.floor((Date.now() - t) / 86400000);
+  const n = (v, unit) => v + ' ' + unit + (v === 1 ? '' : 's') + ' ago';
+  if (d <= 0) return 'today';
+  if (d === 1) return 'yesterday';
+  if (d < 7) return n(d, 'day');
+  if (d < 30) return n(Math.floor(d / 7), 'week');
+  if (d < 365) return n(Math.floor(d / 30), 'month');
+  return n(Math.floor(d / 365), 'year');
+}
+// Relative date, with the exact one on hover.
+function whenHTML(when) {
+  if (!when) return '';
+  const t = Date.parse(String(when).slice(0, 10) + 'T00:00:00Z');
+  if (isNaN(t)) return esc(String(when));
+  const full = new Date(t).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+  return '<span title="' + full + '">' + relDate(when) + '</span>';
+}
 function timeAgo(ts) {
   const s = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
   if (s < 60) return 'just now';
@@ -678,7 +704,7 @@ function timeAgo(ts) {
   if (h < 24) return h + 'h ago';
   const d = Math.floor(h / 24);
   if (d < 7) return d + 'd ago';
-  return new Date(ts).toISOString().slice(0, 10);
+  return relDate(ts);
 }
 function openInbox() {
   if (!cur) {
@@ -1987,7 +2013,7 @@ function reviewHTML(s, r) {
       )
       .join('')}</div>
     ${r.txt ? (r.txt.length > 200 ? `<div class="txt">${esc(r.txt.slice(0, 200))}<span id="txe_${r.id}">… </span><span id="txm_${r.id}" style="display:none">${esc(r.txt.slice(200))} </span><button class="vote" id="txb_${r.id}" onclick="toggleMore('${r.id}')">Read more</button></div>` : `<div class="txt">${esc(r.txt)}</div>`) : ''}
-    <div class="when">${r.when} · <button class="vote" onclick="voteHelpful('${s.id}','${r.id}')">${didI ? '✓ Helpful' : '👍 Helpful'}${helped ? ' (' + helped + ')' : ''}</button>${replyBtn}${reportBtn}</div>
+    <div class="when">${whenHTML(r.when)} · <button class="vote" onclick="voteHelpful('${s.id}','${r.id}')">${didI ? '✓ Helpful' : '👍 Helpful'}${helped ? ' (' + helped + ')' : ''}</button>${replyBtn}${reportBtn}</div>
     ${repliesHtml}${replyFormHtml}
   </div>`;
 }
@@ -4699,7 +4725,7 @@ async function showProfile(uid) {
               (r) => `
       <div class="review" style="cursor:pointer" onclick="showDetail('${r.spotId}')">
         <div class="who"><a style="color:var(--gold-dark);font-weight:700">${esc(r.spotName)}</a>
-          <span style="font-size:11px;color:var(--muted)">${r.when || ''}</span></div>
+          <span style="font-size:11px;color:var(--muted)">${whenHTML(r.when)}</span></div>
         <div style="margin:3px 0">${(() => {
           const a = revAvg(r);
           return a
