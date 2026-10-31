@@ -7894,11 +7894,18 @@ function pickTitle(el) {
 
 async function setTitle(t) {
   if (!cur) return;
-  const { error } = await db
-    .from('profiles')
-    .update({ title: t })
-    .eq('id', cur.id);
+  const { data, error } = await db.rpc('claim_title', { p_title: t });
   if (error) return alert('Error saving title: ' + error.message);
+  if (data !== 'ok') {
+    closeModal();
+    showToast(
+      data === 'already set'
+        ? 'You already have a title. It can only be chosen once.'
+        : "We couldn't confirm all your badges yet, so your title wasn't saved.",
+      5000,
+    );
+    return;
+  }
   cur.title = t;
   if (profilesCache[cur.id]) profilesCache[cur.id].title = t;
   closeModal();
