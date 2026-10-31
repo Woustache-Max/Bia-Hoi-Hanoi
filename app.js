@@ -324,7 +324,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.16.0';
+const APP_VERSION = '0.17.0';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -4767,7 +4767,7 @@ async function editUsername() {
   const _ni = await nameIssue(name, cur.id);
   if (_ni) return showToast(_ni);
   const { error } = await db.from('profiles').update({ name }).eq('id', cur.id);
-  if (error) return showToast('Could not update name: ' + error.message);
+  if (error) return showToast(nameErrorMessage(error));
   await db.from('reviews').update({ who: name }).eq('user_id', cur.id);
   cur.name = name;
   if (profilesCache[cur.id]) profilesCache[cur.id].name = name;
@@ -4879,6 +4879,9 @@ function authErrorMessage(error, fallback) {
     return "Couldn't reach the server. Check your connection and try again.";
   if (code === 'user_already_exists' || code === 'email_exists')
     return 'An account with this email already exists. Try signing in instead.';
+  // A sign-up the database refused, most likely a name taken in the last moment.
+  if (msg.includes('database error saving new user'))
+    return "Couldn't create your account with that display name. Please try a different one.";
   if (code === 'email_address_invalid' || msg.includes('validate email'))
     return 'Please enter a valid email address.';
   return fallback;
@@ -5018,9 +5021,22 @@ const RESERVED_NAMES = [
   'null',
   'undefined',
 ];
+// The database also checks names. Turns its refusals into something readable.
+function nameErrorMessage(error) {
+  const msg = (error && error.message) || '';
+  if (error && error.code === '23505')
+    return 'That display name is already taken — please choose another.';
+  if (msg.includes('name_reserved'))
+    return 'That name is reserved — please choose another.';
+  if (msg.includes('name_too_long'))
+    return 'That name is too long (40 characters at most).';
+  if (msg.includes('name_blank')) return 'Please enter a display name.';
+  return 'Could not update name: ' + msg;
+}
 async function nameIssue(name, excludeId) {
   const low = (name || '').trim().toLowerCase();
   if (!low) return 'Please enter a display name.';
+  if (low.length > 40) return 'That name is too long (40 characters at most).';
   if (RESERVED_NAMES.includes(low))
     return 'That name is reserved — please choose another.';
   try {
