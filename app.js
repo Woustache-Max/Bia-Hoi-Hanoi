@@ -325,7 +325,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.10.16';
+const APP_VERSION = '0.10.17';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -4406,7 +4406,27 @@ function authModal(signup) {
 
 const TURNSTILE_SITEKEY = '0x4AAAAAADyihgbkjaSQ4Co_';
 let _cfWidgetId = null;
-function renderCaptcha() {
+function showCaptchaError() {
+  const el = document.getElementById('cfTurnstile');
+  if (!el || document.getElementById('cfError')) return;
+  el.insertAdjacentHTML(
+    'afterend',
+    `<div id="cfError" class="auth-err" role="alert">Verification failed. Tap retry, or try another browser or turn off your VPN.
+      <button type="button" class="btn-line" style="display:block;width:100%;margin:8px 0" onclick="retryCaptcha()">Retry verification</button>
+      <span style="font-weight:400;color:var(--muted)">Still stuck? <a href="mailto:contact@bachoi.app" style="color:inherit;text-decoration:underline">contact@bachoi.app</a></span>
+    </div>`,
+  );
+}
+function hideCaptchaError() {
+  const box = document.getElementById('cfError');
+  if (box) box.remove();
+}
+function retryCaptcha() {
+  hideCaptchaError();
+  if (window.turnstile && _cfWidgetId !== null) resetCaptcha();
+  else renderCaptcha();
+}
+function renderCaptcha(attempt = 0) {
   const el = document.getElementById('cfTurnstile');
   if (!el) return;
   if (window.turnstile && !el.dataset.rendered) {
@@ -4421,11 +4441,20 @@ function renderCaptcha() {
       _cfWidgetId = window.turnstile.render(el, {
         sitekey: TURNSTILE_SITEKEY,
         theme: 'light',
+        callback: hideCaptchaError,
+        'error-callback': () => {
+          showCaptchaError();
+          return true; // tells Turnstile the app has handled this error
+        },
       });
       el.dataset.rendered = '1';
-    } catch (e) {}
+    } catch (e) {
+      showCaptchaError();
+    }
   } else if (!window.turnstile) {
-    setTimeout(renderCaptcha, 300);
+    // The script may be blocked; after ~10s say so, but keep waiting in case it loads.
+    if (attempt === 33) showCaptchaError();
+    setTimeout(() => renderCaptcha(attempt + 1), 300);
   }
 }
 function getCaptchaToken() {
