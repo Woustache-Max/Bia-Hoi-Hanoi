@@ -513,6 +513,9 @@ function countedReviews(s) {
 function reviewCount(s) {
   return countedReviews(s).length;
 }
+function myLatestReview(s) {
+  return cur && s ? countedReviews(s).find((r) => r.userId === cur.id) : null;
+}
 function spotAvg(s) {
   const a = countedReviews(s)
     .map(revAvg)
@@ -1576,7 +1579,7 @@ function saveReviewDraft(id) {
 }
 function restoreReviewDraft(id) {
   chosen = {};
-  if (!cur) return;
+  if (!cur || !document.getElementById('revTxt')) return;
   const d = draftGet(reviewDraftKey(id));
   if (!d) return;
   chosen = { ...d.ratings };
@@ -1763,7 +1766,7 @@ async function showDetail(id) {
             .join('')
         : '<div style="color:var(--muted);font-size:13px">No reviews yet — be the first.</div>'
     }</div>
-    <div class="sec">Add your review</div>
+    <div class="sec">${myLatestReview(s) ? 'Your review' : 'Add your review'}</div>
     ${reviewFormHTML(s.id)}
   </div>`;
   if (!_sd_reopen) document.getElementById('sidebar').scrollTop = 0;
@@ -1925,6 +1928,13 @@ function reviewFormHTML(id) {
       </div>
     </div>`;
   }
+  const mine = myLatestReview(byId(id));
+  if (mine) {
+    return `<div style="background:#fbf6ea;border:1px solid var(--line);border-radius:10px;padding:13px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <p style="margin:0;font-size:13px;color:var(--ink);font-weight:600;line-height:1.4">You've reviewed this spot<br><span style="font-weight:400;color:var(--muted)">Been back? Update your review.</span></p>
+      <button class="btn-gold btn-sm" onclick="editReview('${id}','${mine.id}')">Edit your review</button>
+    </div>`;
+  }
   const isNewcomer = cur.role === 'newcomer';
   const textNote = isNewcomer
     ? `<span style="color:var(--orange)"> — ${NEWCOMER_CHAR_LIMIT} char limit until you reach Active status</span>`
@@ -2035,6 +2045,8 @@ async function submitReview(id) {
     return;
   }
   const s = byId(id);
+  const mine = myLatestReview(s);
+  if (mine) return editReview(id, mine.id);
   const ratings = {};
   RCATS.forEach((c) => (ratings[c[0]] = chosen[c[0]] || 0));
   let txt = '';
