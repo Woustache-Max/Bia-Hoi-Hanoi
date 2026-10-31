@@ -1579,14 +1579,10 @@ function spotTime(s) {
 async function loadWeekPopular() {
   window._weekLoaded = true;
   try {
-    const wk = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const { data } = await db
-      .from('check_ins')
-      .select('spot_id')
-      .gte('created_at', wk);
+    const { data } = await db.rpc('week_checkin_counts');
     const map = {};
     (data || []).forEach((r) => {
-      map[r.spot_id] = (map[r.spot_id] || 0) + 1;
+      map[r.spot_id] = r.n;
     });
     window._weekCounts = map;
   } catch (e) {}
