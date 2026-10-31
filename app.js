@@ -325,7 +325,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.10.9';
+const APP_VERSION = '0.10.10';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -4316,9 +4316,9 @@ async function changeAvatar() {
 /* ============================================================
    AUTH — sign up, login, logout
    ============================================================ */
-function pwField(id, placeholder, mb = '10px') {
+function pwField(id, placeholder, mb = '10px', autocomplete = 'new-password') {
   return `<div style="position:relative;margin-bottom:${mb}">
-    <input id="${id}" type="password" placeholder="${placeholder}" style="width:100%;padding:8px 36px 8px 8px;border:1px solid var(--line);border-radius:7px">
+    <input id="${id}" type="password" autocomplete="${autocomplete}" placeholder="${placeholder}" style="width:100%;padding:8px 36px 8px 8px;border:1px solid var(--line);border-radius:7px">
     <span onclick="togglePw('${id}')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:16px;user-select:none" id="${id}_eye">👁</span>
   </div>`;
 }
@@ -4329,19 +4329,19 @@ function togglePw(id) {
 function authModal(signup) {
   modal(`<h2>${signup ? 'Create a free account 🍺' : 'Welcome back 🍺'}</h2>
    <p>${signup ? 'Free to join. Rate spots, write reviews, and track your contributions.' : 'Sign in to your account.'}</p>
-   <div>
-     <input id="a_name" placeholder="Display name" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;margin-bottom:6px;display:${signup ? 'block' : 'none'}">
-     <input id="a_email" placeholder="Email" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;margin-bottom:6px">
-     ${pwField('a_pw', 'Password', '6px')}
+   <form novalidate onsubmit="${signup ? 'doSignup()' : 'doLogin()'};return false">
+     ${signup ? '<input id="a_name" type="text" autocomplete="nickname" placeholder="Display name" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;margin-bottom:6px">' : ''}
+     <input id="a_email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="Email" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;margin-bottom:6px">
+     ${pwField('a_pw', 'Password', '6px', signup ? 'new-password' : 'current-password')}
      ${signup ? `${pwField('a_pw2', 'Confirm password', '6px')}` : ''}
      <div id="cfTurnstile" style="margin:8px 0;display:flex;justify-content:center"></div>
-     <button class="btn-gold" style="width:100%;margin-bottom:8px" onclick="${signup ? 'doSignup()' : 'doLogin()'}">
+     <button type="submit" class="btn-gold" style="width:100%;margin-bottom:8px">
        ${signup ? 'Create account' : 'Sign in'}
      </button>
      <p style="text-align:center;margin:0;font-size:13px">${signup ? 'Have an account? <a style="color:var(--gold-dark);cursor:pointer" onclick="authModal(false)">Sign in</a>' : 'New here? <a style="color:var(--gold-dark);cursor:pointer" onclick="authModal(true)">Create a free account</a>'}</p>
      ${!signup ? '<p style="text-align:center;margin:6px 0 0;font-size:13px"><a style="color:var(--gold-dark);cursor:pointer" onclick="forgotPasswordModal()">Forgot password?</a></p>' : ''}
      <p style="text-align:center;margin:9px 0 0;font-size:11px;color:var(--muted)">By continuing you agree to our <a style="color:var(--muted);cursor:pointer;text-decoration:underline" onclick="showTerms()">Terms</a> and <a style="color:var(--muted);cursor:pointer;text-decoration:underline" onclick="showPrivacy()">Privacy Policy</a>.</p>
-   </div>`);
+   </form>`);
   renderCaptcha();
 }
 
@@ -4455,10 +4455,12 @@ function forgotPasswordModal() {
   modal(
     '<h2 style="margin:0 0 6px">Reset your password 🔑</h2>' +
       '<p style="font-size:13px;color:var(--muted);margin:0 0 12px">Enter your email and we\'ll send you a link to set a new password.</p>' +
-      '<input id="fp_email" placeholder="Email" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--line);border-radius:7px;margin-bottom:8px;font-family:inherit;background:var(--card);color:var(--ink)">' +
+      '<form novalidate onsubmit="sendReset();return false">' +
+      '<input id="fp_email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="Email" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--line);border-radius:7px;margin-bottom:8px;font-family:inherit;background:var(--card);color:var(--ink)">' +
       '<div id="cfTurnstile" style="margin:8px 0;display:flex;justify-content:center"></div>' +
-      '<button class="btn-gold" style="width:100%" onclick="sendReset()">Send reset link</button>' +
-      '<button class="btn-line" style="width:100%;margin-top:8px" onclick="authModal(false)">Back to sign in</button>',
+      '<button type="submit" class="btn-gold" style="width:100%">Send reset link</button>' +
+      '<button type="button" class="btn-line" style="width:100%;margin-top:8px" onclick="authModal(false)">Back to sign in</button>' +
+      '</form>',
   );
   renderCaptcha();
 }
@@ -4483,9 +4485,11 @@ function setNewPasswordModal() {
   modal(
     '<h2 style="margin:0 0 6px">Set a new password 🔒</h2>' +
       '<p style="font-size:13px;color:var(--muted);margin:0 0 12px">Enter a new password for your account.</p>' +
+      '<form novalidate onsubmit="savePassword();return false">' +
       pwField('np_pw', 'New password', '8px') +
       pwField('np_pw2', 'Confirm new password', '8px') +
-      '<button class="btn-gold" style="width:100%" onclick="savePassword()">Update password</button>',
+      '<button type="submit" class="btn-gold" style="width:100%">Update password</button>' +
+      '</form>',
   );
 }
 async function savePassword() {
