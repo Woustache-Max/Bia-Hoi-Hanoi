@@ -1291,6 +1291,31 @@ form textarea {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
   cursor: grab;
 }
+/* Hết bia: the beer fades, the tag stays fully readable */
+.bia-pin.het-bia {
+  position: relative;
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.25),
+    0 0 0 2px #c62828;
+}
+.bia-pin .hb-beer {
+  opacity: 0.4;
+  filter: grayscale(0.7);
+}
+.bia-pin .hb-tag {
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  transform: translateX(-50%);
+  padding: 1px 5px;
+  background: #c62828;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.3;
+  white-space: nowrap;
+}
 .bia-pin.unverified {
   background: #ede9e0;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.18);

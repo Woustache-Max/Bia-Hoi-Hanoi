@@ -1015,13 +1015,17 @@ let tmpMarker = null,
 try {
   window._showGhosts = !!localStorage.getItem('bhGhosts');
 } catch (e) {}
-function pinIcon(closed, unverified) {
+function pinIcon(closed, unverified, hetBia) {
   let cls = 'bia-pin';
   if (closed) cls += ' closed';
+  else if (hetBia) cls += ' het-bia';
   else if (unverified) cls += ' unverified';
   return L.divIcon({
     className: '',
-    html: `<div class="${cls}">🍺</div>`,
+    html:
+      !closed && hetBia
+        ? `<div class="${cls}"><span class="hb-beer">🍺</span><span class="hb-tag">Hết bia</span></div>`
+        : `<div class="${cls}">🍺</div>`,
     iconSize: [44, 44],
     iconAnchor: [22, 44],
   });
@@ -1080,9 +1084,11 @@ function peekDetail(id) {
   const _closed = s.status && s.status !== 'active';
   const _openChip = _closed
     ? `<span class="chip closed">${s.status === 'perm_closed' ? 'Closed' : 'Temp closed'}</span>`
-    : isOpen(s)
-      ? '<span class="chip open">Open now</span>'
-      : '';
+    : hetBiaActive(s)
+      ? '<span class="chip closed">' + hetBiaLabel(s) + '</span>'
+      : isOpen(s)
+        ? '<span class="chip open">Open now</span>'
+        : '';
   const _metaBits = [
     reviewCount(s)
       ? reviewCount(s) + ' review' + (reviewCount(s) === 1 ? '' : 's')
@@ -1226,7 +1232,7 @@ function drawMarkers() {
     const closed = s.status !== 'active',
       unverified = !s.verified;
     const m = L.marker([s.lat, s.lng], {
-      icon: pinIcon(closed, unverified),
+      icon: pinIcon(closed, unverified, hetBiaActive(s)),
       title: s.name,
       alt: s.name,
     });
@@ -1235,9 +1241,11 @@ function drawMarkers() {
     const popPhoto = _ptu
       ? `<img class="popup-thumb" src="${_ptu}" onclick="map.closePopup();innerWidth<=680?peekDetail('${s.id}'):showDetail('${s.id}')" alt="">`
       : '';
-    const popOpen = isOpen(s)
-      ? '<span style="color:#2e7d32;font-weight:700;font-size:11px"> · Open now</span>'
-      : '';
+    const popOpen = hetBiaActive(s)
+      ? '<span style="color:#c62828;font-weight:700;font-size:11px"> · ' + hetBiaLabel(s) + '</span>'
+      : isOpen(s)
+        ? '<span style="color:#2e7d32;font-weight:700;font-size:11px"> · Open now</span>'
+        : '';
     const popAvg = spotAvg(s);
     m.bindPopup(
       `${popPhoto}<div style="padding:6px 8px 6px"><b style="font-size:14px">${esc(s.name)}</b>${popOpen}<div style="margin:5px 0">${popAvg ? `<span style="background:var(--gold);color:#000;font-size:11px;font-weight:700;padding:1px 7px;border-radius:12px">${popAvg.toFixed(1)} 🍺</span> <span style="color:#888;font-size:11px">(${reviewCount(s)} review${reviewCount(s) === 1 ? '' : 's'})</span>` : '<span style="color:#888;font-size:11px">No reviews yet</span>'}</div>${s.pricePerGlass ? `<div style="color:#888;font-size:11px;margin-bottom:6px">${esc(s.pricePerGlass)}</div>` : ''}<button onclick="map.closePopup();innerWidth<=680?peekDetail('${s.id}'):showDetail('${s.id}')" style="background:var(--gold);color:var(--ink);border:none;border-radius:7px;padding:6px 0;font-size:12px;font-weight:700;cursor:pointer;width:100%;font-family:inherit">View details →</button></div>`,
@@ -1717,7 +1725,7 @@ function renderListBody(sortByDist) {
       <div class="list-text">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
           <h3 style="margin:0 0 3px;flex:1;min-width:0">${verBadge}${esc(s.name)}</h3>
-          ${closed ? '<span class="chip closed" style="flex-shrink:0;white-space:nowrap;margin-top:1px">' + (s.status === 'perm_closed' ? 'Closed' : 'Temp closed') + '</span>' : open ? '<span class="chip open" style="flex-shrink:0;white-space:nowrap;margin-top:1px">Open</span>' : ''}
+          ${hetBiaActive(s) ? '<span class="chip closed" style="flex-shrink:0;white-space:nowrap;margin-top:1px">Hết bia</span>' : ''}${closed ? '<span class="chip closed" style="flex-shrink:0;white-space:nowrap;margin-top:1px">' + (s.status === 'perm_closed' ? 'Closed' : 'Temp closed') + '</span>' : open ? '<span class="chip open" style="flex-shrink:0;white-space:nowrap;margin-top:1px">Open</span>' : ''}
         </div>
         <div class="meta"><span>${(() => {
           const a = spotAvg(s);
