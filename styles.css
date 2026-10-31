@@ -687,6 +687,16 @@ form textarea {
 .auth-form button {
   min-height: 44px;
 }
+.auth-err {
+  color: var(--red);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 2px 0 8px;
+}
+.auth-err:empty {
+  display: none;
+}
 .modal img.full {
   max-width: 88vw;
   max-height: 84vh;

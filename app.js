@@ -325,7 +325,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.10.11';
+const APP_VERSION = '0.10.12';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -4326,6 +4326,10 @@ function togglePw(id) {
   const el = document.getElementById(id);
   el.type = el.type === 'password' ? 'text' : 'password';
 }
+function showAuthError(msg) {
+  const el = document.getElementById('authErr');
+  if (el) el.textContent = msg;
+}
 function authModal(signup) {
   modal(`<h2>${signup ? 'Create a free account 🍺' : 'Welcome back 🍺'}</h2>
    <p>${signup ? 'Free to join. Rate spots, write reviews, and track your contributions.' : 'Sign in to your account.'}</p>
@@ -4338,6 +4342,7 @@ function authModal(signup) {
      <button type="submit" class="btn-gold" style="width:100%;margin-bottom:8px">
        ${signup ? 'Create account' : 'Sign in'}
      </button>
+     <div id="authErr" class="auth-err" role="alert"></div>
      <p style="text-align:center;margin:0;font-size:13px">${signup ? 'Have an account? <a style="color:var(--gold-dark);cursor:pointer" onclick="authModal(false)">Sign in</a>' : 'New here? <a style="color:var(--gold-dark);cursor:pointer" onclick="authModal(true)">Create a free account</a>'}</p>
      ${!signup ? '<p style="text-align:center;margin:6px 0 0;font-size:13px"><a style="color:var(--gold-dark);cursor:pointer" onclick="forgotPasswordModal()">Forgot password?</a></p>' : ''}
      <p style="text-align:center;margin:9px 0 0;font-size:11px;color:var(--muted)">By continuing you agree to our <a style="color:var(--muted);cursor:pointer;text-decoration:underline" onclick="showTerms()">Terms</a> and <a style="color:var(--muted);cursor:pointer;text-decoration:underline" onclick="showPrivacy()">Privacy Policy</a>.</p>
@@ -4414,24 +4419,26 @@ async function doSignup() {
     pw = val('a_pw'),
     pw2 = val('a_pw2');
   const code = (document.getElementById('a_code') || {}).value || '';
+  showAuthError('');
   if (!name || !email || !pw)
-    return alert('Please fill in name, email, and password.');
-  if (pw !== pw2) return alert("Passwords don't match.");
-  if (pw.length < 6) return alert('Password must be at least 6 characters.');
+    return showAuthError('Please fill in name, email, and password.');
+  if (pw !== pw2) return showAuthError("Passwords don't match.");
+  if (pw.length < 6)
+    return showAuthError('Password must be at least 6 characters.');
   const _ni = await nameIssue(name, null);
-  if (_ni) return alert(_ni);
+  if (_ni) return showAuthError(_ni);
   let role = 'newcomer';
   const c = code.trim().toUpperCase();
   if (c === ACTIVE_CODE) role = 'active';
   else if (c && c !== '')
-    return alert('Invalid invite code. Leave blank to join as Newcomer.');
+    return showAuthError('Invalid invite code. Leave blank to join as Newcomer.');
   const ref = localStorage.getItem('bhRefCode') || '';
   const { error } = await db.auth.signUp({
     email,
     password: pw,
     options: { data: { name, role, ref }, captchaToken: getCaptchaToken() },
   });
-  if (error) return alert(error.message);
+  if (error) return showAuthError(error.message);
   closeModal();
   modal(`<h2>Welcome, ${esc(name)}! 🍺</h2>
     <p>Check your email for a confirmation link, then sign in to start contributing.</p>
@@ -4441,13 +4448,14 @@ async function doSignup() {
 async function doLogin() {
   const email = val('a_email').toLowerCase(),
     pw = val('a_pw');
-  if (!email || !pw) return alert('Enter your email and password.');
+  showAuthError('');
+  if (!email || !pw) return showAuthError('Enter your email and password.');
   const { error } = await db.auth.signInWithPassword({
     email,
     password: pw,
     options: { captchaToken: getCaptchaToken() },
   });
-  if (error) return alert('Wrong email or password.');
+  if (error) return showAuthError('Wrong email or password.');
   closeModal();
 }
 
@@ -4459,6 +4467,7 @@ function forgotPasswordModal() {
       '<input id="fp_email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="Email" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--line);border-radius:7px;margin-bottom:8px;font-family:inherit;background:var(--card);color:var(--ink)">' +
       '<div id="cfTurnstile" style="margin:8px 0;display:flex;justify-content:center"></div>' +
       '<button type="submit" class="btn-gold" style="width:100%">Send reset link</button>' +
+      '<div id="authErr" class="auth-err" role="alert"></div>' +
       '<button type="button" class="btn-line" style="width:100%;margin-top:8px" onclick="authModal(false)">Back to sign in</button>' +
       '</form>',
   );
@@ -4466,12 +4475,13 @@ function forgotPasswordModal() {
 }
 async function sendReset() {
   const email = (val('fp_email') || '').toLowerCase().trim();
-  if (!email) return alert('Please enter your email.');
+  showAuthError('');
+  if (!email) return showAuthError('Please enter your email.');
   const { error } = await db.auth.resetPasswordForEmail(email, {
     redirectTo: location.origin + location.pathname,
     captchaToken: getCaptchaToken(),
   });
-  if (error) return alert(error.message);
+  if (error) return showAuthError(error.message);
   closeModal();
   modal(
     '<h2 style="margin:0 0 8px">Check your email 📧</h2>' +
@@ -4489,17 +4499,19 @@ function setNewPasswordModal() {
       pwField('np_pw', 'New password', '8px') +
       pwField('np_pw2', 'Confirm new password', '8px') +
       '<button type="submit" class="btn-gold" style="width:100%">Update password</button>' +
+      '<div id="authErr" class="auth-err" role="alert"></div>' +
       '</form>',
   );
 }
 async function savePassword() {
   const pw = val('np_pw'),
     pw2 = val('np_pw2');
+  showAuthError('');
   if (!pw || pw.length < 8)
-    return alert('Password must be at least 8 characters.');
-  if (pw !== pw2) return alert("Passwords don't match.");
+    return showAuthError('Password must be at least 8 characters.');
+  if (pw !== pw2) return showAuthError("Passwords don't match.");
   const { error } = await db.auth.updateUser({ password: pw });
-  if (error) return alert(error.message);
+  if (error) return showAuthError(error.message);
   closeModal();
   showToast("✅ Password updated — you're signed in.");
 }
