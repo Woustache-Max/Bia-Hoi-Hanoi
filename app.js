@@ -6001,6 +6001,7 @@ async function checkAnnouncement() {
   try {
     // Returning users only: brand-new visitors see the age gate and welcome card.
     if (!localStorage.getItem('welcomed')) return;
+    if (!localStorage.getItem('bhAge18')) return; // acceptWelcome() calls back here
     const { data } = await db
       .from('announcements')
       .select('*')
@@ -6008,7 +6009,8 @@ async function checkAnnouncement() {
       .order('created_at', { ascending: false });
     if (!data || !data.length) return;
     if (document.getElementById('modal')) return; // don't cover another modal
-    if (document.getElementById('ageGate')) return; // confirmAge() calls back here
+    const _wc = document.getElementById('welcomeOverlay');
+    if (_wc && !_wc.classList.contains('hidden')) return;
     let seen = [];
     try {
       seen = JSON.parse(localStorage.getItem('bhAnnounceSeen')) || [];
@@ -8138,21 +8140,33 @@ function setLbScope(s) {
 function dismissWelcome() {
   const w = document.getElementById('welcomeOverlay');
   if (w) w.classList.add('hidden');
-  try {
-    if (!localStorage.getItem('welcomed'))
-      localStorage.setItem('bhWelcomedAt', new Date().toISOString());
-    localStorage.setItem('welcomed', '1');
-  } catch (e) {}
+  // The short card (deep links) isn't the welcome, so it stays due for a normal visit.
+  if (!(w && w.classList.contains('wc-short'))) {
+    try {
+      if (!localStorage.getItem('welcomed'))
+        localStorage.setItem('bhWelcomedAt', new Date().toISOString());
+      localStorage.setItem('welcomed', '1');
+    } catch (e) {}
+  }
   maybeShowEmailVerified();
 }
+// Both buttons on the card confirm age: the wording above them says so.
+function acceptWelcome(signIn) {
+  try {
+    localStorage.setItem('bhAge18', '1');
+  } catch (e) {}
+  dismissWelcome();
+  checkAnnouncement();
+  if (signIn) authModal(false);
+}
 // One-time celebration after the signup email-confirmation link signs the
-// user in. Waits until the age gate and welcome overlay are out of the way,
-// since both sit in the stack alongside the modal.
+// user in. Waits until the welcome card is out of the way, since it sits in
+// the stack alongside the modal.
 function maybeShowEmailVerified() {
   const uid = window._pendingVerifiedFor;
   if (!uid) return;
-  // The age gate is decided on DOMContentLoaded; showAgeGate() calls back here.
-  if (!window._ageGateRan || document.getElementById('ageGate')) return;
+  // The card is decided on DOMContentLoaded; showWelcomeGate() calls back here.
+  if (!window._welcomeGateRan) return;
   const w = document.getElementById('welcomeOverlay');
   if (w && !w.classList.contains('hidden')) return;
   window._pendingVerifiedFor = null;
@@ -8332,62 +8346,46 @@ function showTerms() {
       _pp('A contact address will be added here soon.'),
   );
 }
-function showAgeGate() {
-  window._ageGateRan = true;
+// One card does the age check and the welcome. Deep links and returning visitors
+// who never confirmed get a short version; visitors who already confirmed but
+// were never welcomed get the card without the age wording.
+function showWelcomeGate() {
+  window._welcomeGateRan = true;
+  let ageOk, welcomed;
   try {
-    if (localStorage.getItem('bhAge18')) {
-      showWelcomeIfNew();
-      maybeShowEmailVerified();
-      return;
-    }
+    ageOk = !!localStorage.getItem('bhAge18');
+    welcomed = !!localStorage.getItem('welcomed');
   } catch (e) {
-    showWelcomeIfNew();
     maybeShowEmailVerified();
     return;
   }
-  var el = document.createElement('div');
-  el.id = 'ageGate';
-  el.style.cssText =
-    'position:fixed;inset:0;z-index:2800;background:var(--nav-bg);display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
-  el.innerHTML =
-    '<div style="max-width:360px;width:100%;text-align:center;color:#fff">' +
-    '<div style="font-size:44px;margin-bottom:6px">🍺</div>' +
-    '<h2 style="margin:0 0 8px;color:#fff;font-size:23px">Are you 18 or older?</h2>' +
-    '<p style="color:rgba(255,255,255,.82);font-size:14px;line-height:1.55;margin:0 0 20px">Bác Hơi is a guide to bia hơi and draft-beer spots, intended for adults of legal drinking age. Please enjoy responsibly.</p>' +
-    '<button onclick="confirmAge()" style="width:100%;background:var(--gold);color:#241b12;border:none;border-radius:11px;padding:13px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:9px">Yes, I\'m 18 or older</button>' +
-    '<button onclick="denyAge()" style="width:100%;background:transparent;color:rgba(255,255,255,.75);border:1px solid rgba(255,255,255,.3);border-radius:11px;padding:12px;font-size:14px;cursor:pointer;font-family:inherit">I\'m under 18</button>' +
-    '<div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:16px;line-height:1.5">By entering you agree to our <a onclick="showTerms()" style="color:var(--gold);cursor:pointer;text-decoration:underline">Terms of Use</a> and <a onclick="showPrivacy()" style="color:var(--gold);cursor:pointer;text-decoration:underline">Privacy Policy</a>.</div>' +
-    '</div>';
-  document.body.appendChild(el);
-}
-function confirmAge() {
-  try {
-    localStorage.setItem('bhAge18', '1');
-  } catch (e) {}
-  var g = document.getElementById('ageGate');
-  if (g) g.remove();
-  showWelcomeIfNew();
-  maybeShowEmailVerified();
-  checkAnnouncement();
+  const params = new URLSearchParams(window.location.search);
+  const deepLink = !!(params.get('spot') || params.get('list'));
+  const full = !welcomed && !deepLink;
+  if (ageOk && !full) {
+    maybeShowEmailVerified();
+    return;
+  }
+  const w = document.getElementById('welcomeOverlay');
+  if (!w) return;
+  w.classList.toggle('wc-short', !full);
+  w.classList.toggle('wc-age-ok', ageOk);
+  const btn = document.getElementById('welcomeMainBtn');
+  if (btn) {
+    if (ageOk) btn.textContent = 'Explore the map 🍺';
+    else if (!full) btn.textContent = "I'm 18+, continue 🍺";
+  }
+  w.classList.remove('hidden');
 }
 function denyAge() {
-  var g = document.getElementById('ageGate');
-  if (!g) return;
-  g.innerHTML =
-    '<div style="max-width:340px;text-align:center;color:#fff"><div style="font-size:44px;margin-bottom:6px">🔞</div><h2 style="margin:0 0 8px;color:#fff;font-size:22px">Come back when you\'re 18</h2><p style="color:rgba(255,255,255,.82);font-size:14px;line-height:1.55">Sorry — Bác Hơi is only for adults of legal drinking age. Please close this page.</p></div>';
-}
-function showWelcomeIfNew() {
-  // Don't show if arriving via deep-link — they were sent here intentionally
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('spot') || params.get('list')) return;
-  if (!localStorage.getItem('welcomed')) {
-    const _wo = document.getElementById('welcomeOverlay');
-    if (_wo) _wo.classList.remove('hidden');
-  }
+  const card = document.getElementById('welcomeCard');
+  if (!card) return;
+  card.innerHTML =
+    '<div class="welcome-logo">🔞</div><h1>Come back when you’re 18</h1><p class="sub" style="margin:8px 0 0">Sorry, Bác Hơi is only for adults of legal drinking age. Please close this page.</p>';
 }
 init();
 window.addEventListener('DOMContentLoaded', function () {
-  showAgeGate();
+  showWelcomeGate();
 });
 
 /* ============================================================

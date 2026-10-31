@@ -956,7 +956,7 @@ form textarea {
 #welcomeOverlay {
   position: fixed;
   inset: 0;
-  z-index: 9000;
+  z-index: 2800; /* below .modal-bg, so Terms and Privacy open on top of it */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1051,14 +1051,55 @@ form textarea {
   background: var(--gold-dark);
   color: #fff;
 }
-.welcome-card .skip-link {
-  display: block;
-  margin-top: 10px;
+.welcome-card .btn-welcome-2 {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.welcome-age {
+  margin-top: 12px;
   font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.welcome-age p {
+  margin: 0 0 4px;
+}
+.welcome-age a {
+  color: var(--gold-dark);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.welcome-under18 {
+  background: none;
+  border: none;
+  min-height: 36px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: inherit;
   color: var(--muted);
   cursor: pointer;
   text-decoration: underline;
-  text-underline-offset: 2px;
+}
+/* Deep links and already-welcomed visitors only need the age check. */
+#welcomeOverlay.wc-short .welcome-features {
+  display: none;
+}
+#welcomeOverlay.wc-short .sub {
+  margin-bottom: 14px;
+}
+/* Age already confirmed earlier: no need to ask again. */
+#welcomeOverlay.wc-age-ok .welcome-age {
+  display: none;
 }
 @media (max-width: 400px) {
   .welcome-features {
