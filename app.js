@@ -325,7 +325,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.14.0';
+const APP_VERSION = '0.15.0';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -5070,6 +5070,7 @@ function setUserLabel() {
     '</span>' +
     rolePill(cur.role) +
     '</div>';
+  html += '<div class="menu-sec">You</div>';
   html +=
     '<button class="user-menu-item" onclick="closeUserMenu();openInbox()" style="display:flex;align-items:center;justify-content:space-between">🔔 Notifications<span id="menuNotifCount" style="display:none;background:var(--red);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;padding:0 4px;align-items:center;justify-content:center;line-height:1"></span></button>';
   html +=
@@ -5077,26 +5078,30 @@ function setUserLabel() {
   html +=
     '<button class="user-menu-item" onclick="closeUserMenu();showLists(cur.id)">&#128203; My Lists</button>';
   html +=
+    '<button class="user-menu-item" onclick="closeUserMenu();showQuests()">&#127919; Badges &amp; Quests</button>';
+  html +=
     '<button class="user-menu-item" onclick="closeUserMenu();showWrapped()">&#127873; Bia Hơi Wrapped</button>';
+  html += '<div class="menu-sec">Community</div>';
   html +=
     '<button class="user-menu-item" onclick="closeUserMenu();showLeaderboard()">&#127942; Leaderboard</button>';
-  html +=
-    '<button class="user-menu-item" onclick="closeUserMenu();showQuests()">&#127919; Badges &amp; Quests</button>';
   html +=
     '<button class="user-menu-item" onclick="closeUserMenu();showInvite()">&#128101; Invite a friend</button>';
   html +=
     '<button class="user-menu-item" onclick="closeUserMenu();openShare()">&#128242; Share Bác Hơi</button>';
+  if (cur.role === 'admin') {
+    html += '<div class="menu-sec">Admin</div>';
+    html +=
+      '<button class="user-menu-item" onclick="closeUserMenu();openAdmin()">&#9881; Admin panel</button>';
+  }
+  html += '<div class="menu-sec">Settings</div>';
   html +=
     '<button class="user-menu-item" onclick="toggleDark()" style="display:flex;align-items:center;justify-content:space-between">&#127769; Dark mode<span class="dm-switch' +
     (document.documentElement.getAttribute('data-theme') === 'dark'
       ? ' on'
       : '') +
     '" id="dmSwitch" aria-hidden="true"></span></button>';
-  if (cur.role === 'admin')
-    html +=
-      '<button class="user-menu-item" onclick="closeUserMenu();openAdmin()">&#9881; Admin panel</button>';
   html +=
-    '<button class="user-menu-item danger" onclick="closeUserMenu();logout()">Sign out</button>';
+    '<button class="user-menu-item danger menu-signout" onclick="closeUserMenu();logout()">Sign out</button>';
   html +=
     '<div style="padding:5px 12px 3px;display:flex;gap:10px;justify-content:center;font-size:11px"><a onclick="closeUserMenu();showPrivacy()" style="color:var(--muted);cursor:pointer;text-decoration:underline">Privacy</a><a onclick="closeUserMenu();showTerms()" style="color:var(--muted);cursor:pointer;text-decoration:underline">Terms</a></div>';
   html +=

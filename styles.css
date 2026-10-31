@@ -2059,6 +2059,29 @@ form textarea {
 .user-menu-item.danger {
   color: #ff6b6b;
 }
+/* account menu sections */
+#userMenu {
+  max-height: calc(100vh - 70px);
+  overflow-y: auto;
+}
+@media (max-width: 600px) {
+  /* stop above the bottom bar, which sits on top of the header's menus */
+  #userMenu {
+    max-height: calc(100vh - 160px);
+  }
+}
+.menu-sec {
+  padding: 10px 15px 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.user-menu-item.menu-signout {
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+}
 /* add-spot pin-drop banner */
 #pinDropBanner {
   position: fixed;
