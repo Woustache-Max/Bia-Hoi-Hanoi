@@ -3320,7 +3320,6 @@ function renderAddForm(editId, lat, lng) {
           return opts;
         })()}</select></div>
       </div>
-      <div><label>Address</label><input id="f_addr" value="${s ? esc(s.address) : ''}" placeholder="Street or nearby landmark"></div>
     </div>
 
     <div class="form-sec-title">Hours &amp; details</div>
@@ -3350,11 +3349,16 @@ function renderAddForm(editId, lat, lng) {
     <div class="form-sec-title" style="display:flex;justify-content:space-between;align-items:center">📍 Pin location${!s ? `<button type="button" style="font-size:12px;font-weight:700;color:var(--blue);background:none;border:none;cursor:pointer;padding:0" onclick="changeSpotLocation()">📍 Change location</button>` : ''}
     </div>
     <div class="form-section">
-      <div class="row2">
-        <div><label>Latitude *</label><input id="f_lat" value="${s ? s.lat : lat || ''}" placeholder="21.0345"></div>
-        <div><label>Longitude *</label><input id="f_lng" value="${s ? s.lng : lng || ''}" placeholder="105.8525"></div>
-      <div id="f_pin_err" style="display:none;color:#c62828;font-size:12px;margin-top:6px;font-weight:600">⚠ Pin required — use the 📍 Change location button above</div>
-      </div>
+      <div><label>Address</label><input id="f_addr" value="${s ? esc(s.address) : ''}" placeholder="Street or nearby landmark"></div>
+      ${s ? '' : '<button type="button" class="btn-line btn-sm form-use-loc" onclick="useMyLocationForPin()">📡 Use my location</button>'}
+      <div id="f_pin_err" style="display:none;color:#c62828;font-size:12px;font-weight:600">⚠ Pin required${s ? '' : ' — use the 📍 Change location button above'}</div>
+      <details id="f_coords" class="form-coords">
+        <summary>Enter coordinates</summary>
+        <div class="row2">
+          <div><label>Latitude *</label><input id="f_lat" inputmode="decimal" value="${s ? s.lat : lat || ''}" placeholder="21.0345"${s ? '' : ' onchange="addCoordsTyped()"'}></div>
+          <div><label>Longitude *</label><input id="f_lng" inputmode="decimal" value="${s ? s.lng : lng || ''}" placeholder="105.8525"${s ? '' : ' onchange="addCoordsTyped()"'}></div>
+        </div>
+      </details>
     </div>
 
     <div id="addSpotErr" style="display:none;color:#c62828;font-size:13px;font-weight:600;margin-top:12px;padding:8px 10px;background:#fdecea;border-radius:7px"></div>
@@ -3575,7 +3579,9 @@ function cancelAdd() {
   renderList();
 }
 function useMyLocationForPin() {
-  const btn = document.querySelector('.pdb-use-loc');
+  const btn = document.querySelector(
+    document.getElementById('pinDropBanner') ? '.pdb-use-loc' : '.form-use-loc',
+  );
   if (btn) btn.textContent = '⏳ Locating…';
   if (window._me) {
     const [lat, lng] = window._me;
@@ -3614,21 +3620,40 @@ function useMyLocationForPin() {
     { enableHighAccuracy: true, timeout: 8000 },
   );
 }
+function addCoordsTyped() {
+  const lat = parseFloat(val('f_lat')),
+    lng = parseFloat(val('f_lng'));
+  if (isNaN(lat) || isNaN(lng)) return;
+  placeAddPin(lat, lng);
+  map.panTo([lat, lng]);
+  addPinMoved(lat, lng);
+}
+// Fills the address and district from the pin, but never over what someone typed:
+// only when the field is empty or still holds the last auto-filled value.
+let _geoSeq = 0,
+  _autoAddr = '',
+  _autoDistrict = '';
 async function reverseGeocode(lat, lng) {
   const el = document.getElementById('f_addr');
   if (!el) return;
-  el.value = '';
+  const seq = ++_geoSeq;
+  const fillAddr = !el.value || el.value === _autoAddr;
+  if (fillAddr) el.value = '';
   el.placeholder = 'Looking up address…';
   try {
     const r = await fetch(
       `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=en`,
     );
     const d = await r.json();
+    if (seq !== _geoSeq) return; // the pin moved again while this was loading
     const a = d.address || {};
     const parts = [a.road, a.suburb || a.neighbourhood || a.quarter].filter(
       Boolean,
     );
-    if (parts.length) el.value = parts.join(', ');
+    if (fillAddr && parts.length) {
+      el.value = parts.join(', ');
+      _autoAddr = el.value;
+    }
     // Match district
     const rawDist = (a.city_district || a.suburb || '')
       .replace(/^(Quận|Huyện|Thị xã)\s+/i, '')
@@ -3641,10 +3666,15 @@ async function reverseGeocode(lat, lng) {
       );
       if (match) {
         const sel = document.getElementById('f_district');
-        if (sel) sel.value = match;
+        if (sel && (!sel.value || sel.value === _autoDistrict)) {
+          sel.value = match;
+          _autoDistrict = match;
+        }
       }
     }
-  } catch (e) {}
+  } catch (e) {
+    if (seq !== _geoSeq) return;
+  }
   el.placeholder = 'Street or nearby landmark';
   saveAddDraft();
 }
@@ -3708,6 +3738,8 @@ async function saveSpot(editId) {
       _lni.style.background = '#fff5f5';
     }
     if (_pei) _pei.style.display = 'block';
+    const _co = document.getElementById('f_coords');
+    if (_co) _co.open = true;
   } else {
     if (_li) {
       _li.style.borderColor = '';

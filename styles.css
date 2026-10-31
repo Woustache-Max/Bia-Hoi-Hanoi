@@ -2223,6 +2223,17 @@ form textarea {
     transform: translateY(0);
   }
 }
+/* add-a-spot: coordinates tucked away under the address */
+.form-coords summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 4px 0;
+}
+.form-coords .row2 {
+  margin-top: 8px;
+}
 /* ghost-pin switch on the Lost spots page */
 .ghost-toggle {
   display: flex;
