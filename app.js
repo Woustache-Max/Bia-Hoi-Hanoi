@@ -1935,7 +1935,6 @@ async function showDetail(id) {
         <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
           ${s.verified ? '<span class="chip verified">✓ Verified</span>' : '<span class="chip unverified">⚠ Unverified</span>'}
           ${isOpen(s) ? '<span class="chip open">Open now</span>' : ''}
-          ${hetBiaActive(s) ? '<span class="chip closed">' + hetBiaLabel(s) + '</span>' : ''}
           ${s.status === 'perm_closed' ? '<span class="chip closed">Permanently closed</span>' : s.status === 'temp_closed' ? '<span class="chip closed">Temporarily closed</span>' : ''}
           ${s.atRisk && s.status !== 'perm_closed' ? '<span class="chip" style="background:#fde8c4;color:#8a5a00;border:1px solid #e0b062">⚠ At risk</span>' : ''}
         </div>
