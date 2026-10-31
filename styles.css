@@ -2223,6 +2223,17 @@ form textarea {
     transform: translateY(0);
   }
 }
+/* add-a-spot: price chips */
+.price-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.price-chips .lsort {
+  min-height: 40px;
+  padding: 5px 14px;
+}
 /* add-a-spot: "I'm not sure" under the hours */
 .form-unsure {
   display: inline-flex;

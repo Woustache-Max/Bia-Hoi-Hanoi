@@ -3312,18 +3312,24 @@ function renderAddForm(editId, lat, lng) {
     <div class="form-sec-title">Basic info</div>
     <div class="form-section">
       <div><label>Name *</label><input id="f_name" value="${s ? esc(s.name) : esc(_fd.name || '')}" placeholder="e.g. Bia Hơi Minh"><div id="f_name_err" style="display:none;color:#c62828;font-size:12px;margin-top:4px;font-weight:600">⚠ Spot name is required</div></div>
-      <div class="row2">
-        <div><label>District</label><select id="f_district"><option value="">Auto-detect…</option>${DISTRICTS.map((d) => `<option value="${d}" ${(s && s.district === d) || (_fd.district && _fd.district === d) ? 'selected' : ''}>${d}</option>`).join('')}</select></div>
-        <div><label>Price per glass</label><select id="f_price" style="width:100%;padding:9px 11px;border:1.5px solid var(--line);border-radius:9px;font-size:14px;font-family:inherit;background:#fff;color:var(--ink)">${(() => {
+      <div><label>District</label><select id="f_district"><option value="">Auto-detect…</option>${DISTRICTS.map((d) => `<option value="${d}" ${(s && s.district === d) || (_fd.district && _fd.district === d) ? 'selected' : ''}>${d}</option>`).join('')}</select></div>
+      <div><label>Price per glass</label>
+        <div class="price-chips" id="f_price_chips">${PRICE_CHIPS.map((p) => `<button type="button" class="lsort" data-price="${p[1]}" aria-pressed="false" onclick="pickPrice('${p[1]}')">${p[0]}</button>`).join('')}<button type="button" class="lsort" data-price="other" aria-pressed="false" onclick="pickPrice('other')">Other</button></div>
+        <select id="f_price" onchange="syncPriceChips(true)" aria-label="Other price" style="display:none;width:100%;margin-top:8px;padding:9px 11px;border:1.5px solid var(--line);border-radius:9px;font-size:14px;font-family:inherit;background:#fff;color:var(--ink)">${(() => {
           const cur = s ? s.pricePerGlass : _fd.price || '';
+          let found = !cur;
           let opts = '<option value="">Select…</option>';
           for (let v = 5000; v <= 30000; v += 1000) {
             const lbl = v.toLocaleString('en-US') + '₫';
+            if (cur === lbl) found = true;
             opts += `<option value="${lbl}" ${cur === lbl ? 'selected' : ''}>${lbl}</option>`;
           }
+          if (cur === 'Ask') found = true;
           opts += `<option value="Ask" ${cur === 'Ask' ? 'selected' : ''}>Ask</option>`;
+          // Keep an older price that isn't in the list, so saving doesn't erase it.
+          if (!found) opts += `<option value="${esc(cur)}" selected>${esc(cur)}</option>`;
           return opts;
-        })()}</select></div>
+        })()}</select>
       </div>
     </div>
 
@@ -3373,7 +3379,42 @@ function renderAddForm(editId, lat, lng) {
     ${!cur && !s ? `<p style="font-size:12px;color:var(--muted);margin-top:10px;text-align:center">Submitting anonymously. <a style="color:var(--gold-dark);cursor:pointer" onclick="authModal(true)">Create a free account</a> to track your contributions.</p>` : ''}
     </form></div>`;
   if (!s) applyAddFields(_fd);
+  syncPriceChips();
   document.getElementById('sidebar').scrollTop = 0;
+}
+
+/* ── ADD SPOT: price chips, saved in the same format as the Other list ── */
+const PRICE_CHIPS = [
+  ['10k', '10,000₫'],
+  ['12k', '12,000₫'],
+  ['14k', '14,000₫'],
+  ['15k', '15,000₫'],
+];
+function pickPrice(v) {
+  const sel = document.getElementById('f_price');
+  if (!sel) return;
+  if (v === 'other') {
+    if (PRICE_CHIPS.some((p) => p[1] === sel.value)) sel.value = '';
+    syncPriceChips(true);
+    sel.focus();
+  } else {
+    sel.value = sel.value === v ? '' : v; // tapping the chosen chip clears it
+    syncPriceChips();
+  }
+  saveAddDraft();
+}
+function syncPriceChips(keepOther) {
+  const sel = document.getElementById('f_price');
+  if (!sel) return;
+  const isChip = PRICE_CHIPS.some((p) => p[1] === sel.value);
+  const other = !!keepOther || (!!sel.value && !isChip);
+  sel.style.display = other ? '' : 'none';
+  document.querySelectorAll('#f_price_chips button').forEach((b) => {
+    const on =
+      b.dataset.price === 'other' ? other : !other && b.dataset.price === sel.value;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
 }
 
 /* ── ADD SPOT: draft of the fields, pin and map view ── */
