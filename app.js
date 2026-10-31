@@ -1306,7 +1306,7 @@ function sortBarHTML(sortByDist) {
     chip('new', 'Newest') +
     '</div>' +
     (m === 'top' && !sortByDist
-      ? '<div style="font-size:11px;color:var(--muted);padding:0 12px 6px">Ranked by rating and number of reviews.</div>'
+      ? '<div style="font-size:11px;color:var(--muted);padding:0 12px 6px">Ranked by rating and number of reviews. A spot creator&#39;s own review doesn&#39;t count.</div>'
       : '')
   );
 }
@@ -1314,12 +1314,23 @@ function setSort(mode) {
   window._sortMode = mode;
   renderList();
 }
+// A spot creator's own review still shows on the spot but doesn't help it rank.
+function rankingAvg(s) {
+  const a = countedReviews(s)
+    .filter((r) => r.userId !== s.createdBy)
+    .map(revAvg)
+    .filter((x) => x > 0);
+  return {
+    n: a.length,
+    avg: a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0,
+  };
+}
 function adjRating(s) {
-  const n = s.reviews ? reviewCount(s) : 0;
+  const { n, avg } = rankingAvg(s);
   if (!n) return 0;
   const m = 3;
   const prior = window._globalAvg || 4.0;
-  return (spotAvg(s) * n + prior * m) / (n + m);
+  return (avg * n + prior * m) / (n + m);
 }
 async function loadWeekPopular() {
   window._weekLoaded = true;
@@ -1358,9 +1369,9 @@ function renderList(sortByDist) {
           dist(window._me[0], window._me[1], b.lat, b.lng),
       );
   else {
-    const rated = spots.filter((x) => x.reviews && x.reviews.length);
+    const rated = spots.map(rankingAvg).filter((x) => x.n);
     window._globalAvg = rated.length
-      ? rated.reduce((a, x) => a + spotAvg(x), 0) / rated.length
+      ? rated.reduce((a, x) => a + x.avg, 0) / rated.length
       : 4.0;
     const mode = window._sortMode || 'top';
     const wc = window._weekCounts || {};
@@ -1375,7 +1386,12 @@ function renderList(sortByDist) {
           (a, b) =>
             (wc[b.id] || 0) - (wc[a.id] || 0) || adjRating(b) - adjRating(a),
         );
-    else list = list.slice().sort((a, b) => adjRating(b) - adjRating(a));
+    else
+      list = list
+        .slice()
+        .sort(
+          (a, b) => adjRating(b) - adjRating(a) || spotAvg(b) - spotAvg(a),
+        );
   }
   if (!window._weekLoaded) loadWeekPopular();
   const body = document.getElementById('sidebarBody');
