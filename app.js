@@ -325,7 +325,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.13.0';
+const APP_VERSION = '0.14.0';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -814,13 +814,13 @@ const cluster = L.markerClusterGroup({
 });
 map.addLayer(cluster);
 // Frames the Hanoi spots. A faraway spot would otherwise zoom out to all of Vietnam.
+function hanoiSpots() {
+  return spots.filter(
+    (s) => s.status === 'active' && dist(HANOI[0], HANOI[1], s.lat, s.lng) < 40,
+  );
+}
 function fitMapToSpots() {
-  const pts = spots
-    .filter(
-      (s) =>
-        s.status === 'active' && dist(HANOI[0], HANOI[1], s.lat, s.lng) < 40,
-    )
-    .map((s) => [s.lat, s.lng]);
+  const pts = hanoiSpots().map((s) => [s.lat, s.lng]);
   if (!pts.length) return map.setView(HANOI, 13);
   map.invalidateSize();
   map.fitBounds(L.latLngBounds(pts), {
@@ -1375,7 +1375,23 @@ function renderList(sortByDist) {
     tmpMarker = null;
   }
   drawMarkers();
+  renderListBody(sortByDist);
+}
+// Keeps the list in step with the map. Only runs while the list is on screen, so an
+// open spot or the add-a-spot form is never rebuilt.
+map.on('moveend', () => {
+  if (document.getElementById('areaLine')) renderListBody();
+});
+function renderListBody(sortByDist) {
   let list = visibleSpots();
+  // A search or Near me looks everywhere; otherwise show what the map shows.
+  const searching = !!(document.getElementById('searchBox').value || '').trim();
+  const byArea = !searching && !(sortByDist && window._me);
+  const beforeArea = list.length;
+  if (byArea) {
+    const bounds = map.getBounds();
+    list = list.filter((s) => bounds.contains([s.lat, s.lng]));
+  }
   let dividerAt = -1;
   if (sortByDist && window._me)
     list = list
@@ -1433,6 +1449,16 @@ function renderList(sortByDist) {
       '<div class="empty-note">🍺 No spots yet.<br><br><b>Sign in</b>, then tap <b>+ Add spot</b> to put the first bia hơi on the map!</div>';
     return;
   }
+  const hanoiHidden =
+    byArea &&
+    hanoiSpots().some((s) => !map.getBounds().contains([s.lat, s.lng]));
+  const showAllBtn = hanoiHidden
+    ? ' · <button class="vote" style="text-decoration:underline" onclick="fitMapToSpots()">Show all of Hanoi</button>'
+    : '';
+  if (!list.length && byArea && beforeArea) {
+    body.innerHTML = `<div id="areaLine" class="empty-note">No spots in this area.${showAllBtn}<br>Move the map to see more.</div>`;
+    return;
+  }
   if (!list.length) {
     const activeFilters = [];
     const q = (document.getElementById('searchBox') || {}).value || '';
@@ -1464,6 +1490,9 @@ function renderList(sortByDist) {
   const _newSec = '';
   body.innerHTML =
     sortBarHTML(sortByDist && window._me) +
+    (byArea
+      ? `<div id="areaLine" style="font-size:12px;font-weight:600;color:var(--muted);padding:0 12px 8px">${list.length} spot${list.length === 1 ? '' : 's'} in this area${showAllBtn}</div>`
+      : '') +
     _newSec +
     list
       .map((s, _i) => {
