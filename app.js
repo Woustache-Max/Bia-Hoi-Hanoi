@@ -424,6 +424,99 @@ async function introduceQuests() {
       '<button class="btn-line" style="width:100%;margin-top:8px" onclick="closeModal()">Not now</button></div>',
   );
 }
+/* ── HẾT BIA: beer's run out flag ── */
+function hetBiaBoxHTML(s) {
+  if (s.status !== 'active') return '';
+  const on = hetBiaActive(s);
+  return (
+    '<div class="het-bia-box' +
+    (on ? ' on' : '') +
+    '"><span>' +
+    (on
+      ? '<b>🚫 ' + hetBiaLabel(s) + '</b><br>A member reported the beer has run out.'
+      : "Has the beer run out here?") +
+    '</span><button class="btn-line btn-sm" style="font-size:12px" onclick="setHetBia(\'' +
+    s.id +
+    "'," +
+    !on +
+    ')">' +
+    (on ? "🍺 Beer's back" : 'Mark Hết bia') +
+    '</button></div>'
+  );
+}
+function setHetBia(spotId, on) {
+  if (!cur) {
+    authModal(false);
+    return;
+  }
+  const s = byId(spotId);
+  if (!s || window._hetBiaBusy) return;
+  if (!navigator.geolocation) {
+    showToast('Location not available on this device.');
+    return;
+  }
+  window._hetBiaBusy = true;
+  showToast('📍 Checking your location…', 2000);
+  navigator.geolocation.getCurrentPosition(
+    async (p) => {
+      try {
+        const d = dist(p.coords.latitude, p.coords.longitude, s.lat, s.lng);
+        if (d > 0.25) {
+          showToast(hetBiaTooFar(on, d), 3500);
+          return;
+        }
+        const { data, error } = await db.rpc('set_het_bia', {
+          p_spot_id: spotId,
+          p_on: on,
+          p_lat: p.coords.latitude,
+          p_lng: p.coords.longitude,
+        });
+        if (error) {
+          showToast("Couldn't update that. Please try again.", 3500);
+          return;
+        }
+        if (data === 'too many') {
+          showToast("You've made a lot of changes. Please try again later.", 4000);
+          return;
+        }
+        if (data === 'too far') {
+          showToast(hetBiaTooFar(on, d), 3500);
+          return;
+        }
+        if (data !== 'ok' && data !== 'already') {
+          showToast("Couldn't update that. Please try again.", 3500);
+          return;
+        }
+        // Read it back: on 'already', someone else may have flagged it first.
+        const { data: row } = await db
+          .from('spots')
+          .select('het_bia_at')
+          .eq('id', spotId)
+          .maybeSingle();
+        if (row) s.hetBiaAt = row.het_bia_at || null;
+        drawMarkers();
+        showDetail(spotId);
+        showToast(on ? '🚫 Marked Hết bia. Thanks for the tip!' : "🍺 Beer's back. Thanks!");
+      } finally {
+        window._hetBiaBusy = false;
+      }
+    },
+    () => {
+      window._hetBiaBusy = false;
+      showToast('Could not get your location — please allow location access.', 3500);
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 },
+  );
+}
+function hetBiaTooFar(on, km) {
+  return (
+    'You need to be at the spot to ' +
+    (on ? 'mark Hết bia' : "say the beer's back") +
+    " — you're " +
+    (km < 1 ? Math.round(km * 1000) + 'm' : km.toFixed(1) + 'km') +
+    ' away.'
+  );
+}
 async function checkIn(spotId) {
   if (!cur) {
     authModal(false);
@@ -1834,6 +1927,7 @@ async function showDetail(id) {
         <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
           ${s.verified ? '<span class="chip verified">✓ Verified</span>' : '<span class="chip unverified">⚠ Unverified</span>'}
           ${isOpen(s) ? '<span class="chip open">Open now</span>' : ''}
+          ${hetBiaActive(s) ? '<span class="chip closed">' + hetBiaLabel(s) + '</span>' : ''}
           ${s.status === 'perm_closed' ? '<span class="chip closed">Permanently closed</span>' : s.status === 'temp_closed' ? '<span class="chip closed">Temporarily closed</span>' : ''}
           ${s.atRisk && s.status !== 'perm_closed' ? '<span class="chip" style="background:#fde8c4;color:#8a5a00;border:1px solid #e0b062">⚠ At risk</span>' : ''}
         </div>
@@ -1865,6 +1959,7 @@ async function showDetail(id) {
         '</div>'
       );
     })()}
+    ${hetBiaBoxHTML(s)}
     ${!s.verified ? `<div class="hint-verify">Added anonymously — not yet verified.${canVerify ? " If you've been here and it's real, hit <b>Verify</b>." : cur ? ' Active members can verify it.' : ' Sign in to verify it.'}</div>` : ''}
     <div class="actions">
       <a href="${gmaps}" target="_blank"><button class="btn-gold btn-sm">🧭 Directions</button></a>

@@ -2273,6 +2273,29 @@ form textarea {
   text-decoration: underline;
   cursor: pointer;
 }
+/* Hết bia on the spot page */
+.het-bia-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 10px;
+  padding: 7px 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.het-bia-box.on {
+  background: #fbe6e6;
+  border-color: #c62828;
+  color: #7a1f1f;
+}
+.het-bia-box.on b {
+  font-size: 13px;
+}
 /* add-a-spot: price chips */
 .price-chips {
   display: flex;
