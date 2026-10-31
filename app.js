@@ -324,7 +324,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.19.1';
+const APP_VERSION = '0.20.0';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -8905,7 +8905,7 @@ function _ph(t) {
 function showPrivacy() {
   policyModal(
     'Privacy Policy',
-    '12 July 2026',
+    '31 October 2026',
     _pp(
       'Bác Hơi ("we", "us") is a free, community-run, crowdsourced map of bia hơi and draft-beer spots. This policy explains what we collect and how we use it.',
     ) +
@@ -8917,7 +8917,13 @@ function showPrivacy() {
         '<b>Content you post.</b> Spots, reviews, ratings, photos, replies, bookmarks and reports you submit are stored so the app can display them.',
       ) +
       _pp(
-        '<b>Location.</b> If you use "Near me", your device shares your approximate location with your browser to show nearby spots. We use it only to sort spots by distance and do not store your location on our servers.',
+        '<b>Location.</b> If you use "Near me", your device shares your location with your browser, which uses it to sort spots by distance. It is not sent to us.',
+      ) +
+      _pp(
+        '<b>Check-ins and Hết bia.</b> When you check in or report Hết bia, your location is sent to our server once to confirm you are near the spot. We do not store your location. We do record which spot you checked in at or reported, and when. Check-ins are linked to your account and other users can see them.',
+      ) +
+      _pp(
+        '<b>Adding a spot.</b> When you place a pin, its position is sent to OpenStreetMap\'s address service to look up the address. If you use "Use my location", that position is your own.',
       ) +
       _pp(
         "<b>Device storage.</b> We use your browser's local storage to remember preferences such as your theme, filters and age confirmation. We do not use advertising cookies or trackers.",
