@@ -2241,6 +2241,14 @@ form textarea {
     transform: translateY(0);
   }
 }
+/* phones: give spot detail and the add and edit forms the room the search bar takes */
+@media (max-width: 680px) {
+  #sidebar:has(.panel.detail, .panel.spot-form) .toolbar,
+  #sidebar:has(.panel.detail, .panel.spot-form) .filters,
+  #sidebar:has(.panel.detail, .panel.spot-form) .result-bar {
+    display: none !important;
+  }
+}
 /* add-a-spot: price chips */
 .price-chips {
   display: flex;

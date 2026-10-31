@@ -3347,7 +3347,7 @@ function renderAddForm(editId, lat, lng) {
   const s = editId ? byId(editId) : null;
   const _fd = window._addFormData || {};
   const body = document.getElementById('sidebarBody');
-  body.innerHTML = `<div class="panel" style="padding-bottom:28px"><form ${s ? '' : 'id="addSpotForm" oninput="saveAddDraft()" onchange="saveAddDraft()"'} onsubmit="return false">
+  body.innerHTML = `<div class="panel spot-form" style="padding-bottom:28px"><form ${s ? '' : 'id="addSpotForm" oninput="saveAddDraft()" onchange="saveAddDraft()"'} onsubmit="return false">
     <span class="back" onclick="cancelAdd()">← Cancel</span>
     <h2 style="font-size:20px;margin:4px 0 2px;font-weight:800">${s ? 'Edit spot' : 'Add a spot'}</h2>
     <p style="font-size:13px;color:var(--muted);margin:0 0 4px">${s ? 'Update the details below.' : 'Fill in what you know — every field helps!'}</p>
