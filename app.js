@@ -1856,7 +1856,10 @@ async function showDetail(id) {
               const vals = countedReviews(s)
                 .map((r) => r.ratings[c[0]])
                 .filter((v) => v > 0);
-              if (!vals.length) return null;
+              if (!vals.length)
+                return c[0] === 'food'
+                  ? '<span style="color:var(--muted)">No food rating yet</span>'
+                  : null;
               const ca = (
                 vals.reduce((a, b) => a + b, 0) / vals.length
               ).toFixed(1);
