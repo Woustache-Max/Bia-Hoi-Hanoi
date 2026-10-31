@@ -2379,6 +2379,20 @@ async function submitReview(id) {
     helpful: [],
   };
   const { error } = await db.from('reviews').insert([reviewData]);
+  if (error && (error.message || '').includes('review_exists')) {
+    // Reviewed on another device: load that review so the page offers Edit instead.
+    const { data: rows } = await db
+      .from('reviews')
+      .select('*')
+      .eq('spot_id', id)
+      .eq('user_id', userId);
+    (rows || []).forEach((row) => {
+      if (!s.reviews.some((x) => x.id === row.id)) s.reviews.unshift(dbToReview(row));
+    });
+    showToast("You've already reviewed this spot. You can edit your review instead.", 5000);
+    showDetail(id);
+    return;
+  }
   if (error) {
     alert('Error saving review: ' + error.message);
     return;
