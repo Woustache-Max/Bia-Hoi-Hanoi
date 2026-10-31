@@ -324,7 +324,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.19.0';
+const APP_VERSION = '0.19.1';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -606,6 +606,29 @@ const esc = (t) =>
     /[&<>"]/g,
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c],
   );
+// For a value placed inside onclick="f('...')".
+const jsStr = (v) =>
+  esc(String(v == null ? '' : v).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+// Only a link into the app's own photo storage may be opened or linked to. esc()
+// alone wouldn't stop a "javascript:" link.
+function storageUrl(u) {
+  return /^https:\/\/genqahabkjsmnoqbnkob\.supabase\.co\/storage\/v1\/object\/public\/spot-photos\/[^"'<>\s]+$/.test(
+    String(u || ''),
+  )
+    ? String(u)
+    : '';
+}
+// A title's first word is its icon, like the crown in "👑 Bia Hơi King".
+const titleIcon = (t) => esc(String(t || '').split(' ')[0]);
+// IDs go straight into onclick handlers across the app, so a row with an unsafe ID
+// isn't loaded at all. The database refuses new ones; this covers any older ones.
+function safeIdRows(rows) {
+  return (rows || []).filter((r) => {
+    const ok = /^[A-Za-z0-9_-]+$/.test(String(r.id));
+    if (!ok) console.warn('Skipped a row with an unsafe ID:', r.id);
+    return ok;
+  });
+}
 const byId = (id) => spots.find((s) => s.id === id);
 const userById = (id) => profilesCache[id] || null;
 function revAvg(r) {
@@ -1239,7 +1262,7 @@ function drawMarkers() {
     const _ptu =
       s.cover_photo_url || (s.photos && s.photos.length ? s.photos[0].url : '');
     const popPhoto = _ptu
-      ? `<img class="popup-thumb" src="${_ptu}" onclick="map.closePopup();innerWidth<=680?peekDetail('${s.id}'):showDetail('${s.id}')" alt="">`
+      ? `<img class="popup-thumb" src="${esc(_ptu)}" onclick="map.closePopup();innerWidth<=680?peekDetail('${s.id}'):showDetail('${s.id}')" alt="">`
       : '';
     const popOpen = hetBiaActive(s)
       ? '<span style="color:#c62828;font-weight:700;font-size:11px"> · ' + hetBiaLabel(s) + '</span>'
@@ -1718,7 +1741,7 @@ function renderListBody(sortByDist) {
             : '';
         const thumb =
           s.photos && s.photos.length
-            ? `<div style="position:relative;flex-shrink:0">${bkBadge}${rvBadge}<img class="list-thumb" src="${s.photos[0].url}" alt="" loading="lazy"></div>`
+            ? `<div style="position:relative;flex-shrink:0">${bkBadge}${rvBadge}<img class="list-thumb" src="${esc(s.photos[0].url)}" alt="" loading="lazy"></div>`
             : `<div class="list-thumb-ph" style="position:relative">${bkBadge}${rvBadge}🍺</div>`;
         return `${_divider}<div class="list-item" onclick="showDetail('${s.id}')">
       ${thumb}
@@ -1856,7 +1879,7 @@ function restoreReviewDraft(id) {
 }
 function photoStripHTML(s) {
   const admin = cur && cur.role === 'admin';
-  return s.photos && s.photos.length ? s.photos.map((p, i) => `<div style="position:relative"><img src="${p.url}" onclick="viewPhoto('${s.id}',${i})" style="width:100%;height:90px;object-fit:cover;border-radius:6px;cursor:pointer">${cur && (p.uploaded_by === cur.id || cur.role === 'admin') ? `<button onclick="deletePhoto('${p.id}','${p.path}','${s.id}')" title="Delete photo" aria-label="Delete photo" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;padding:0;cursor:pointer;line-height:20px;text-align:center">✕</button>` : ''}${admin ? `<button onclick="adminSetCover('${s.id}','${p.url}')" style="position:absolute;bottom:3px;left:3px;background:${s.cover_photo_url === p.url ? 'var(--gold)' : 'rgba(0,0,0,.55)'};color:${s.cover_photo_url === p.url ? '#000' : '#fff'};border:none;border-radius:8px;font-size:10px;font-weight:700;padding:2px 5px;cursor:pointer;line-height:1.4">${s.cover_photo_url === p.url ? '★ Cover' : '☆ Cover'}</button>` : ''}<button onclick="event.stopPropagation();likePhoto('${p.id}','${s.id}')" title="Like photo" style="position:absolute;bottom:3px;right:3px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:12px;font-size:11px;font-weight:700;padding:2px 7px;cursor:pointer;line-height:1.4">${cur && p.likes && p.likes.includes(cur.id) ? '❤️' : '🤍'}${p.likes && p.likes.length ? ' ' + p.likes.length : ''}</button>  </div>`).join('') : '<div style="grid-column:1/4;color:var(--muted);font-size:13px;padding:6px 0">No photos yet — be the first to add one!</div>';
+  return s.photos && s.photos.length ? s.photos.map((p, i) => `<div style="position:relative"><img src="${esc(p.url)}" onclick="viewPhoto('${s.id}',${i})" style="width:100%;height:90px;object-fit:cover;border-radius:6px;cursor:pointer">${cur && (p.uploaded_by === cur.id || cur.role === 'admin') ? `<button onclick="deletePhoto('${p.id}','${jsStr(p.path)}','${s.id}')" title="Delete photo" aria-label="Delete photo" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;padding:0;cursor:pointer;line-height:20px;text-align:center">✕</button>` : ''}${admin ? `<button onclick="adminSetCover('${s.id}','${jsStr(p.url)}')" style="position:absolute;bottom:3px;left:3px;background:${s.cover_photo_url === p.url ? 'var(--gold)' : 'rgba(0,0,0,.55)'};color:${s.cover_photo_url === p.url ? '#000' : '#fff'};border:none;border-radius:8px;font-size:10px;font-weight:700;padding:2px 5px;cursor:pointer;line-height:1.4">${s.cover_photo_url === p.url ? '★ Cover' : '☆ Cover'}</button>` : ''}<button onclick="event.stopPropagation();likePhoto('${p.id}','${s.id}')" title="Like photo" style="position:absolute;bottom:3px;right:3px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:12px;font-size:11px;font-weight:700;padding:2px 7px;cursor:pointer;line-height:1.4">${cur && p.likes && p.likes.includes(cur.id) ? '❤️' : '🤍'}${p.likes && p.likes.length ? ' ' + p.likes.length : ''}</button>  </div>`).join('') : '<div style="grid-column:1/4;color:var(--muted);font-size:13px;padding:6px 0">No photos yet — be the first to add one!</div>';
 }
 async function showDetail(id) {
   clearEditPin();
@@ -1939,7 +1962,7 @@ async function showDetail(id) {
           ${s.atRisk && s.status !== 'perm_closed' ? '<span class="chip" style="background:#fde8c4;color:#8a5a00;border:1px solid #e0b062">⚠ At risk</span>' : ''}
         </div>
       </div>
-      ${s.cover_photo_url ? `<img src="${s.cover_photo_url}" onclick="event.stopPropagation();viewPhoto('${s.id}',Math.max(0,(s.photos||[]).findIndex(p=>p.url===s.cover_photo_url)))" style="width:120px;height:120px;object-fit:cover;border-radius:10px;flex-shrink:0;cursor:pointer" title="View photo">` : ''}
+      ${s.cover_photo_url ? `<img src="${esc(s.cover_photo_url)}" onclick="event.stopPropagation();viewPhoto('${s.id}',Math.max(0,(s.photos||[]).findIndex(p=>p.url===s.cover_photo_url)))" style="width:120px;height:120px;object-fit:cover;border-radius:10px;flex-shrink:0;cursor:pointer" title="View photo">` : ''}
     </div>
     ${(() => {
       const avg = spotAvg(s);
@@ -2997,7 +3020,7 @@ async function showListDetail(listId) {
           const th =
             s.photos && s.photos.length
               ? '<img class="list-thumb" src="' +
-                s.photos[0].url +
+                esc(s.photos[0].url) +
                 '" alt="" loading="lazy">'
               : '<div class="list-thumb-ph">🍺</div>';
           const av = spotAvg(s);
@@ -4521,7 +4544,7 @@ function showSaved() {
         var th =
           s.photos && s.photos.length
             ? '<img class="list-thumb" src="' +
-              s.photos[0].url +
+              esc(s.photos[0].url) +
               '" alt="" loading="lazy">'
             : '<div class="list-thumb-ph">\u{1F37A}</div>';
         var av = spotAvg(s);
@@ -4782,9 +4805,9 @@ async function showProfile(uid) {
   const avClass = hasTitle ? ' class="gold-anim"' : '';
   const avBorder = hasTitle ? '' : 'border:2px solid var(--gold);';
   const profileThumb = u.avatar_url
-    ? `<img src="${u.avatar_url}" style="width:54px;height:54px;border-radius:50%;object-fit:cover;${avBorder}flex-shrink:0"${avClass} alt="">`
+    ? `<img src="${esc(u.avatar_url)}" style="width:54px;height:54px;border-radius:50%;object-fit:cover;${avBorder}flex-shrink:0"${avClass} alt="">`
     : added.length && added[0].photos && added[0].photos.length
-      ? `<img src="${added[0].photos[0].url}" style="width:54px;height:54px;border-radius:50%;object-fit:cover;${avBorder}flex-shrink:0"${avClass} alt="">`
+      ? `<img src="${esc(added[0].photos[0].url)}" style="width:54px;height:54px;border-radius:50%;object-fit:cover;${avBorder}flex-shrink:0"${avClass} alt="">`
       : `<div style="width:54px;height:54px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0"${avClass}>👤</div>`;
   const profileLists = await fetchListsFor(uid, isOwn);
   const profileInvites = isOwn ? await referralCount(uid) : 0;
@@ -4796,7 +4819,7 @@ async function showProfile(uid) {
         ${isOwn ? '<button class="vote" style="font-size:11px;margin-top:2px" onclick="changeAvatar()">📷 Change</button>' : ''}
       </div>
       <div style="min-width:0">
-        <h2 style="margin:0 0 2px">${u.title ? '<span style="color:var(--gold-dark)">' + u.title.split(' ')[0] + '</span> ' : ''}${esc(u.name)} ${rolePill(u.role)}</h2>
+        <h2 style="margin:0 0 2px">${u.title ? '<span style="color:var(--gold-dark)">' + titleIcon(u.title) + '</span> ' : ''}${esc(u.name)} ${rolePill(u.role)}</h2>
         ${u.title ? '<div style="font-size:12px;color:var(--gold-dark);font-weight:700;margin-bottom:2px">' + esc(u.title) + '</div>' : ''}<div style="font-size:12px;color:var(--muted)">Member since ${u.since || '—'}</div>
         <div style="font-size:12px;color:var(--muted);margin-top:2px"><b style="color:var(--ink)">${_followers}</b> followers · <b style="color:var(--ink)">${_flwing}</b> following</div>
         ${isOwn ? '<button class="vote" style="font-size:11px;margin-top:4px" onclick="editUsername()">✎ Edit name</button>' : '<button class="' + (_isF ? 'btn-line' : 'btn-gold') + ' btn-sm" style="margin-top:6px" onclick="toggleFollow(\'' + uid + '\')">' + (_isF ? '✓ Following' : '+ Follow') + '</button>'}
@@ -4840,7 +4863,7 @@ async function showProfile(uid) {
             const th =
               s.photos && s.photos.length
                 ? '<img class="list-thumb" src="' +
-                  s.photos[0].url +
+                  esc(s.photos[0].url) +
                   '" alt="" loading="lazy">'
                 : '<div class="list-thumb-ph">🍺</div>';
             return (
@@ -4943,7 +4966,7 @@ async function showProfile(uid) {
             .map((s) => {
               const thumb =
                 s.photos && s.photos.length
-                  ? `<img class="list-thumb" src="${s.photos[0].url}" alt="" loading="lazy">`
+                  ? `<img class="list-thumb" src="${esc(s.photos[0].url)}" alt="" loading="lazy">`
                   : `<div class="list-thumb-ph">🍺</div>`;
               return `<div class="list-item" onclick="showDetail('${s.id}')">${thumb}
         <div class="list-text"><h3>${esc(s.name)}${s.verified ? ' <span class="chip verified" style="font-size:10px">✓</span>' : ''}</h3>
@@ -4993,7 +5016,7 @@ async function showProfile(uid) {
             const th =
               s.photos && s.photos.length
                 ? '<img class="list-thumb" src="' +
-                  s.photos[0].url +
+                  esc(s.photos[0].url) +
                   '" alt="" loading="lazy">'
                 : '<div class="list-thumb-ph">\u{1F37A}</div>';
             const av = spotAvg(s);
@@ -5524,7 +5547,7 @@ function setUserLabel() {
     return;
   }
   const av = cur.avatar_url
-    ? '<img class="av-sm" src="' + cur.avatar_url + '" alt="">'
+    ? '<img class="av-sm" src="' + esc(cur.avatar_url) + '" alt="">'
     : '👤';
   const bkCount = (cur.bookmarks || []).length;
   let html = '<div class="user-dropdown" id="userDropWrap">';
@@ -5710,9 +5733,10 @@ function showLostSpots() {
   } else {
     html += lost
       .map((s) => {
-        const th =
+        const th = esc(
           s.cover_photo_url ||
-          (s.photos && s.photos.length ? s.photos[0].url : '');
+            (s.photos && s.photos.length ? s.photos[0].url : ''),
+        );
         const thumb = th
           ? '<img class="list-thumb" src="' +
             th +
@@ -6026,7 +6050,7 @@ async function showWhatsNew() {
       .map((ev) => {
         const thumb = ev.thumb
           ? '<img class="list-thumb" src="' +
-            ev.thumb +
+            esc(ev.thumb) +
             '" alt="" loading="lazy">'
           : '<div class="list-thumb-ph">' + ev.icon + '</div>';
         const ago = ev.t ? timeAgo(new Date(ev.t).toISOString()) : '';
@@ -6092,7 +6116,7 @@ function followSuggestHTML() {
         const av =
           u && u.avatar_url
             ? '<img class="list-thumb" src="' +
-              u.avatar_url +
+              esc(u.avatar_url) +
               '" style="border-radius:50%" alt="">'
             : '<div class="list-thumb-ph">👤</div>';
         return (
@@ -6331,9 +6355,9 @@ async function openAdmin() {
       .order('created_at', { ascending: false }),
   ]);
   adminData = {
-    spots: sr.data || [],
+    spots: safeIdRows(sr.data),
     users: ur.data || [],
-    reviews: rr.data || [],
+    reviews: safeIdRows(rr.data),
     photos: pr.data || [],
     contentReports: (cr && cr.data) || [],
   };
@@ -6772,11 +6796,11 @@ function renderAdmin(tab) {
           (
             p,
           ) => `<div style="position:relative;border:2px solid var(--red);border-radius:8px;overflow:hidden">
-        <img src="${p.url}" style="width:100%;height:90px;object-fit:cover;display:block">
+        <img src="${esc(p.url)}" style="width:100%;height:90px;object-fit:cover;display:block">
         <div style="padding:4px 6px;background:#fff3f3;font-size:11px;color:var(--muted)">Spot: ${esc((d.spots.find((s) => s.id === p.spot_id) || {}).name || '?')}</div>
         <div style="padding:4px 6px;display:flex;gap:4px;flex-wrap:wrap">
           <button class="btn-line btn-sm" style="font-size:11px" onclick="adminUnflagPhoto('${p.id}')" title="Unflag this photo">✓ Keep</button>
-          <button class="btn-line btn-sm" style="font-size:11px;color:var(--red)" onclick="adminDeletePhoto('${p.id}','${p.path}')" title="Delete permanently">🗑</button>
+          <button class="btn-line btn-sm" style="font-size:11px;color:var(--red)" onclick="adminDeletePhoto('${p.id}','${jsStr(p.path)}')" title="Delete permanently">🗑</button>
         </div>
       </div>`,
         )
@@ -6793,12 +6817,12 @@ function renderAdmin(tab) {
           (
             p,
           ) => `<div style="position:relative;border:1px solid var(--line);border-radius:8px;overflow:hidden">
-        <img src="${p.url}" style="width:100%;height:90px;object-fit:cover;display:block;cursor:pointer" onclick="window.open('${p.url}')">
+        <img src="${esc(p.url)}" style="width:100%;height:90px;object-fit:cover;display:block;cursor:pointer" onclick="window.open('${jsStr(storageUrl(p.url))}')">
         <div style="padding:4px 6px;font-size:11px;color:var(--muted)">${esc((d.spots.find((s) => s.id === p.spot_id) || {}).name || '?')}</div>
         <div style="padding:4px 6px;display:flex;gap:4px">
           <button class="btn-line btn-sm" style="font-size:11px;color:var(--orange)" onclick="adminFlagPhoto('${p.id}')" title="Flag for review">⚑ Flag</button>
-          <button class="btn-line btn-sm" style="font-size:11px;color:var(--red)" onclick="adminDeletePhoto('${p.id}','${p.path}')" title="Delete permanently">🗑</button>
-          <button class="btn-line btn-sm" style="font-size:11px;font-weight:700" onclick="adminSetCover('${(d.spots.find((s) => s.id === p.spot_id) || {}).id}','${p.url}')" title="Set as cover photo">☆ Cover</button>
+          <button class="btn-line btn-sm" style="font-size:11px;color:var(--red)" onclick="adminDeletePhoto('${p.id}','${jsStr(p.path)}')" title="Delete permanently">🗑</button>
+          <button class="btn-line btn-sm" style="font-size:11px;font-weight:700" onclick="adminSetCover('${(d.spots.find((s) => s.id === p.spot_id) || {}).id}','${jsStr(p.url)}')" title="Set as cover photo">☆ Cover</button>
         </div>
       </div>`,
         )
@@ -6818,7 +6842,7 @@ function renderAdmin(tab) {
           <a style="color:var(--blue);cursor:pointer;font-weight:600" onclick="closeModal();showDetail('${s.id}')">${esc(s.name)}</a>
           <div style="font-size:11px;color:var(--muted)">${esc(s.district || '')}</div>
         </td>
-        <td>${(s.reports || []).map((r) => `<div style="font-size:12px;padding:2px 0"><b>${esc(r.by)}</b>: "${esc(r.why)}" <span style="color:var(--muted)">${r.when || ''}</span></div>`).join('')}</td>
+        <td>${(s.reports || []).map((r) => `<div style="font-size:12px;padding:2px 0"><b>${esc(r.by)}</b>: "${esc(r.why)}" <span style="color:var(--muted)">${esc(r.when || '')}</span></div>`).join('')}</td>
         <td style="white-space:nowrap">
           <button class="btn-line btn-sm" title="Clear all reports for this spot" onclick="adminDismissReports('${s.id}')">✓ Dismiss</button><br style="margin:3px 0">
           <button class="btn-line btn-sm" title="Permanently delete this spot" style="color:var(--red);margin-top:4px" onclick="adminDeleteSpot('${s.id}')">🗑 Delete spot</button>
@@ -7174,15 +7198,18 @@ function contentReportsHTML(list) {
   const rows = list
     .map((rp) => {
       const isPhoto = rp.content_type === 'photo';
+      const prevUrl = esc(storageUrl(rp.preview));
       const prev = isPhoto
-        ? `<a href="${rp.preview}" target="_blank"><img src="${rp.preview}" style="width:56px;height:56px;object-fit:cover;border-radius:8px"></a>`
+        ? prevUrl
+          ? `<a href="${prevUrl}" target="_blank"><img src="${prevUrl}" style="width:56px;height:56px;object-fit:cover;border-radius:8px"></a>`
+          : '<i>(photo link not shown)</i>'
         : `<div style="font-size:12px;max-width:230px">${esc((rp.preview || '').slice(0, 160)) || '<i>(empty)</i>'}</div>`;
       return `<tr>
-        <td><div style="font-weight:700;font-size:12px;margin-bottom:3px">${typeLbl[rp.content_type] || rp.content_type}</div>${prev}<div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(rp.context || '')}</div><div style="font-size:11px;color:var(--muted)">by ${esc(rp.author_name || 'User')}</div></td>
+        <td><div style="font-weight:700;font-size:12px;margin-bottom:3px">${esc(typeLbl[rp.content_type] || rp.content_type)}</div>${prev}<div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(rp.context || '')}</div><div style="font-size:11px;color:var(--muted)">by ${esc(rp.author_name || 'User')}</div></td>
         <td style="font-size:12px"><b>${esc(rp.reason)}</b>${rp.details ? `<div style="color:var(--muted)">${esc(rp.details)}</div>` : ''}<div style="color:var(--muted);font-size:11px;margin-top:3px">— ${esc(rp.reporter_name || 'User')} · ${(rp.created_at || '').slice(0, 10)}</div></td>
         <td style="white-space:nowrap">
           <button class="btn-line btn-sm" onclick="adminDismissContentReport(${rp.id})">✓ Dismiss</button><br style="margin:3px 0">
-          <button class="btn-line btn-sm" style="color:var(--red);margin-top:4px" onclick="adminRemoveReportedContent(${rp.id})">🗑 Remove ${rp.content_type}</button><br style="margin:3px 0">
+          <button class="btn-line btn-sm" style="color:var(--red);margin-top:4px" onclick="adminRemoveReportedContent(${rp.id})">🗑 Remove ${esc(rp.content_type)}</button><br style="margin:3px 0">
           ${rp.author_id ? `<button class="btn-line btn-sm" style="color:var(--red);margin-top:4px" onclick="adminRemoveReportedUser(${rp.id})">⛔ Remove user</button>` : ''}
         </td>
       </tr>`;
@@ -7330,7 +7357,7 @@ async function init() {
     (likesByPhoto[l.photo_id] = likesByPhoto[l.photo_id] || []).push(l.user_id);
   });
   const reviewsBySpot = {};
-  (reviewsData || []).forEach((r) => {
+  safeIdRows(reviewsData).forEach((r) => {
     if (!reviewsBySpot[r.spot_id]) reviewsBySpot[r.spot_id] = [];
     reviewsBySpot[r.spot_id].push(dbToReview(r));
   });
@@ -7340,7 +7367,7 @@ async function init() {
     if (!photosBySpot[p.spot_id]) photosBySpot[p.spot_id] = [];
     photosBySpot[p.spot_id].push(p);
   });
-  spots = (spotsData || []).map((s) => ({
+  spots = safeIdRows(spotsData).map((s) => ({
     ...dbToSpot(s),
     reviews: reviewsBySpot[s.id] || [],
     photos: photosBySpot[s.id] || [],
@@ -7796,7 +7823,7 @@ async function checkBadges() {
 
 function crownFor(uid) {
   const u = uid === cur?.id ? cur : profilesCache[uid] || null;
-  return u && u.title ? u.title.split(' ')[0] + ' ' : '';
+  return u && u.title ? titleIcon(u.title) + ' ' : '';
 }
 
 function showTitlePicker() {
@@ -8013,7 +8040,7 @@ async function showWrapped() {
       st.topSpot.id +
       '\')">' +
       (st.topSpot.photos && st.topSpot.photos.length
-        ? '<img class="list-thumb" src="' + st.topSpot.photos[0].url + '" alt="" loading="lazy">'
+        ? '<img class="list-thumb" src="' + esc(st.topSpot.photos[0].url) + '" alt="" loading="lazy">'
         : '<div class="list-thumb-ph">🍺</div>') +
       '<div class="list-text"><h3>' +
       esc(st.topSpot.name) +
@@ -8098,7 +8125,7 @@ async function showQuests() {
             u.id +
             '\')">' +
             '<div class="legend-av gold-anim"><span style="font-size:24px">' +
-            u.title.split(' ')[0] +
+            titleIcon(u.title) +
             '</span></div>' +
             '<div class="legend-lbl">' +
             esc(u.title.split(' ').slice(1).join(' ')) +
@@ -8631,7 +8658,7 @@ async function showLeaderboard(tab = 'spots') {
     .map((u, i) => {
       const profile = profilesCache[u.id];
       const crown =
-        profile && profile.title ? profile.title.split(' ')[0] + ' ' : '';
+        profile && profile.title ? titleIcon(profile.title) + ' ' : '';
       const name = profile
         ? crown + esc(profile.name)
         : `<span style="color:var(--muted)">User</span>`;
