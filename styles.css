@@ -2123,6 +2123,24 @@ form textarea {
     transform: translateY(0);
   }
 }
+/* burger button beside the title */
+.logo-menu-btn {
+  background: transparent;
+  border: none;
+  color: var(--gold);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  min-width: 36px;
+  min-height: 36px;
+  margin-left: 2px;
+  padding: 0;
+  border-radius: 8px;
+  font-family: inherit;
+}
+.logo-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
 /* floating island */
 .floating-island {
   display: none;

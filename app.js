@@ -5116,6 +5116,7 @@ function toggleLogoMenu() {
   if (!m) return;
   const open = m.style.display !== 'none';
   m.style.display = open ? 'none' : 'block';
+  setLogoMenuExpanded(!open);
   if (!open) {
     updateArchiveStat();
     const g = document.getElementById('ghostSwitch');
@@ -5124,6 +5125,7 @@ function toggleLogoMenu() {
       function outsideClick(e) {
         if (!document.getElementById('logoWrap')?.contains(e.target)) {
           m.style.display = 'none';
+          setLogoMenuExpanded(false);
           document.removeEventListener('click', outsideClick);
         }
       }
@@ -5134,6 +5136,11 @@ function toggleLogoMenu() {
 function closeLogoMenu() {
   const m = document.getElementById('logoMenu');
   if (m) m.style.display = 'none';
+  setLogoMenuExpanded(false);
+}
+function setLogoMenuExpanded(open) {
+  const b = document.getElementById('logoMenuBtn');
+  if (b) b.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
 function updateArchiveStat() {
   const el = document.getElementById('archiveStat');
