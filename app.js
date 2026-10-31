@@ -324,7 +324,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.20.0';
+const APP_VERSION = '0.20.1';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -8924,7 +8924,10 @@ function showPrivacy() {
         '<b>Location.</b> If you use "Near me", your device shares your location with your browser, which uses it to sort spots by distance. It is not sent to us.',
       ) +
       _pp(
-        '<b>Check-ins and Hết bia.</b> When you check in or report Hết bia, your location is sent to our server once to confirm you are near the spot. We do not store your location. We do record which spot you checked in at or reported, and when. Check-ins are linked to your account and other users can see them.',
+        '<b>Check-ins and Hết bia.</b> When you check in or report Hết bia, your location is sent to our server once to confirm you are near the spot. We do not store your location. We do record which spot you checked in at or reported, and when.',
+      ) +
+      _pp(
+        '<b>Who can see your check-ins.</b> Your check-ins are private: other users cannot see which spots you checked in at or when. They can see how many check-ins a spot had this week and when it was last checked in, but not by whom, and any badges you earn. The people who run Bác Hơi can access these records to operate the app.',
       ) +
       _pp(
         '<b>Adding a spot.</b> When you place a pin, its position is sent to OpenStreetMap\'s address service to look up the address. If you use "Use my location", that position is your own.',
@@ -8957,14 +8960,14 @@ function showPrivacy() {
       ) +
       _ph('Contact') +
       _pp(
-        'Questions about privacy? A contact address will be added here soon.',
+        'Questions about privacy? Email us at <a href="mailto:contact@bachoi.app">contact@bachoi.app</a>.',
       ),
   );
 }
 function showTerms() {
   policyModal(
     'Terms of Use',
-    '7 July 2026',
+    '31 October 2026',
     _pp(
       'By using Bác Hơi you agree to these Terms. If you do not agree, please do not use the app.',
     ) +
@@ -9001,7 +9004,7 @@ function showTerms() {
         'We may update these Terms; continued use means you accept the changes. These Terms are governed by the laws of Vietnam.',
       ) +
       _ph('9. Contact') +
-      _pp('A contact address will be added here soon.'),
+      _pp('Email us at <a href="mailto:contact@bachoi.app">contact@bachoi.app</a>.'),
   );
 }
 // One card does the age check and the welcome. Deep links and returning visitors
