@@ -495,8 +495,28 @@ function revAvg(r) {
   const v = RCATS.map((c) => r.ratings[c[0]]).filter((x) => x > 0);
   return v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0;
 }
+// Only each person's latest review counts. Anonymous reviews can't be matched up,
+// so each of those stands alone.
+function countedReviews(s) {
+  const when = (r) => new Date(r.createdAt || r.when || 0).getTime() || 0;
+  const idTime = (r) => parseInt(String(r.id).slice(1), 10) || 0;
+  const seen = new Set();
+  return [...s.reviews]
+    .sort((a, b) => when(b) - when(a) || idTime(b) - idTime(a))
+    .filter((r) => {
+      if (!r.userId || r.userId === 'anon') return true;
+      if (seen.has(r.userId)) return false;
+      seen.add(r.userId);
+      return true;
+    });
+}
+function reviewCount(s) {
+  return countedReviews(s).length;
+}
 function spotAvg(s) {
-  const a = s.reviews.map(revAvg).filter((x) => x > 0);
+  const a = countedReviews(s)
+    .map(revAvg)
+    .filter((x) => x > 0);
   return a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
 }
 function myPhotoCount(uid) {
@@ -885,8 +905,8 @@ function peekDetail(id) {
       ? '<span class="chip open">Open now</span>'
       : '';
   const _metaBits = [
-    s.reviews.length
-      ? s.reviews.length + ' review' + (s.reviews.length === 1 ? '' : 's')
+    reviewCount(s)
+      ? reviewCount(s) + ' review' + (reviewCount(s) === 1 ? '' : 's')
       : '',
     s.pricePerGlass ? esc(s.pricePerGlass) : '',
   ]
@@ -1036,7 +1056,7 @@ function drawMarkers() {
       : '';
     const popAvg = spotAvg(s);
     m.bindPopup(
-      `${popPhoto}<div style="padding:6px 8px 6px"><b style="font-size:14px">${esc(s.name)}</b>${popOpen}<div style="margin:5px 0">${popAvg ? `<span style="background:var(--gold);color:#000;font-size:11px;font-weight:700;padding:1px 7px;border-radius:12px">${popAvg.toFixed(1)} 🍺</span> <span style="color:#888;font-size:11px">(${s.reviews.length} review${s.reviews.length === 1 ? '' : 's'})</span>` : '<span style="color:#888;font-size:11px">No reviews yet</span>'}</div>${s.pricePerGlass ? `<div style="color:#888;font-size:11px;margin-bottom:6px">${esc(s.pricePerGlass)}</div>` : ''}<button onclick="map.closePopup();innerWidth<=680?peekDetail('${s.id}'):showDetail('${s.id}')" style="background:var(--gold);color:var(--ink);border:none;border-radius:7px;padding:6px 0;font-size:12px;font-weight:700;cursor:pointer;width:100%;font-family:inherit">View details →</button></div>`,
+      `${popPhoto}<div style="padding:6px 8px 6px"><b style="font-size:14px">${esc(s.name)}</b>${popOpen}<div style="margin:5px 0">${popAvg ? `<span style="background:var(--gold);color:#000;font-size:11px;font-weight:700;padding:1px 7px;border-radius:12px">${popAvg.toFixed(1)} 🍺</span> <span style="color:#888;font-size:11px">(${reviewCount(s)} review${reviewCount(s) === 1 ? '' : 's'})</span>` : '<span style="color:#888;font-size:11px">No reviews yet</span>'}</div>${s.pricePerGlass ? `<div style="color:#888;font-size:11px;margin-bottom:6px">${esc(s.pricePerGlass)}</div>` : ''}<button onclick="map.closePopup();innerWidth<=680?peekDetail('${s.id}'):showDetail('${s.id}')" style="background:var(--gold);color:var(--ink);border:none;border-radius:7px;padding:6px 0;font-size:12px;font-weight:700;cursor:pointer;width:100%;font-family:inherit">View details →</button></div>`,
       {
         maxWidth: 220,
         autoPanPaddingBottomRight: L.point(0, 80),
@@ -1289,7 +1309,7 @@ function setSort(mode) {
   renderList();
 }
 function adjRating(s) {
-  const n = s.reviews ? s.reviews.length : 0;
+  const n = s.reviews ? reviewCount(s) : 0;
   if (!n) return 0;
   const m = 2;
   const prior = window._globalAvg || 4.0;
@@ -1445,7 +1465,7 @@ function renderList(sortByDist) {
           return a
             ? `<span style="background:var(--gold);color:#000;font-size:11px;font-weight:800;padding:1px 7px;border-radius:20px">${a.toFixed(1)} 🍺</span>`
             : '<i style="color:var(--muted)">new</i>';
-        })()}&nbsp;${s.reviews.length ? '(' + s.reviews.length + ') ' : ''}${dtxt}${hotTag ? ' ' + hotTag : ''}</span>
+        })()}&nbsp;${reviewCount(s) ? '(' + reviewCount(s) + ') ' : ''}${dtxt}${hotTag ? ' ' + hotTag : ''}</span>
         <span>${esc(s.district || '')}${s.pricePerGlass ? ' · ' + esc(s.pricePerGlass) : ''}${s.openH != null && s.closeH != null && !closed ? ' · ' + fmtHr(s.openH) + '–' + fmtHr(s.closeH) : ''}</span></div>
       </div></div>`;
       })
@@ -1651,7 +1671,7 @@ async function showDetail(id) {
     ${(() => {
       const avg = spotAvg(s);
       const pill = avg
-        ? `<span style="background:var(--gold);color:#000;font-size:14px;font-weight:800;padding:2px 11px;border-radius:20px">${avg.toFixed(1)} 🍺</span><small style="color:var(--muted);margin-left:6px">${s.reviews.length} review${s.reviews.length === 1 ? '' : 's'}</small>`
+        ? `<span style="background:var(--gold);color:#000;font-size:14px;font-weight:800;padding:2px 11px;border-radius:20px">${avg.toFixed(1)} 🍺</span><small style="color:var(--muted);margin-left:6px">${reviewCount(s)} review${reviewCount(s) === 1 ? '' : 's'}</small>`
         : '<span style="color:var(--muted);font-size:13px">No ratings yet</span>';
       return '<div style="margin:2px 0 8px">' + pill + '</div>';
     })()}
@@ -1686,7 +1706,7 @@ async function showDetail(id) {
       ${(() => {
         const cats = s.reviews.length
           ? RCATS.map((c) => {
-              const vals = s.reviews
+              const vals = countedReviews(s)
                 .map((r) => r.ratings[c[0]])
                 .filter((v) => v > 0);
               if (!vals.length) return null;
@@ -1841,7 +1861,7 @@ function reviewHTML(s, r) {
     ? ` · <button class="vote" onclick="reportContent('review','${r.id}','review')">⚑ Report</button>`
     : '';
   return `<div class="review">
-    <div class="who"><span>${whoLink}${avgBadge}</span>
+    <div class="who"><span>${whoLink}${avgBadge}${countedReviews(s).includes(r) ? '' : ' <small style="color:var(--muted);font-weight:400">Earlier review, not counted</small>'}</span>
       <span>${cur && r.userId === cur.id ? `<button class="vote" onclick="editReview('${s.id}','${r.id}')">edit</button> · ` : ''}${admin || (cur && r.userId === cur.id) ? `<button class="vote" style="color:var(--red)" onclick="delReview('${s.id}','${r.id}')">delete</button>` : ''}</span></div>
     <div class="rgrid">${RCATS.filter((c) => r.ratings[c[0]] > 0)
       .map(
@@ -3967,7 +3987,7 @@ function showSaved() {
             av.toFixed(1) +
             ' \u{1F37A}</span>'
           : '';
-        var rv = s.reviews.length ? ' (' + s.reviews.length + ')' : '';
+        var rv = reviewCount(s) ? ' (' + reviewCount(s) + ')' : '';
         return (
           '<div class="list-item" onclick="showDetail(\'' +
           s.id +
@@ -4290,7 +4310,7 @@ async function showProfile(uid) {
               esc(s.name) +
               '</h3><div class="meta"><span>' +
               avHtml +
-              (s.reviews.length ? ' (' + s.reviews.length + ')' : '') +
+              (reviewCount(s) ? ' (' + reviewCount(s) + ')' : '') +
               '</span><span>' +
               esc(s.district || '') +
               '</span></div></div></div>'
@@ -4388,7 +4408,7 @@ async function showProfile(uid) {
           return a
             ? `<span style="background:var(--gold);color:#000;font-size:11px;font-weight:800;padding:1px 6px;border-radius:20px">${a.toFixed(1)} 🍺</span>`
             : '';
-        })()}&nbsp;${s.reviews.length ? '(' + s.reviews.length + ')' : ''}</span><span>${esc(s.district || '')}</span></div></div></div>`;
+        })()}&nbsp;${reviewCount(s) ? '(' + reviewCount(s) + ')' : ''}</span><span>${esc(s.district || '')}</span></div></div></div>`;
             })
             .join('')
         : '<div class="txt-muted" style="padding:6px 0">None yet.</div>'
@@ -4438,7 +4458,7 @@ async function showProfile(uid) {
                 av.toFixed(1) +
                 ' \u{1F37A}</span>'
               : '';
-            const rv = s.reviews.length ? ' (' + s.reviews.length + ')' : '';
+            const rv = reviewCount(s) ? ' (' + reviewCount(s) + ')' : '';
             const dt = esc(s.district || '');
             return (
               '<div class="list-item" onclick="showDetail(\'' +
