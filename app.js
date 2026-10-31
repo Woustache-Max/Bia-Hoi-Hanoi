@@ -6783,7 +6783,9 @@ function renderAdmin(tab) {
       <b style="font-size:13px">${d.users.length} registered users</b>
       <button class="btn-line btn-sm" onclick="exportCSV('users')">📥 Export CSV</button>
       <button class="btn-line btn-sm" onclick="adminRecalcAllBadges()" title="Recalculate badges for every user from live data">↺ Recalc all badges</button>
+      <button class="btn-line btn-sm" onclick="adminBadgeCheck()" title="List people whose saved badges don't match the rules. Changes nothing.">🔍 Badge check</button>
     </div>
+    <div id="badgeCheckOut"></div>
     <table class="admin-table">
       <tr><th>Name</th><th>Role</th><th>Since</th><th>Spots</th><th>Reviews</th><th>Actions</th></tr>
       ${d.users
@@ -7135,6 +7137,43 @@ async function adminRecalcBadges(uid) {
   if (profilesCache[uid]) profilesCache[uid].badges = correct;
   showToast('↺ Badges recalculated for ' + (u ? u.name : uid));
   renderAdmin('users');
+}
+// Lists saved badges the rules can't confirm. It only reports, and changes nothing:
+// a badge can be fair and still show here if the spot or review behind it was deleted.
+// Invite, Family and The Usual aren't listed, because they can't be fully confirmed here.
+async function adminBadgeCheck() {
+  const out = document.getElementById('badgeCheckOut');
+  if (!out) return;
+  out.innerHTML = '<div class="txt-muted" style="padding:8px 0">Checking…</div>';
+  const found = [];
+  for (const u of adminData.users) {
+    const expected = await recalculatedBadges(u.id, u.badges);
+    const extra = (u.badges || []).filter((b) => !expected.includes(b));
+    if (extra.length || u.title) found.push({ u, extra });
+  }
+  const name = (id) => (BADGES.find((b) => b.id === id) || { name: id }).name;
+  const rows = found
+    .filter((f) => f.extra.length)
+    .map(
+      (f) =>
+        '<tr><td>' +
+        esc(f.u.name) +
+        (f.u.title ? ' <b>' + esc(f.u.title) + '</b>' : '') +
+        '</td><td>' +
+        f.extra.map((b) => esc(name(b))).join(', ') +
+        '</td></tr>',
+    )
+    .join('');
+  out.innerHTML =
+    '<div style="margin-bottom:12px;padding:10px 12px;background:var(--paper);border:1px solid var(--line);border-radius:8px;font-size:13px">' +
+    (rows
+      ? '<b>Saved badges the rules can\'t confirm</b>' +
+        '<p style="font-size:12px;color:var(--muted);margin:4px 0 8px">Not proof of cheating: a badge can show here if a spot or review behind it was deleted. Nothing has been changed.</p>' +
+        '<table class="admin-table"><tr><th>Name</th><th>Badges</th></tr>' +
+        rows +
+        '</table>'
+      : '✅ Everyone\'s saved badges match the rules.') +
+    '</div>';
 }
 async function adminRecalcAllBadges() {
   if (
