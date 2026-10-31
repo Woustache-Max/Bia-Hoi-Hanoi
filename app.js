@@ -325,7 +325,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.10.13';
+const APP_VERSION = '0.10.14';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -4465,7 +4465,26 @@ async function nameIssue(name, excludeId) {
   } catch (e) {}
   return '';
 }
-async function doSignup() {
+// Disables the submit button and shows progress while an auth request runs.
+async function withAuthBusy(label, run) {
+  const btn = document.querySelector('.auth-form button[type="submit"]');
+  if (!btn || btn.disabled) return;
+  const idle = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = label;
+  try {
+    await run();
+  } catch (e) {
+    showAuthError(authErrorMessage(e, 'Something went wrong. Please try again.'));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = idle;
+  }
+}
+function doSignup() {
+  return withAuthBusy('Creating account…', submitSignup);
+}
+async function submitSignup() {
   const name = val('a_name'),
     email = val('a_email').toLowerCase(),
     pw = val('a_pw'),
@@ -4497,7 +4516,10 @@ async function doSignup() {
     <button class="btn-gold" style="width:100%" onclick="closeModal()">Got it 🗺</button>`);
 }
 
-async function doLogin() {
+function doLogin() {
+  return withAuthBusy('Signing in…', submitLogin);
+}
+async function submitLogin() {
   const email = val('a_email').toLowerCase(),
     pw = val('a_pw');
   showAuthError('');
@@ -4531,7 +4553,10 @@ function forgotPasswordModal() {
   );
   renderCaptcha();
 }
-async function sendReset() {
+function sendReset() {
+  return withAuthBusy('Sending…', submitReset);
+}
+async function submitReset() {
   const email = (val('fp_email') || '').toLowerCase().trim();
   showAuthError('');
   if (!email) return showAuthError('Please enter your email.');
@@ -4561,7 +4586,10 @@ function setNewPasswordModal() {
       '</form>',
   );
 }
-async function savePassword() {
+function savePassword() {
+  return withAuthBusy('Updating…', submitNewPassword);
+}
+async function submitNewPassword() {
   const pw = val('np_pw'),
     pw2 = val('np_pw2');
   showAuthError('');

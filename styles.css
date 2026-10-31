@@ -687,6 +687,10 @@ form textarea {
 .auth-form button {
   min-height: 44px;
 }
+.auth-form button:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
 .auth-err {
   color: var(--red);
   font-size: 13px;
