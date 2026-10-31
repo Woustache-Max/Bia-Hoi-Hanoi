@@ -62,12 +62,14 @@ self.addEventListener('fetch', e => {
   }
 
   // App shell — network-first, fall back to cache when offline
-  if (url.hostname === self.location.hostname) {
+  if (url.hostname === self.location.hostname && e.request.method === 'GET') {
     e.respondWith(
       fetch(e.request)
         .then(res => {
           if (res.ok) {
-            caches.open(SHELL_CACHE).then(c => c.put(e.request, res.clone()));
+            // Copy now: the browser starts reading res as soon as it's returned.
+            const copy = res.clone();
+            caches.open(SHELL_CACHE).then(c => c.put(e.request, copy));
           }
           return res;
         })
