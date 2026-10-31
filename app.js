@@ -325,7 +325,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.10.14';
+const APP_VERSION = '0.10.15';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -4408,7 +4408,7 @@ function renderCaptcha() {
   if (!el) return;
   if (window.turnstile && !el.dataset.rendered) {
     try {
-      window.turnstile.render(el, { sitekey: TURNSTILE_SITEKEY });
+      window.turnstile.render(el, { sitekey: TURNSTILE_SITEKEY, theme: 'light' });
       el.dataset.rendered = '1';
     } catch (e) {}
   } else if (!window.turnstile) {
