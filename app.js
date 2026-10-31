@@ -5121,8 +5121,6 @@ function toggleLogoMenu() {
   setLogoMenuExpanded(!open);
   if (!open) {
     updateArchiveStat();
-    const g = document.getElementById('ghostSwitch');
-    if (g) g.classList.toggle('on', !!window._showGhosts);
     setTimeout(() => {
       function outsideClick(e) {
         if (!document.getElementById('logoWrap')?.contains(e.target)) {
@@ -5157,7 +5155,14 @@ function toggleGhosts() {
   } catch (e) {}
   const g = document.getElementById('ghostSwitch');
   if (g) g.classList.toggle('on', !!window._showGhosts);
+  const gb = document.getElementById('ghostToggle');
+  if (gb) gb.setAttribute('aria-checked', window._showGhosts ? 'true' : 'false');
   drawMarkers();
+  showToast(
+    window._showGhosts
+      ? '👻 Ghost pins on: closed spots show faintly on the map'
+      : 'Ghost pins off',
+  );
 }
 function ghostIcon() {
   return L.divIcon({
@@ -5181,7 +5186,12 @@ function showLostSpots() {
   let html =
     '<div class="panel"><span class="back" onclick="bhBack()">← All spots</span>' +
     '<h2 style="margin:0 0 4px">🕯️ Lost spots</h2>' +
-    '<p style="font-size:13px;color:var(--muted);margin:0 0 14px">Spots that have closed — kept here so they\'re never forgotten.</p>';
+    '<p style="font-size:13px;color:var(--muted);margin:0 0 14px">Spots that have closed — kept here so they\'re never forgotten.</p>' +
+    '<button type="button" class="ghost-toggle" id="ghostToggle" role="switch" aria-checked="' +
+    (window._showGhosts ? 'true' : 'false') +
+    '" onclick="toggleGhosts()"><span>👻 Show them on the map as ghost pins</span><span class="dm-switch' +
+    (window._showGhosts ? ' on' : '') +
+    '" id="ghostSwitch" aria-hidden="true"></span></button>';
   if (!lost.length) {
     html +=
       '<div class="txt-muted" style="padding:10px 0">No lost spots recorded yet. Long may they pour. 🍺</div>';
@@ -8225,7 +8235,7 @@ function showHelp() {
       s('🏆 Leaderboard', 'See the top contributors by spots added, reviews written, or helpful votes. Switch between <b>Everyone</b> and <b>Following</b> to compare with just the people you follow.') +
       s('🔖 Saved spots', 'Tap 🔖 Save on any spot to bookmark it, then find your saved spots from the <b>Saved</b> button or your profile. Saving is for spots you want to keep; ❤️ Like is only for photos, to tell the photographer you enjoyed it.') +
       s('🔔 Notifications', 'The 🔔 bell lights up when someone likes your photo, marks your review helpful, replies to you, verifies your spot, or follows you.') +
-      s('🕯️ Lost spots & the archive', 'When a spot closes for good it isn’t deleted — it moves to the <b>Lost spots</b> memorial (in the logo menu) so it’s never forgotten. Think a spot might be closing? Flag it via a spot’s ⋯ More → Report. Turn on <b>Ghost pins</b> (logo menu) to see closed spots faintly on the map.') +
+      s('🕯️ Lost spots & the archive', 'When a spot closes for good it isn’t deleted — it moves to the <b>Lost spots</b> page (in the ☰ menu) so it’s never forgotten. Think a spot might be closing? Flag it via a spot’s ⋯ More → Report. Turn on <b>ghost pins</b> on the Lost spots page to see closed spots faintly on the map.') +
       s('🎲 Games & sharing', 'The ☰ menu has drinking games to play at the hơi (Một Hai Ba Dô, Horse Racing and more). Use 📲 Share, or a spot’s Share button, to send friends a link or QR code.') +
       s('🌙 Dark mode', 'Switch between light and dark themes any time from the account menu (🌙 Dark mode).') +
       s('⚑ Reporting & safety', 'See something wrong — a closed spot, wrong location, or bad content? Open the spot → ⋯ More → Report. Bác Hơi is for adults of legal drinking age; please enjoy responsibly and never drink and drive.') +

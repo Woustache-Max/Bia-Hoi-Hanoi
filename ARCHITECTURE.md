@@ -32,7 +32,7 @@ Data mapping: DB rows are converted to client shape by `dbToSpot()` and `dbToRev
 - **Badges / quests:** `badgesFor`, `badgeProgressList`, `showQuests`, `checkBadges`, `showBadgeToast`, monthly awards.
 - **Auth:** `authModal`, `doSignup`, `doLogin`, `logout`, `nameIssue` (unique display names).
 - **Admin:** the admin panel, `setStatus`, moderation, backups.
-- **Menus / chrome:** header, `toggleUserMenu`, `toggleLogoMenu` (logo dropdown: About, Lost spots, ghost-pin toggle, archive stats), `showAbout`, `showPrivacy`, `showTerms`, `showWelcomeGate`.
+- **Menus / chrome:** header, `toggleUserMenu`, `toggleLogoMenu` (burger menu: About, Games, Lost spots with its ghost-pin toggle, archive stats), `showAbout`, `showPrivacy`, `showTerms`, `showWelcomeGate`.
 - **Helpers:** `esc`, `byId`, `spotAvg`, `revAvg`, `dist`, `timeAgo`, `isOpen`, `showToast`, `modal`/`closeModal`.
 
 ## 4. Navigation / back-button model
