@@ -458,6 +458,7 @@ async function checkIn(spotId) {
       checkBadges();
       showToast('✅ Checked in — thanks for keeping the record fresh!');
       showDetail(spotId);
+      window.offerInstall();
     },
     () => {
       showToast(
@@ -2507,7 +2508,10 @@ async function toggleBookmark(id) {
     btn.textContent = added ? '🔖 Saved' : '🔖 Save';
   }
   renderList();
-  if (added) checkBadges();
+  if (added) {
+    checkBadges();
+    window.offerInstall();
+  }
   showToast(added ? 'Spot saved!' : 'Removed from saved');
 }
 /* ── SPOTS: menu, report, share ── */
@@ -8457,15 +8461,28 @@ if ('serviceWorker' in navigator) {
 
 /* ── PWA install prompt ── */
 (function () {
+  // Called after someone saves a spot or checks in. Nothing asks them to install before that.
+  window.offerInstall = function () {};
   var _deferredPrompt = null;
+  var _offered = false;
+  var _isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  function _showIfOffered() {
+    if (!_offered || (!_isIOS && !_deferredPrompt)) return;
+    var el = document.getElementById('pwaPrompt');
+    if (el) el.classList.add('show');
+  }
   var _prompted = localStorage.getItem('pwaPrompted');
   var _installed =
     window.matchMedia('(display-mode: standalone)').matches ||
     navigator.standalone;
   if (_installed || _prompted) return;
+  window.offerInstall = function () {
+    _offered = true;
+    setTimeout(_showIfOffered, 1500); // let the "saved" or "checked in" message land first
+  };
 
   // iOS can't use the auto-install prompt — show Add-to-Home-Screen instructions instead
-  if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
+  if (_isIOS) {
     document.addEventListener('DOMContentLoaded', function () {
       var el = document.getElementById('pwaPrompt');
       if (!el) return;
@@ -8475,19 +8492,13 @@ if ('serviceWorker' in navigator) {
           'Install <b>Bác Hơi</b>: in Safari, tap the Share icon, then "Add to Home Screen".';
       var ib = document.getElementById('pwaInstallBtn');
       if (ib) ib.style.display = 'none';
-      setTimeout(function () {
-        el.classList.add('show');
-      }, 5000);
     });
   }
 
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault();
     _deferredPrompt = e;
-    setTimeout(function () {
-      var el = document.getElementById('pwaPrompt');
-      if (el) el.classList.add('show');
-    }, 30000); // show after 30 s
+    _showIfOffered();
   });
 
   window.addEventListener('appinstalled', function () {
