@@ -325,7 +325,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.10.17';
+const APP_VERSION = '0.10.18';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -5661,6 +5661,8 @@ function exportCSV(type) {
 let _annCache = [];
 async function checkAnnouncement() {
   try {
+    // Returning users only: brand-new visitors see the age gate and welcome card.
+    if (!localStorage.getItem('welcomed')) return;
     const { data } = await db
       .from('announcements')
       .select('*')
@@ -5668,12 +5670,19 @@ async function checkAnnouncement() {
       .order('created_at', { ascending: false });
     if (!data || !data.length) return;
     if (document.getElementById('modal')) return; // don't cover another modal
+    if (document.getElementById('ageGate')) return; // confirmAge() calls back here
     let seen = [];
     try {
       seen = JSON.parse(localStorage.getItem('bhAnnounceSeen')) || [];
     } catch (e) {}
     if (!Array.isArray(seen)) seen = [];
-    const a = data.find((x) => !seen.includes(String(x.id)));
+    // Skip anything posted before this person's first visit: it wasn't written for them.
+    const welcomedAt = localStorage.getItem('bhWelcomedAt');
+    const a = data.find(
+      (x) =>
+        !seen.includes(String(x.id)) &&
+        !(welcomedAt && new Date(x.created_at) < new Date(welcomedAt)),
+    );
     if (!a) return;
     modal(`<div style="text-align:center">
       <img src="icon-192.png" alt="" style="width:54px;height:54px;border-radius:12px;margin-bottom:10px">
@@ -7787,6 +7796,8 @@ function dismissWelcome() {
   const w = document.getElementById('welcomeOverlay');
   if (w) w.classList.add('hidden');
   try {
+    if (!localStorage.getItem('welcomed'))
+      localStorage.setItem('bhWelcomedAt', new Date().toISOString());
     localStorage.setItem('welcomed', '1');
   } catch (e) {}
   maybeShowEmailVerified();
@@ -8014,6 +8025,7 @@ function confirmAge() {
   if (g) g.remove();
   showWelcomeIfNew();
   maybeShowEmailVerified();
+  checkAnnouncement();
 }
 function denyAge() {
   var g = document.getElementById('ageGate');
