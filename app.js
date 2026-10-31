@@ -209,32 +209,32 @@ const BADGES = [
   {
     id: 'district_explorer',
     icon: '🗺️',
-    name: 'District Explorer',
-    desc: 'Reviewed spots in 6 different districts',
+    name: 'Area Explorer',
+    desc: 'Reviewed spots in 6 different areas',
   },
   {
     id: 'city_wide',
     icon: '🌆',
     name: 'City-Wide',
-    desc: 'Reviewed spots in 10 different districts',
+    desc: 'Reviewed spots in 10 different areas',
   },
   {
     id: 'all_districts',
     icon: '👑',
-    name: 'District Champion',
-    desc: 'Reviewed a spot in all 12 Hanoi urban districts',
+    name: 'Area Champion',
+    desc: 'Reviewed a spot in all 12 Hanoi urban areas',
   },
   {
     id: 'old_quarter',
     icon: '🏘️',
     name: 'Old Quarter Crawler',
-    desc: 'Reviewed 15 spots in Hoàn Kiếm district',
+    desc: 'Reviewed 15 spots in Hoàn Kiếm',
   },
   {
     id: 'tay_ho',
     icon: '🌊',
     name: 'Tây Hồ Regular',
-    desc: 'Reviewed 10 spots in Tây Hồ district',
+    desc: 'Reviewed 10 spots in Tây Hồ',
   },
   {
     id: 'safety_inspector',
@@ -7772,7 +7772,7 @@ function districtsBarInnerHTML(count, total) {
 }
 function districtsWidgetHTML(count, total, id) {
   return (
-    '<div class="sec">🗺️ Districts explored</div><div id="' +
+    '<div class="sec">🗺️ Areas explored</div><div id="' +
     id +
     '" style="background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px">' +
     districtsBarInnerHTML(count, total) +
@@ -7906,7 +7906,7 @@ async function showWrapped() {
     '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">' +
     wrappedTile('🍺', st.spotsVisited, 'Spots visited') +
-    wrappedTile('🗺️', st.districtsCount + '/' + st.districtsTotal, 'Districts explored') +
+    wrappedTile('🗺️', st.districtsCount + '/' + st.districtsTotal, 'Areas explored') +
     wrappedTile('✍️', st.reviewsWritten, 'Reviews written') +
     wrappedTile('📷', st.photosAdded, 'Photos added') +
     wrappedTile('🎯', st.badgesEarned + '/' + st.badgesTotal, 'Badges earned') +
@@ -7928,7 +7928,7 @@ async function shareWrapped() {
     st.districtsCount +
     '/' +
     st.districtsTotal +
-    ' districts explored, ' +
+    ' areas explored, ' +
     st.reviewsWritten +
     ' reviews written' +
     (st.topSpot ? ', top spot: ' + st.topSpot.name : '') +
