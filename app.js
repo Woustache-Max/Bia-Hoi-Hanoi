@@ -325,7 +325,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.11.0';
+const APP_VERSION = '0.12.0';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -954,6 +954,7 @@ function showPinConfirmBar(lat, lng) {
       <button class="pcb-move" onclick="movePinAgain()">↺ Move pin</button>
     </div>`;
   document.body.appendChild(bar);
+  saveAddDraft();
 }
 function acceptPin() {
   const p = window._pendingPin;
@@ -973,6 +974,7 @@ function movePinAgain() {
   window._pendingPin = null;
   const sub = document.querySelector('#pinDropBanner .pdb-sub');
   if (sub) sub.textContent = 'Tap anywhere on the map to place your spot';
+  saveAddDraft();
 }
 /* ── Sidebar swipe gestures (mobile) ── */
 function setupSwipe() {
@@ -1528,6 +1530,10 @@ function resumeWork() {
   if (!r || !cur || r.uid !== cur.id || Date.now() - r.at > RESUME_MAX_AGE)
     return;
   if (r.kind === 'review' && byId(r.id)) showDetail(r.id);
+  if (r.kind === 'add') {
+    const d = draftGet(addDraftKey());
+    if (d) restoreAddDraft(d);
+  }
 }
 function reviewDraftKey(id) {
   return 'bhDraftReview:' + cur.id + ':' + id;
@@ -3163,7 +3169,7 @@ function renderAddForm(editId, lat, lng) {
   const s = editId ? byId(editId) : null;
   const _fd = window._addFormData || {};
   const body = document.getElementById('sidebarBody');
-  body.innerHTML = `<div class="panel" style="padding-bottom:28px"><form onsubmit="return false">
+  body.innerHTML = `<div class="panel" style="padding-bottom:28px"><form ${s ? '' : 'id="addSpotForm" oninput="saveAddDraft()" onchange="saveAddDraft()"'} onsubmit="return false">
     <span class="back" onclick="cancelAdd()">← Cancel</span>
     <h2 style="font-size:20px;margin:4px 0 2px;font-weight:800">${s ? 'Edit spot' : 'Add a spot'}</h2>
     <p style="font-size:13px;color:var(--muted);margin:0 0 4px">${s ? 'Update the details below.' : 'Fill in what you know — every field helps!'}</p>
@@ -3226,13 +3232,118 @@ function renderAddForm(editId, lat, lng) {
     <button class="btn-gold" style="width:100%;margin-top:10px;padding:12px;font-size:15px;border-radius:10px" onclick="saveSpot('${editId || ''}')">${s ? 'Save changes' : 'Submit spot'}</button>
     ${!cur && !s ? `<p style="font-size:12px;color:var(--muted);margin-top:10px;text-align:center">Submitting anonymously. <a style="color:var(--gold-dark);cursor:pointer" onclick="authModal(true)">Create a free account</a> to track your contributions.</p>` : ''}
     </form></div>`;
+  if (!s) applyAddFields(_fd);
   document.getElementById('sidebar').scrollTop = 0;
+}
+
+/* ── ADD SPOT: draft of the fields, pin and map view ── */
+function addDraftKey() {
+  return 'bhDraftAdd:' + cur.id;
+}
+function collectAddFields() {
+  const checked = (sel) =>
+    [...document.querySelectorAll(sel + ' input:checked')].map((i) => i.value);
+  return {
+    name: val('f_name'),
+    district: val('f_district'),
+    price: val('f_price'),
+    addr: val('f_addr'),
+    open: val('f_open'),
+    close: val('f_close'),
+    seat: checked('#f_seat_tags').join(', '),
+    pay: val('f_pay'),
+    desc: val('f_desc'),
+    vibes: checked('#f_vibes'),
+  };
+}
+function applyAddFields(fd) {
+  const ids = {
+    name: 'f_name',
+    district: 'f_district',
+    price: 'f_price',
+    addr: 'f_addr',
+    open: 'f_open',
+    close: 'f_close',
+    pay: 'f_pay',
+    desc: 'f_desc',
+  };
+  Object.keys(ids).forEach((k) => {
+    const el = document.getElementById(ids[k]);
+    if (el && fd[k] !== undefined) el.value = fd[k];
+  });
+  (fd.vibes || []).forEach((v) => {
+    const box = document.querySelector(`#f_vibes input[value="${v}"]`);
+    if (box) {
+      box.checked = true;
+      box.parentElement.classList.add('on');
+    }
+  });
+}
+function saveAddDraft() {
+  if (!cur) return;
+  const inForm = !!document.getElementById('addSpotForm');
+  if (!inForm && !document.getElementById('pinDropBanner')) return;
+  const fields = inForm ? collectAddFields() : window._addFormData || null;
+  const lat = parseFloat(val('f_lat')),
+    lng = parseFloat(val('f_lng'));
+  const pin = inForm
+    ? isNaN(lat) || isNaN(lng)
+      ? null
+      : { lat, lng }
+    : window._pendingPin || null;
+  const typed =
+    fields &&
+    (fields.name || fields.addr || fields.desc || fields.district ||
+      fields.price || fields.seat || fields.vibes.length);
+  if (!pin && !typed) return;
+  const c = map.getCenter();
+  draftSet(addDraftKey(), {
+    stage: inForm ? 'form' : 'pin',
+    fields,
+    pin,
+    view: { lat: c.lat, lng: c.lng, zoom: map.getZoom() },
+  });
+  setResume('add');
+}
+function restoreAddDraft(d) {
+  window._addFormData = d.fields || null;
+  try {
+    // A leftover zoomToShowLayer callback can throw here; never let it block the restore.
+    if (d.view)
+      map.setView([d.view.lat, d.view.lng], d.view.zoom, { animate: false });
+  } catch (e) {}
+  const placePin = () => {
+    if (tmpMarker) map.removeLayer(tmpMarker);
+    tmpMarker = L.marker([d.pin.lat, d.pin.lng], {
+      icon: pinIcon(false, true),
+    }).addTo(map);
+  };
+  if (d.stage === 'pin') {
+    adding = true;
+    if (!document.getElementById('pinDropBanner')) startPinDrop();
+    if (d.pin) {
+      placePin();
+      showPinConfirmBar(d.pin.lat, d.pin.lng);
+    }
+    return;
+  }
+  // Only the desktop form can move the pin by clicking the map behind it.
+  adding = innerWidth > 680;
+  window._addDraftCoords = d.pin ? [d.pin.lat, d.pin.lng] : null;
+  navPush('add');
+  openSidebar();
+  renderAddForm(null, d.pin ? d.pin.lat : null, d.pin ? d.pin.lng : null);
+  if (d.pin) placePin();
 }
 
 function startAdd(editId) {
   if (!editId && !cur) {
     authModal(true);
     return;
+  }
+  if (!editId) {
+    const d = draftGet(addDraftKey());
+    if (d) return restoreAddDraft(d);
   }
   adding = !editId;
   if (!editId && innerWidth <= 680) {
@@ -3271,22 +3382,11 @@ function confirmPinDrop(lat, lng) {
   navPush('add');
   openSidebar();
   renderAddForm(null, lat, lng);
+  saveAddDraft();
   setTimeout(() => reverseGeocode(lat, lng), 100);
 }
 function changeSpotLocation() {
-  window._addFormData = {
-    name: val('f_name'),
-    district: val('f_district'),
-    price: val('f_price'),
-    open: val('f_open'),
-    close: val('f_close'),
-    seat: val('f_seat'),
-    pay: val('f_pay'),
-    desc: val('f_desc'),
-    vibes: [...document.querySelectorAll('#f_vibes input:checked')].map(
-      (i) => i.value,
-    ),
-  };
+  window._addFormData = collectAddFields();
   if (tmpMarker) {
     map.removeLayer(tmpMarker);
     tmpMarker = null;
@@ -3294,14 +3394,19 @@ function changeSpotLocation() {
   closeSidebar();
   adding = true;
   startPinDrop();
+  saveAddDraft();
 }
 function cancelAdd() {
   adding = false;
   window._addFormData = null;
   window._pendingPin = null;
   window._addDraftCoords = null;
+  if (cur) draftClear(addDraftKey());
+  clearResume();
   const b = document.getElementById('pinDropBanner');
   if (b) b.remove();
+  const bar = document.getElementById('pinConfirmBar');
+  if (bar) bar.remove();
   if (tmpMarker) {
     map.removeLayer(tmpMarker);
     tmpMarker = null;
@@ -3384,7 +3489,9 @@ async function reverseGeocode(lat, lng) {
     }
   } catch (e) {}
   el.placeholder = 'Street or nearby landmark';
+  saveAddDraft();
 }
+map.on('moveend', saveAddDraft);
 map.on('click', (e) => {
   if (!adding) return;
   const lat = e.latlng.lat,
@@ -3398,6 +3505,7 @@ map.on('click', (e) => {
       fn = document.getElementById('f_lng');
     if (fl) fl.value = lat.toFixed(5);
     if (fn) fn.value = lng.toFixed(5);
+    saveAddDraft();
     reverseGeocode(lat, lng);
   }
 });
@@ -3459,7 +3567,6 @@ async function saveSpot(editId) {
     return;
   }
   if (_ae) _ae.style.display = 'none';
-  window._addDraftCoords = null;
   const vibes = [...document.querySelectorAll('#f_vibes input:checked')].map(
     (i) => i.value,
   );
@@ -3549,6 +3656,10 @@ async function saveSpot(editId) {
     alert('Error saving: ' + error.message);
     return;
   }
+  window._addDraftCoords = null;
+  window._addFormData = null;
+  if (cur) draftClear(addDraftKey());
+  clearResume();
   spots.push({
     id,
     name,
