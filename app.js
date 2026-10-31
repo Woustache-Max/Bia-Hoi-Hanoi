@@ -11,7 +11,6 @@ const ARRIVED_FROM_EMAIL_CONFIRM = /(?:^#|&)type=signup(?:&|$)/.test(
 );
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-const ACTIVE_CODE = 'BIAHOI-TEAM-2026';
 const NEWCOMER_CHAR_LIMIT = 250;
 const QUEST_A_REVIEWS = 2;
 const NEWCOMER_PHOTO_LIMIT = 3;
@@ -4904,6 +4903,7 @@ function authModal(signup) {
      <input id="a_email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="Email" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;margin-bottom:6px">
      ${pwField('a_pw', 'Password', '6px', signup ? 'new-password' : 'current-password')}
      ${signup ? `${pwField('a_pw2', 'Confirm password', '6px')}` : ''}
+     ${signup ? '<input id="a_code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Invite code (optional)" placeholder="Invite code (optional)" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;margin-bottom:6px">' : ''}
      <div id="cfTurnstile" style="margin:8px 0;display:flex;justify-content:center"></div>
      <button type="submit" class="btn-gold" style="width:100%;margin-bottom:8px">
        ${signup ? 'Create account' : 'Sign in'}
@@ -5068,17 +5068,15 @@ async function submitSignup() {
     return showAuthError('Password must be at least 6 characters.');
   const _ni = await nameIssue(name, null);
   if (_ni) return showAuthError(_ni);
-  let role = 'newcomer';
-  const c = code.trim().toUpperCase();
-  if (c === ACTIVE_CODE) role = 'active';
-  else if (c && c !== '')
-    return showAuthError('Invalid invite code. Leave blank to join as Newcomer.');
   if (captchaPending()) return showAuthError(CAPTCHA_PENDING_MSG);
   const ref = localStorage.getItem('bhRefCode') || '';
+  const data = { name, ref };
+  // Checked by the database at first sign-in; see redeemPendingInvite().
+  if (code.trim()) data.invite = code.trim();
   const { error } = await db.auth.signUp({
     email,
     password: pw,
-    options: { data: { name, role, ref }, captchaToken: getCaptchaToken() },
+    options: { data, captchaToken: getCaptchaToken() },
   });
   if (error) {
     resetCaptcha();
@@ -5088,6 +5086,32 @@ async function submitSignup() {
   modal(`<h2>Welcome, ${esc(name)}! 🍺</h2>
     <p>Check your email for a confirmation link, then sign in to start contributing.</p>
     <button class="btn-gold" style="width:100%" onclick="closeModal()">Got it 🗺</button>`);
+}
+
+// New accounts have no session until they confirm their email, so a code typed at
+// sign-up waits in the account's metadata and is redeemed at first sign-in.
+let _inviteChecked = false;
+async function redeemPendingInvite(user) {
+  const code = user && user.user_metadata && user.user_metadata.invite;
+  if (!code || !cur || _inviteChecked) return;
+  _inviteChecked = true;
+  const { data, error } = await db.rpc('redeem_invite_code', { p_code: code });
+  if (error) {
+    _inviteChecked = false; // try again next time; it may just be the connection
+    return;
+  }
+  await db.auth.updateUser({ data: { invite: null } });
+  if (data === 'active') {
+    cur.role = 'active';
+    if (profilesCache[cur.id]) profilesCache[cur.id].role = 'active';
+    setUserLabel();
+    showToast("🎉 Invite code accepted. You're now an Active member!", 6000);
+  } else if (data === 'invalid' || data === 'too many tries') {
+    showToast(
+      "That invite code didn't work, so you've joined as a Newcomer. Review 2 spots to become Active.",
+      7000,
+    );
+  }
 }
 
 function doLogin() {
@@ -6935,6 +6959,7 @@ async function init() {
       cur = { ...profile, email: session.user.email };
       profilesCache[profile.id] = cur;
       checkBadges();
+      redeemPendingInvite(session.user);
     }
     if (ARRIVED_FROM_EMAIL_CONFIRM) {
       window._pendingVerifiedFor = session.user.id;
@@ -6972,7 +6997,11 @@ async function init() {
     // Only rebuild for a real sign-in or sign-out, or the open panel gets wiped.
     if ((cur ? cur.id : null) !== prevUserId) renderList();
     loadNotifs();
-    if (event === 'SIGNED_IN' && cur) checkBadges();
+    if (event === 'SIGNED_IN' && cur) {
+      checkBadges();
+      // Outside this callback: auth calls made from inside it can hang.
+      setTimeout(() => redeemPendingInvite(session.user), 0);
+    }
   });
   setUserLabel();
   loadNotifs();
