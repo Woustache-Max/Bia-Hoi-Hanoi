@@ -1490,12 +1490,86 @@ function sortReviews(sid, mode, btn) {
     .map((r) => reviewHTML(s, r))
     .join('');
 }
+/* ── DRAFTS: unsaved work survives re-renders, reloads and discarded pages ── */
+const DRAFT_MAX_AGE = 30 * 24 * 60 * 60 * 1000;
+const RESUME_MAX_AGE = 6 * 60 * 60 * 1000;
+function draftGet(key) {
+  try {
+    const d = JSON.parse(localStorage.getItem(key));
+    if (!d) return null;
+    if (Date.now() - d.at > DRAFT_MAX_AGE) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    return d;
+  } catch (e) {
+    return null;
+  }
+}
+function draftSet(key, d) {
+  try {
+    localStorage.setItem(key, JSON.stringify({ ...d, at: Date.now() }));
+  } catch (e) {}
+}
+function draftClear(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch (e) {}
+}
+// Remembers what was being worked on, so a reloaded page can reopen it.
+function setResume(kind, id) {
+  if (cur) draftSet('bhResume', { kind, id, uid: cur.id });
+}
+function clearResume() {
+  draftClear('bhResume');
+}
+function resumeWork() {
+  const r = draftGet('bhResume');
+  if (!r || !cur || r.uid !== cur.id || Date.now() - r.at > RESUME_MAX_AGE)
+    return;
+  if (r.kind === 'review' && byId(r.id)) showDetail(r.id);
+}
+function reviewDraftKey(id) {
+  return 'bhDraftReview:' + cur.id + ':' + id;
+}
+function saveReviewDraft(id) {
+  if (!cur || !id) return;
+  const ratings = {};
+  RCATS.forEach((c) => {
+    if (chosen[c[0]] > 0) ratings[c[0]] = chosen[c[0]];
+  });
+  const el = document.getElementById('revTxt');
+  const txt = el ? el.value : '';
+  if (!txt.trim() && !Object.keys(ratings).length) {
+    draftClear(reviewDraftKey(id));
+    clearResume();
+    return;
+  }
+  draftSet(reviewDraftKey(id), { ratings, txt });
+  setResume('review', id);
+}
+function restoreReviewDraft(id) {
+  chosen = {};
+  if (!cur) return;
+  const d = draftGet(reviewDraftKey(id));
+  if (!d) return;
+  chosen = { ...d.ratings };
+  RCATS.forEach((c) => paintPick(c[0], chosen[c[0]] || 0));
+  const el = document.getElementById('revTxt');
+  if (el) {
+    el.value = d.txt || '';
+    updateCharCount(el);
+  }
+}
 function photoStripHTML(s) {
   const admin = cur && cur.role === 'admin';
   return s.photos && s.photos.length ? s.photos.map((p, i) => `<div style="position:relative"><img src="${p.url}" onclick="viewPhoto('${s.id}',${i})" style="width:100%;height:90px;object-fit:cover;border-radius:6px;cursor:pointer">${cur && (p.uploaded_by === cur.id || cur.role === 'admin') ? `<button onclick="deletePhoto('${p.id}','${p.path}','${s.id}')" title="Delete photo" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;padding:0;cursor:pointer;line-height:20px;text-align:center">✕</button>` : ''}${admin ? `<button onclick="adminSetCover('${s.id}','${p.url}')" style="position:absolute;bottom:3px;left:3px;background:${s.cover_photo_url === p.url ? 'var(--gold)' : 'rgba(0,0,0,.55)'};color:${s.cover_photo_url === p.url ? '#000' : '#fff'};border:none;border-radius:8px;font-size:10px;font-weight:700;padding:2px 5px;cursor:pointer;line-height:1.4">${s.cover_photo_url === p.url ? '★ Cover' : '☆ Cover'}</button>` : ''}<button onclick="event.stopPropagation();likePhoto('${p.id}','${s.id}')" title="Like photo" style="position:absolute;bottom:3px;right:3px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:12px;font-size:11px;font-weight:700;padding:2px 7px;cursor:pointer;line-height:1.4">${cur && p.likes && p.likes.includes(cur.id) ? '❤️' : '🤍'}${p.likes && p.likes.length ? ' ' + p.likes.length : ''}</button>  </div>`).join('') : '<div style="grid-column:1/4;color:var(--muted);font-size:13px;padding:6px 0">No photos yet — be the first to add one!</div>';
 }
 async function showDetail(id) {
   navPush('detail:' + id);
+  const _sd_resume = draftGet('bhResume');
+  if (_sd_resume && _sd_resume.kind === 'review' && _sd_resume.id !== id)
+    clearResume();
   const _sd_sb = document.getElementById('sidebar');
   _sd_sb.classList.remove('peek');
   const s = byId(id);
@@ -1667,7 +1741,7 @@ async function showDetail(id) {
     ${reviewFormHTML(s.id)}
   </div>`;
   if (!_sd_reopen) document.getElementById('sidebar').scrollTop = 0;
-  chosen = {};
+  restoreReviewDraft(id);
   // Async: fetch replies, then re-render review list
   if (s.reviews.length) {
     const rids = s.reviews.map((r) => r.id);
@@ -1832,7 +1906,7 @@ function reviewFormHTML(id) {
   const charCounter = isNewcomer
     ? `<div class="char-count" id="charCount">0 / ${NEWCOMER_CHAR_LIMIT}</div>`
     : '';
-  const oninput = isNewcomer ? `oninput="updateCharCount(this)"` : '';
+  const oninput = `oninput="saveReviewDraft('${id}')${isNewcomer ? ';updateCharCount(this)' : ''}"`;
   return `<div>
     ${isNewcomer ? `<div class="hint-upgrade">✨ Write reviews (up to ${NEWCOMER_CHAR_LIMIT} chars). Complete the quest in your profile to unlock full reviews!</div>` : ''}
     ${RCATS.map(
@@ -1859,12 +1933,17 @@ function updateCharCount(el) {
   c.className = 'char-count' + (len > NEWCOMER_CHAR_LIMIT ? ' over' : '');
 }
 
-function pick(cat, v) {
-  chosen[cat] = v;
+function paintPick(cat, v) {
   const sp = document.querySelectorAll('#gp_' + cat + ' span');
   sp.forEach((el, i) => {
     if (i < 5) el.classList.toggle('on', i < v);
   });
+}
+function pick(cat, v) {
+  chosen[cat] = v;
+  paintPick(cat, v);
+  const panel = document.querySelector('#sidebarBody .detail');
+  if (panel) saveReviewDraft(panel.dataset.spot);
 }
 let eChosen = {};
 function editReview(sid, rid) {
@@ -1985,6 +2064,8 @@ async function submitReview(id) {
   });
   chosen = {};
   if (cur) {
+    draftClear(reviewDraftKey(id));
+    clearResume();
     await checkAndUpgrade();
     await checkBadges();
   }
@@ -6543,6 +6624,7 @@ async function init() {
   // Deep-link: ?list=ID opens that list on load
   const deepList = params.get('list');
   if (deepList) setTimeout(() => showListDetail(deepList), 600);
+  if (!deepSpot && !deepList) resumeWork();
 }
 
 /* ============================================================
@@ -8118,6 +8200,7 @@ function bhBack() {
 }
 // Reset to the map/home view — the ONE stable base a further Back is allowed to exit from.
 function _navHome() {
+  clearResume();
   if (document.getElementById('modal')) closeModal();
   if (innerWidth <= 680) closeSidebar();
   renderList();
@@ -8133,6 +8216,7 @@ window.addEventListener('popstate', function () {
     _navSig = _navStack.length ? _navStack[_navStack.length - 1] : '';
     return;
   }
+  clearResume(); // the user chose to leave; the draft stays for when they return
   if (!_navStack.length) {
     if (innerWidth <= 680) closeSidebar();
     renderList();
