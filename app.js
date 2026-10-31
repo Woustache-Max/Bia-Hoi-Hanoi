@@ -1490,6 +1490,10 @@ function sortReviews(sid, mode, btn) {
     .map((r) => reviewHTML(s, r))
     .join('');
 }
+function photoStripHTML(s) {
+  const admin = cur && cur.role === 'admin';
+  return s.photos && s.photos.length ? s.photos.map((p, i) => `<div style="position:relative"><img src="${p.url}" onclick="viewPhoto('${s.id}',${i})" style="width:100%;height:90px;object-fit:cover;border-radius:6px;cursor:pointer">${cur && (p.uploaded_by === cur.id || cur.role === 'admin') ? `<button onclick="deletePhoto('${p.id}','${p.path}','${s.id}')" title="Delete photo" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;padding:0;cursor:pointer;line-height:20px;text-align:center">✕</button>` : ''}${admin ? `<button onclick="adminSetCover('${s.id}','${p.url}')" style="position:absolute;bottom:3px;left:3px;background:${s.cover_photo_url === p.url ? 'var(--gold)' : 'rgba(0,0,0,.55)'};color:${s.cover_photo_url === p.url ? '#000' : '#fff'};border:none;border-radius:8px;font-size:10px;font-weight:700;padding:2px 5px;cursor:pointer;line-height:1.4">${s.cover_photo_url === p.url ? '★ Cover' : '☆ Cover'}</button>` : ''}<button onclick="event.stopPropagation();likePhoto('${p.id}','${s.id}')" title="Like photo" style="position:absolute;bottom:3px;right:3px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:12px;font-size:11px;font-weight:700;padding:2px 7px;cursor:pointer;line-height:1.4">${cur && p.likes && p.likes.includes(cur.id) ? '❤️' : '🤍'}${p.likes && p.likes.length ? ' ' + p.likes.length : ''}</button>  </div>`).join('') : '<div style="grid-column:1/4;color:var(--muted);font-size:13px;padding:6px 0">No photos yet — be the first to add one!</div>';
+}
 async function showDetail(id) {
   navPush('detail:' + id);
   const _sd_sb = document.getElementById('sidebar');
@@ -1639,7 +1643,7 @@ async function showDetail(id) {
         return `<button class="btn-line btn-sm" style="font-size:12px" onclick="uploadPhoto('${s.id}')" title="Add a photo — ${left} left as a newcomer">📷 Add photo</button>`;
       })()}
     </div>
-    <div class="photos">${s.photos && s.photos.length ? s.photos.map((p, i) => `<div style="position:relative"><img src="${p.url}" onclick="viewPhoto('${s.id}',${i})" style="width:100%;height:90px;object-fit:cover;border-radius:6px;cursor:pointer">${cur && (p.uploaded_by === cur.id || cur.role === 'admin') ? `<button onclick="deletePhoto('${p.id}','${p.path}','${s.id}')" title="Delete photo" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;padding:0;cursor:pointer;line-height:20px;text-align:center">✕</button>` : ''}${admin ? `<button onclick="adminSetCover('${s.id}','${p.url}')" style="position:absolute;bottom:3px;left:3px;background:${s.cover_photo_url === p.url ? 'var(--gold)' : 'rgba(0,0,0,.55)'};color:${s.cover_photo_url === p.url ? '#000' : '#fff'};border:none;border-radius:8px;font-size:10px;font-weight:700;padding:2px 5px;cursor:pointer;line-height:1.4">${s.cover_photo_url === p.url ? '★ Cover' : '☆ Cover'}</button>` : ''}<button onclick="event.stopPropagation();likePhoto('${p.id}','${s.id}')" title="Like photo" style="position:absolute;bottom:3px;right:3px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:12px;font-size:11px;font-weight:700;padding:2px 7px;cursor:pointer;line-height:1.4">${cur && p.likes && p.likes.includes(cur.id) ? '❤️' : '🤍'}${p.likes && p.likes.length ? ' ' + p.likes.length : ''}</button>  </div>`).join('') : '<div style="grid-column:1/4;color:var(--muted);font-size:13px;padding:6px 0">No photos yet — be the first to add one!</div>'}</div>
+    <div class="photos" id="spotPhotos">${photoStripHTML(s)}</div>
     <div class="sec" style="display:flex;justify-content:space-between;align-items:center">
       <span>Reviews</span>
       ${
@@ -2158,7 +2162,12 @@ async function proceedUpload() {
       spot.photos.push(row);
     }
     await checkBadges();
-    showDetail(spotId);
+    // Update only the strip: rebuilding the panel would wipe a review being written.
+    const strip = document.querySelector(
+      `#sidebarBody .detail[data-spot="${spotId}"] #spotPhotos`,
+    );
+    if (strip && spot) strip.innerHTML = photoStripHTML(spot);
+    showToast('✅ Photo added.');
   };
   input.click();
 }
