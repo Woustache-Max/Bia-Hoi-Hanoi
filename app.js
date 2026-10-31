@@ -135,7 +135,7 @@ const BADGES = [
     id: 'beer_sommelier',
     icon: '🍺',
     name: 'Beer Sommelier',
-    desc: 'Gave 5-star beer quality to 10 different spots',
+    desc: 'Rated beer quality at 10 different spots',
   },
   {
     id: 'foodie',
@@ -3789,8 +3789,8 @@ function badgeProgressList(uid) {
   const fullRated = myReviews.filter((r) =>
     RCATS.every((c) => r.ratings[c[0]] >= 1),
   );
-  const beerFive = new Set(
-    myReviews.filter((r) => r.ratings.beer === 5).map((r) => r.spotId),
+  const beerRated = new Set(
+    myReviews.filter((r) => r.ratings.beer > 0).map((r) => r.spotId),
   );
   const hoankiemSpots = spots.filter(
     (s) =>
@@ -3893,7 +3893,7 @@ function badgeProgressList(uid) {
     pioneer: pr(pioneerCount, 5),
     wordsmith: pr(totalWords, 1500),
     all_rounder: pr(fullRated.length, 20),
-    beer_sommelier: pr(beerFive.size, 10),
+    beer_sommelier: pr(beerRated.size, 10),
     foodie: pr(foodSpots, 20),
     the_usual: pr(sameSpotMax, 5),
     streak: pr(streakWeeks, 5),
@@ -7047,8 +7047,8 @@ function badgesFor(uid) {
   const fullRated = myReviews.filter((r) =>
     RCATS.every((c) => r.ratings[c[0]] >= 1),
   );
-  const beerFive = new Set(
-    myReviews.filter((r) => r.ratings.beer === 5).map((r) => r.spotId),
+  const beerRated = new Set(
+    myReviews.filter((r) => r.ratings.beer > 0).map((r) => r.spotId),
   );
   const pioneerCount = spots.filter((s) => {
     const all = s.reviews
@@ -7116,7 +7116,7 @@ function badgesFor(uid) {
   if (pioneerCount >= 5) earned.push('pioneer');
   if (totalWords >= 1500) earned.push('wordsmith');
   if (fullRated.length >= 20) earned.push('all_rounder');
-  if (beerFive.size >= 10) earned.push('beer_sommelier');
+  if (beerRated.size >= 10) earned.push('beer_sommelier');
   if (foodSpots >= 20) earned.push('foodie');
   if (sameSpotMax >= 5) earned.push('the_usual');
   if (streakWeeks >= 5) earned.push('streak');
@@ -7603,8 +7603,8 @@ async function showQuests() {
     const fullRated = myReviews.filter((r) =>
       RCATS.every((c) => r.ratings[c[0]] >= 1),
     );
-    const beerFive = new Set(
-      myReviews.filter((r) => r.ratings.beer === 5).map((r) => r.spotId),
+    const beerRated = new Set(
+      myReviews.filter((r) => r.ratings.beer > 0).map((r) => r.spotId),
     );
     const hkSpots = spots.filter(
       (s) =>
@@ -7743,7 +7743,7 @@ async function showQuests() {
       qi('pioneer', pioneerCount, 5) +
       qi('wordsmith', totalWords, 1500) +
       qi('all_rounder', fullRated.length, 20) +
-      qi('beer_sommelier', beerFive.size, 10) +
+      qi('beer_sommelier', beerRated.size, 10) +
       qi('foodie', foodSpots, 20) +
       qi('the_usual', sameSpotMax, 5) +
       qi('streak', streakWeeks, 5) +
