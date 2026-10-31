@@ -325,7 +325,7 @@ const profilesCache = {}; // uuid → profile, for fast lookups
 const repliesCache = {}; // reviewId → [replies]
 let monthlyAwards = []; // rows from monthly_awards (repeatable ×N awards)
 let notifs = []; // this user's notifications
-const APP_VERSION = '0.10.21';
+const APP_VERSION = '0.10.22';
 // Capture a ?ref=CODE invite link into localStorage so it survives until signup,
 // without clobbering an already-stored code on a later ref-less visit.
 (function () {
@@ -803,6 +803,14 @@ function fitMapToSpots() {
     animate: false,
   });
 }
+// Reload tiles for the new size, or resized and rotated screens show grey areas.
+let _mapResizeTimer = null;
+function refreshMapSize() {
+  clearTimeout(_mapResizeTimer);
+  _mapResizeTimer = setTimeout(() => map.invalidateSize(), 150);
+}
+window.addEventListener('resize', refreshMapSize);
+window.addEventListener('orientationchange', refreshMapSize);
 let tmpMarker = null,
   adding = false;
 try {
