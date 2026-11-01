@@ -2406,16 +2406,21 @@ form textarea {
 .floating-island {
   display: none;
   position: fixed;
-  bottom: 18px;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  left: 8px;
+  right: 8px;
+  margin-inline: auto;
+  max-width: 400px;
+  box-sizing: border-box;
   background: var(--nav-bg);
   border-radius: 40px;
-  padding: 8px 18px;
+  padding: 8px;
   z-index: 1600;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  /* Five equal columns keep Add in the exact middle, whatever the labels say. */
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: center;
-  gap: 6px;
+  gap: 2px;
 }
 .fi-btn {
   background: transparent;
@@ -2423,7 +2428,8 @@ form textarea {
   color: rgba(255, 255, 255, 0.65);
   cursor: pointer;
   font-size: 21px;
-  padding: 8px 14px;
+  padding: 8px 2px;
+  min-width: 0;
   border-radius: 30px;
   min-height: 52px;
   display: flex;
@@ -2441,15 +2447,6 @@ form textarea {
   letter-spacing: 0.2px;
   white-space: nowrap;
 }
-@media (max-width: 400px) {
-  .floating-island {
-    padding: 8px 8px;
-    gap: 2px;
-  }
-  .fi-btn {
-    padding: 8px 9px;
-  }
-}
 .fi-btn.fi-active {
   color: var(--gold);
 }
@@ -2462,7 +2459,7 @@ form textarea {
 }
 @media (max-width: 600px) {
   .floating-island {
-    display: flex;
+    display: grid;
   }
   #headerAddBtn {
     display: none;
@@ -2493,8 +2490,7 @@ form textarea {
   background: var(--gold);
   color: var(--ink) !important;
   border-radius: 20px;
-  padding: 7px 16px;
-  margin: 0 2px;
+  padding: 7px 2px;
   font-size: 18px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   justify-content: center;
